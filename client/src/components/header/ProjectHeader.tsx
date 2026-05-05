@@ -3,7 +3,7 @@ import { UserPlus, Zap } from "lucide-react";
 import { Logo } from "./Logo";
 import { ProfileMenu } from "./ProfileMenu";
 
-type ProjectTab = "board" | "members" | "activity";
+type ProjectTab = "board" | "decks" | "activity";
 
 type ProjectHeaderProps = {
   projectName: string;
@@ -16,7 +16,7 @@ type ProjectHeaderProps = {
 
 const TABS: { id: ProjectTab; label: string }[] = [
   { id: "board", label: "Board" },
-  { id: "members", label: "Members" },
+  { id: "decks", label: "Decks" },
   { id: "activity", label: "Activity" },
 ];
 
