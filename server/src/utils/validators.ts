@@ -9,13 +9,13 @@ const checklistItemSchema = z.object({
 
 export const registerSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
+  password: z.string().min(6),
   displayName: z.string().min(2).max(50)
 });
 
 export const loginSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8)
+  password: z.string().min(1)
 });
 
 export const createProjectSchema = z.object({

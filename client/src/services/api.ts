@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? "/api";
 
 type RequestOptions = {
   method?: string;
@@ -33,7 +33,8 @@ export const request = async <T>(path: string, options: RequestOptions = {}) => 
   const payload = (await response.json()) as { data?: T; message?: string };
 
   if (!response.ok) {
-    throw new ApiError(payload.message ?? "Request failed", response.status);
+    const message = payload.message ?? "Request failed";
+    throw new ApiError(message, response.status);
   }
 
   return (payload.data ?? payload) as T;

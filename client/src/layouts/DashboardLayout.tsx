@@ -27,7 +27,7 @@ export const DashboardLayout = ({ title, subtitle, sidebar, children }: Dashboar
             <div className="flex items-center gap-3">
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-right">
                 <div className="text-xs uppercase tracking-[0.28em] text-slate-500">Operator</div>
-                <div className="text-sm font-semibold text-white">{user?.displayName}</div>
+                <div className="text-sm font-semibold text-white">{user?.displayName ?? user?.email}</div>
               </div>
               <Button variant="ghost" onClick={logout}>
                 Sign Out

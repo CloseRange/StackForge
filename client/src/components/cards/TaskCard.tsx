@@ -21,6 +21,8 @@ type TaskCardProps = {
 export const TaskCard = ({ card, onSelect }: TaskCardProps) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: card.id });
   const Icon = typeIcons[card.type];
+  const assigneeLabel = card.assigneeId ? `User ${card.assigneeId.slice(0, 6)}` : "Unassigned";
+  const assigneeInitial = assigneeLabel.slice(0, 1).toUpperCase();
 
   return (
     <button
@@ -59,10 +61,10 @@ export const TaskCard = ({ card, onSelect }: TaskCardProps) => {
         <div className="text-xs text-slate-500">Difficulty {card.difficulty}</div>
         <div className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm font-semibold text-white">
-            {card.assignee?.displayName?.slice(0, 1).toUpperCase() ?? "?"}
+            {assigneeInitial}
           </div>
           <div className="text-right text-xs text-slate-400">
-            <div>{card.assignee?.displayName ?? "Unassigned"}</div>
+            <div>{assigneeLabel}</div>
             <div>{card.priority}</div>
           </div>
         </div>

@@ -1,0 +1,20 @@
+{
+  "name": "stackforge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Card-based project management with gamification",
+  "scripts": {
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "build": "cd client && npm run build && rm -rf ../server/public && cp -r dist ../server/public",
+    "start": "npm run build && cd server && npm start",
+    "dev": "concurrently \"cd server && npm run dev\" \"cd client && npm run dev\"",
+    "server:build": "cd server && npm run build",
+    "server:start": "cd server && npm start",
+    "server:dev": "cd server && npm run dev",
+    "client:build": "cd client && npm run build",
+    "client:dev": "cd client && npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}

@@ -1,7 +1,7 @@
 export type User = {
   id: string;
   email: string;
-  displayName: string;
+  displayName?: string;
   avatarUrl?: string | null;
 };
 
@@ -11,7 +11,7 @@ export type Project = {
   description?: string | null;
   createdAt: string;
   updatedAt: string;
-  owner: User;
+  ownerId: string;
   cardCount: number;
 };
 
@@ -36,7 +36,6 @@ export type Card = {
   xpValue: number;
   status: CardStatus;
   assigneeId?: string | null;
-  assignee?: User | null;
   projectId: string;
   tags: string[];
   checklist: ChecklistItem[];
