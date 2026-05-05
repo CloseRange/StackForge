@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 
 import { Button } from "../components/ui/Button";
+import { Header } from "../components/header/Header";
 import { AuthLayout } from "../layouts/AuthLayout";
 import { useAuth } from "../hooks/useAuth";
 
@@ -33,7 +34,9 @@ export const LoginPage = () => {
   };
 
   return (
-    <AuthLayout>
+    <>
+      <Header variant="public" />
+      <AuthLayout>
       <form onSubmit={handleSubmit} className="w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-950/70 p-8 shadow-glow">
         <p className="text-sm uppercase tracking-[0.38em] text-sky-300">Access</p>
         <h2 className="mt-3 font-display text-3xl font-semibold text-white">Sign in to your forge</h2>
@@ -67,5 +70,6 @@ export const LoginPage = () => {
         </p>
       </form>
     </AuthLayout>
+    </>
   );
 };
