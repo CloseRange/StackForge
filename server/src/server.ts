@@ -1,0 +1,7 @@
+import { env } from "./config/env.js";
+import { app } from "./app.js";
+
+app.listen(env.PORT, () => {
+  console.log(`StackForge server listening on port ${env.PORT}`);
+});
+

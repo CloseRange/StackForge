@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SFCardType {
+  FEATURE
+  BUG
+  REFACTOR
+  DOCS
+  TEST
+}
+
+enum SFCardPriority {
+  COMMON
+  UNCOMMON
+  RARE
+  LEGENDARY
+}
+
+enum SFCardStatus {
+  DECK
+  IN_PLAY
+  BLOCKED
+  REVIEW
+  COMPLETED
+}
+
+model SFUser {
+  id               String    @id @default(uuid())
+  email            String    @unique
+  passwordHash     String
+  displayName      String
+  avatarUrl        String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  createdProjects  Project[] @relation("ProjectOwner")
+  assignedCards    Card[]    @relation("CardAssignee")
+}
+
+model SFProject {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  owner       User     @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  cards       Card[]
+}
+
+model SFCard {
+  id           String         @id @default(uuid())
+  title        String
+  description  String?
+  type         CardType
+  priority     CardPriority
+  difficulty   Int
+  xpValue      Int
+  status       CardStatus     @default(DECK)
+  assigneeId   String?
+  projectId    String
+  tags         String[]       @default([])
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  assignee     User?          @relation("CardAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  project      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  checklist    ChecklistItem[]
+}
+
+model ChecklistItem {
+  id        String   @id @default(uuid())
+  cardId     String
+  label      String
+  completed  Boolean  @default(false)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  card       Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+}

@@ -1,0 +1,9 @@
+node_modules/
+.DS_Store
+server/node_modules/
+server/dist/
+server/.env
+server/prisma/migrations/
+client/node_modules/
+client/dist/
+client/.env
