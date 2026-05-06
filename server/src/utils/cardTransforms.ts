@@ -23,6 +23,7 @@ export const serializeCard = (card: SFCardWithChecklist) => ({
   difficulty: card.difficulty.toLowerCase(),
   xpValue: card.xp_value,
   assigneeId: card.assignee_id,
+  boardSlot: card.board_slot,
   deckId: card.deck_id,
   projectId: card.project_id,
   tags: card.tags,
@@ -41,6 +42,7 @@ export const serializeCard = (card: SFCardWithChecklist) => ({
 export const serializeDeck = (deck: SFDeckRow) => ({
   id: deck.id,
   projectId: deck.project_id,
+  completionTargetDeckId: deck.completion_target_deck_id,
   name: deck.name,
   slug: deck.slug,
   description: deck.description,

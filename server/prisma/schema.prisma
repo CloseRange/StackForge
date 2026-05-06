@@ -52,6 +52,7 @@ model SFCard {
   difficulty   SFCardDifficulty
   xpValue      Int
   assigneeId   String?
+  boardSlot    Int?
   deckId       String
   projectId    String
   tags         String[]       @default([])

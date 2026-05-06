@@ -174,6 +174,7 @@ export const cardService = {
         difficulty: toCardDifficulty(input.difficulty),
         xp_value: difficultyToXp(input.difficulty),
         assignee_id: assigneeId,
+        board_slot: assigneeId ? (input.boardSlot ?? null) : null,
         project_id: input.projectId,
         deck_id: deck.id,
         tags: input.tags
@@ -212,6 +213,14 @@ export const cardService = {
 
     if (input.assigneeId !== undefined) {
       updateFields["assignee_id"] = nextAssigneeId;
+
+      if (!nextAssigneeId) {
+        updateFields["board_slot"] = null;
+      }
+    }
+
+    if (input.boardSlot !== undefined) {
+      updateFields["board_slot"] = nextAssigneeId ? input.boardSlot : null;
     }
 
     let nextDeck = await ensureDeckForProject(existingCard.deck_id, existingCard.project_id);

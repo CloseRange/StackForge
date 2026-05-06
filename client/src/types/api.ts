@@ -33,6 +33,7 @@ export type Card = {
   difficulty: CardDifficulty;
   xpValue: number;
   assigneeId?: string | null;
+  boardSlot?: number | null;
   deckId: string;
   projectId: string;
   tags: string[];
@@ -46,6 +47,7 @@ export type DeckColor = "teal" | "cyan" | "amber" | "rose" | "indigo" | "emerald
 export type Deck = {
   id: string;
   projectId: string;
+  completionTargetDeckId: string;
   name: string;
   slug: string;
   description?: string | null;
@@ -76,6 +78,7 @@ export type CreateCardInput = {
   priority: CardPriority;
   difficulty: CardDifficulty;
   assigneeId?: string | null;
+  boardSlot?: number | null;
   deckId: string;
   projectId: string;
   tags: string[];
@@ -86,6 +89,7 @@ export type UpdateCardInput = Partial<Omit<CreateCardInput, "projectId">>;
 
 export type CreateDeckInput = {
   projectId: string;
+  completionTargetDeckId?: string;
   name: string;
   description?: string;
   icon?: string;

@@ -35,6 +35,7 @@ export const createCardSchema = z.object({
   priority: z.enum(cardPriorities),
   difficulty: z.enum(cardDifficulties),
   assigneeId: z.string().uuid().optional().nullable(),
+  boardSlot: z.number().int().min(0).max(4).optional().nullable(),
   deckId: z.string().uuid(),
   projectId: z.string().uuid(),
   tags: z.array(z.string().min(1).max(24)).max(10).default([]),
@@ -52,6 +53,7 @@ export const assignCardSchema = z.object({
 
 export const createDeckSchema = z.object({
   projectId: z.string().uuid(),
+  completionTargetDeckId: z.string().uuid().optional(),
   name: z.string().min(2).max(80),
   description: z.string().max(240).optional().or(z.literal("")),
   icon: z.string().max(64).optional().or(z.literal("")),

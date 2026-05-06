@@ -20,5 +20,12 @@ export const cardService = {
       token,
       body: payload
     });
+  },
+
+  remove(token: string, cardId: string) {
+    return request<void>(`/cards/${cardId}`, {
+      method: "DELETE",
+      token
+    });
   }
 };

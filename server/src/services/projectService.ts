@@ -51,6 +51,32 @@ export const projectService = {
       throw new AppError(error?.message ?? "Failed to create project", 500);
     }
 
+    const projectId = (data as SFProjectWithCount).id;
+
+    // Ensure completed deck exists for this project.
+    const { data: completedDeck } = await supabaseAdmin
+      .from("sf_decks")
+      .select("id")
+      .eq("project_id", projectId)
+      .eq("system_key", "COMPLETED")
+      .maybeSingle();
+
+    if (!completedDeck) {
+      throw new AppError("Failed to initialize completed deck for project", 500);
+    }
+
+    const completedDeckId = completedDeck.id as string;
+
+    const { error: completionTargetError } = await supabaseAdmin
+      .from("sf_decks")
+      .update({ completion_target_deck_id: completedDeckId })
+      .eq("project_id", projectId)
+      .is("completion_target_deck_id", null);
+
+    if (completionTargetError) {
+      throw new AppError(completionTargetError.message, 500);
+    }
+
     return serializeProject(data as SFProjectWithCount);
   },
 

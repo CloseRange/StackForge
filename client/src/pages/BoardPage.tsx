@@ -10,12 +10,13 @@ import { Modal } from "../components/ui/Modal";
 import { useAuth } from "../hooks/useAuth";
 import { useBoardStore } from "../hooks/useBoardStore";
 import { DashboardLayout } from "../layouts/DashboardLayout";
-import type { Card, Deck, DeckColor } from "../types/api";
+import type { Card, CardDifficulty, CardPriority, Deck, DeckColor } from "../types/api";
 
 type ProjectTab = "board" | "decks" | "activity";
 
 type DeckCard = {
   id: string;
+  completionTargetDeckId: string;
   label: string;
   description: string;
   icon: "debug" | "completed" | "custom";
@@ -60,12 +61,6 @@ const COLOR_OPTIONS: Array<{
   }
 ];
 
-const priorityMap = {
-  low: "common",
-  medium: "uncommon",
-  high: "rare"
-} as const;
-
 const getDeckColorClass = (color: DeckColor) => {
   if (color === "emerald") {
     return "border-emerald-300/30 bg-emerald-500/10 text-emerald-100";
@@ -77,6 +72,7 @@ const getDeckColorClass = (color: DeckColor) => {
 
 const toDeckCard = (deck: Deck): DeckCard => ({
   id: deck.id,
+  completionTargetDeckId: deck.completionTargetDeckId,
   label: deck.name,
   description: deck.description || "Custom deck",
   icon: deck.systemKey === "DEBUG" ? "debug" : deck.systemKey === "COMPLETED" ? "completed" : "custom",
@@ -109,6 +105,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     loadCards,
     loadDecks,
     createCard,
+    removeCard,
     createDeck,
     updateDeck,
     removeDeck,
@@ -125,6 +122,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const [newDeckIcon, setNewDeckIcon] = useState("");
   const [newDeckColor, setNewDeckColor] = useState<Exclude<DeckColor, "emerald">>("teal");
   const [newDeckIsAccessible, setNewDeckIsAccessible] = useState(true);
+  const [newDeckCompletionTargetId, setNewDeckCompletionTargetId] = useState("");
   const [isCreatingDeck, setIsCreatingDeck] = useState(false);
   const [isEditDeckModalOpen, setIsEditDeckModalOpen] = useState(false);
   const [editDeckName, setEditDeckName] = useState("");
@@ -132,14 +130,18 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const [editDeckIcon, setEditDeckIcon] = useState("");
   const [editDeckColor, setEditDeckColor] = useState<Exclude<DeckColor, "emerald">>("teal");
   const [editDeckIsAccessible, setEditDeckIsAccessible] = useState(true);
+  const [editDeckCompletionTargetId, setEditDeckCompletionTargetId] = useState("");
   const [isUpdatingDeck, setIsUpdatingDeck] = useState(false);
   const [isDeletingDeck, setIsDeletingDeck] = useState(false);
   const [deckQuickTitle, setDeckQuickTitle] = useState("");
-  const [deckQuickPriority, setDeckQuickPriority] = useState<"low" | "medium" | "high">("medium");
+  const [deckQuickPriority, setDeckQuickPriority] = useState<CardPriority>("uncommon");
+  const [deckQuickDifficulty, setDeckQuickDifficulty] = useState<CardDifficulty>("easy");
   const [isDeckQuickAdding, setIsDeckQuickAdding] = useState(false);
   const [isDeckQuickAddOpen, setIsDeckQuickAddOpen] = useState(false);
+  const [deletingCardId, setDeletingCardId] = useState<string | null>(null);
 
   const deckQuickTitleRef = useRef<HTMLInputElement>(null);
+  const isDeckQuickAddInFlightRef = useRef(false);
 
   useEffect(() => {
     if (!token) {
@@ -161,7 +163,8 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     setActiveDeckId(null);
     setIsDeckQuickAddOpen(false);
     setDeckQuickTitle("");
-    setDeckQuickPriority("medium");
+    setDeckQuickPriority("uncommon");
+    setDeckQuickDifficulty("easy");
   }, [selectedProjectId]);
 
   const activeProject = projects.find((project) => project.id === selectedProjectId) ?? null;
@@ -172,6 +175,16 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   };
 
   const allDecks = useMemo<DeckCard[]>(() => decks.map(toDeckCard), [decks]);
+  const completedDeckId = useMemo(
+    () => allDecks.find((deck) => deck.systemKey === "COMPLETED")?.id ?? "",
+    [allDecks]
+  );
+
+  useEffect(() => {
+    if (!newDeckCompletionTargetId && completedDeckId) {
+      setNewDeckCompletionTargetId(completedDeckId);
+    }
+  }, [completedDeckId, newDeckCompletionTargetId]);
 
   useEffect(() => {
     if (activeDeckId && !allDecks.some((deck) => deck.id === activeDeckId)) {
@@ -253,6 +266,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     setNewDeckIcon("");
     setNewDeckColor("teal");
     setNewDeckIsAccessible(true);
+    setNewDeckCompletionTargetId(completedDeckId);
   };
 
   const openEditDeckModal = () => {
@@ -265,6 +279,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     setEditDeckIcon(activeDeck.iconValue || "");
     setEditDeckColor(activeDeck.color === "emerald" ? "teal" : activeDeck.color);
     setEditDeckIsAccessible(activeDeck.isAccessible);
+    setEditDeckCompletionTargetId(activeDeck.completionTargetDeckId);
     setIsEditDeckModalOpen(true);
   };
 
@@ -274,6 +289,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     setEditDeckIcon("");
     setEditDeckColor("teal");
     setEditDeckIsAccessible(true);
+    setEditDeckCompletionTargetId("");
   };
 
   const handleCreateDeck = async () => {
@@ -286,6 +302,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     try {
       const deck = await createDeck(token, {
         projectId: activeProject.id,
+        completionTargetDeckId: newDeckCompletionTargetId || completedDeckId || undefined,
         name: newDeckName.trim(),
         description: newDeckDescription.trim(),
         icon: newDeckIcon.trim(),
@@ -303,30 +320,44 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   };
 
   const handleDeckQuickAdd = async () => {
-    if (!token || !activeProject || !activeDeck || !deckQuickTitle.trim()) {
+    const trimmedTitle = deckQuickTitle.trim();
+
+    if (
+      !token ||
+      !activeProject ||
+      !activeDeck ||
+      !trimmedTitle ||
+      isDeckQuickAddInFlightRef.current
+    ) {
       return;
     }
 
+    isDeckQuickAddInFlightRef.current = true;
+
     setIsDeckQuickAdding(true);
+    setDeckQuickTitle("");
 
     try {
-      const isDebugDeck = activeDeck.systemKey === "DEBUG";
+      const selectedPriority = deckQuickPriority;
+      const selectedDifficulty = deckQuickDifficulty;
 
       await createCard(token, {
-        title: deckQuickTitle.trim(),
+        title: trimmedTitle,
         description: "",
-        priority: priorityMap[deckQuickPriority],
-        difficulty: "easy",
+        priority: selectedPriority,
+        difficulty: selectedDifficulty,
         projectId: activeProject.id,
         deckId: activeDeck.id,
         tags: [],
         checklist: []
       });
 
-      setDeckQuickTitle("");
-      setDeckQuickPriority("medium");
-      setIsDeckQuickAddOpen(false);
+      setTimeout(() => deckQuickTitleRef.current?.focus(), 0);
+    } catch {
+      // Keep failed input so retry is immediate when request errors out.
+      setDeckQuickTitle(trimmedTitle);
     } finally {
+      isDeckQuickAddInFlightRef.current = false;
       setIsDeckQuickAdding(false);
     }
   };
@@ -341,6 +372,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     try {
       await updateDeck(token, activeDeck.id, {
         name: activeDeck.isSystem ? undefined : editDeckName.trim(),
+        completionTargetDeckId: editDeckCompletionTargetId || completedDeckId || undefined,
         description: editDeckDescription.trim(),
         icon: editDeckIcon.trim(),
         color: editDeckColor,
@@ -354,6 +386,28 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
       // Error surfaced via board store error banner.
     } finally {
       setIsUpdatingDeck(false);
+    }
+  };
+
+  const handleDeleteCard = async (card: Card) => {
+    if (!token) {
+      return;
+    }
+
+    const shouldDelete = globalThis.confirm(`Delete card "${card.title}"?`);
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setDeletingCardId(card.id);
+
+    try {
+      await removeCard(token, card.id);
+    } catch {
+      // Error surfaced via board store error banner.
+    } finally {
+      setDeletingCardId((current) => (current === card.id ? null : current));
     }
   };
 
@@ -461,22 +515,21 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                       <p className="text-sm text-slate-500">Loading decks...</p>
                     ) : null}
 
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(10rem,10rem))] sm:[grid-template-columns:repeat(auto-fill,minmax(11rem,11rem))]">
+                      {/* New deck card */}
                       <button
                         type="button"
                         onClick={() => setIsCreateDeckModalOpen(true)}
-                        className="group flex aspect-[3/4] min-h-56 flex-col rounded-2xl border border-dashed border-sky-300/30 bg-sky-500/10 p-4 text-left transition hover:scale-[1.01]"
+                        className="group relative flex aspect-[2/3] w-full flex-col rounded-[1.25rem] border border-dashed border-sky-300/30 bg-sky-500/10 p-4 text-left shadow-[2px_4px_0_1px_rgba(0,0,0,0.35),5px_8px_0_1px_rgba(0,0,0,0.22)] transition hover:-translate-y-1.5 hover:shadow-[2px_6px_0_1px_rgba(0,0,0,0.45),5px_11px_0_1px_rgba(0,0,0,0.28)]"
                       >
-                        <div className="flex items-center justify-between text-sky-200">
-                          <div className="rounded-xl bg-black/20 p-2">
-                            <PlusCircle className="h-5 w-5" />
-                          </div>
-                          <span className="text-xs font-semibold uppercase tracking-[0.1em]">New</span>
+                        <div className="text-sky-300">
+                          <PlusCircle className="h-5 w-5" />
                         </div>
                         <div className="mt-auto">
-                          <p className="text-xl font-semibold text-white">Add Deck</p>
-                          <p className="mt-1 text-xs text-sky-100/90">Create a custom deck category</p>
+                          <p className="text-sm font-bold leading-tight text-white">New Deck</p>
+                          <p className="mt-1 text-[11px] text-sky-200/70">Add a category</p>
                         </div>
+                        <div className="absolute right-2.5 top-3 text-[9px] font-semibold uppercase tracking-[0.14em] text-sky-300/50 [writing-mode:vertical-rl]">new</div>
                       </button>
 
                       {allDecks.map((deck) => {
@@ -489,6 +542,8 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                             <Layers3 className="h-5 w-5" />
                           );
 
+                        const count = deckCounts.get(deck.id) ?? 0;
+
                         return (
                           <button
                             key={deck.id}
@@ -498,22 +553,30 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                               setIsDeckQuickAddOpen(false);
                               setDeckQuickTitle("");
                             }}
-                            className={`group flex aspect-[3/4] min-h-56 flex-col rounded-2xl border p-4 text-left transition hover:scale-[1.01] ${deck.colorClass}`}
+                            className={`group relative flex aspect-[2/3] w-full flex-col rounded-[1.25rem] border p-4 text-left shadow-[2px_4px_0_1px_rgba(0,0,0,0.45),5px_8px_0_1px_rgba(0,0,0,0.28)] transition hover:-translate-y-1.5 hover:shadow-[2px_6px_0_1px_rgba(0,0,0,0.55),5px_11px_0_1px_rgba(0,0,0,0.38)] ${deck.colorClass}`}
                           >
-                            <div className="flex items-center justify-between">
-                              <div className="rounded-xl bg-black/20 p-2">{icon}</div>
-                              <span className="text-xs font-semibold tracking-[0.08em] text-white/80">
-                                {deckCounts.get(deck.id) ?? 0} cards
-                              </span>
+                            {/* Suit pip + count */}
+                            <div className="flex items-center gap-1.5 opacity-90">
+                              {icon}
+                              <span className="text-xs font-bold leading-none text-white/70">{count}</span>
                             </div>
+
+                            {/* Faint centre watermark */}
+                            <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 scale-[3] opacity-[0.06] transition group-hover:opacity-[0.10]">
+                              {icon}
+                            </div>
+
+                            {/* Bottom label block */}
                             <div className="mt-auto">
-                              <p className="text-xl font-semibold text-white">{deck.label}</p>
-                              <p className="mt-1 line-clamp-2 text-xs text-white/75">{deck.description}</p>
+                              <p className="line-clamp-2 text-sm font-bold leading-tight text-white">{deck.label}</p>
                               {!deck.isAccessible ? (
-                                <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/70">
-                                  Hidden On Board
-                                </p>
+                                <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-white/50">hidden</p>
                               ) : null}
+                            </div>
+
+                            {/* Rotated spine label */}
+                            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/25 [writing-mode:vertical-rl]">
+                              {deck.label}
                             </div>
                           </button>
                         );
@@ -555,8 +618,15 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                         ) : null}
                         <Button
                           onClick={() => {
-                            setIsDeckQuickAddOpen((previous) => !previous);
-                            setTimeout(() => deckQuickTitleRef.current?.focus(), 0);
+                            setIsDeckQuickAddOpen((previous) => {
+                              const next = !previous;
+
+                              if (next) {
+                                setTimeout(() => deckQuickTitleRef.current?.focus(), 0);
+                              }
+
+                              return next;
+                            });
                           }}
                         >
                           Quick Add Card
@@ -566,7 +636,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
 
                     {isDeckQuickAddOpen ? (
                       <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4">
-                        <div className="grid gap-3 md:grid-cols-[1fr_220px_auto]">
+                        <div className="grid gap-3 md:grid-cols-[1fr_190px_170px_auto]">
                           <input
                             ref={deckQuickTitleRef}
                             value={deckQuickTitle}
@@ -584,13 +654,27 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                           <select
                             value={deckQuickPriority}
                             onChange={(event) =>
-                              setDeckQuickPriority(event.target.value as "low" | "medium" | "high")
+                              setDeckQuickPriority(event.target.value as CardPriority)
                             }
                             className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none"
                           >
-                            <option value="low">Low Priority</option>
-                            <option value="medium">Medium Priority</option>
-                            <option value="high">High Priority</option>
+                            <option value="common">Common</option>
+                            <option value="uncommon">Uncommon</option>
+                            <option value="rare">Rare</option>
+                            <option value="legendary">Legendary</option>
+                          </select>
+
+                          <select
+                            value={deckQuickDifficulty}
+                            onChange={(event) =>
+                              setDeckQuickDifficulty(event.target.value as CardDifficulty)
+                            }
+                            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none"
+                          >
+                            <option value="easy">Easy</option>
+                            <option value="medium">Medium</option>
+                            <option value="hard">Hard</option>
+                            <option value="epic">Epic</option>
                           </select>
 
                           <Button
@@ -633,15 +717,25 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                                 </div>
                               </div>
 
-                              <Button
-                                variant="outline"
-                                onClick={() => {
-                                  setEditingCard(card);
-                                  setIsEditorOpen(true);
-                                }}
-                              >
-                                Edit Details
-                              </Button>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setEditingCard(card);
+                                    setIsEditorOpen(true);
+                                  }}
+                                >
+                                  Edit Details
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  className="text-rose-200 hover:bg-rose-500/15 hover:text-rose-100"
+                                  onClick={() => void handleDeleteCard(card)}
+                                  disabled={deletingCardId === card.id}
+                                >
+                                  {deletingCardId === card.id ? "Deleting..." : "Delete"}
+                                </Button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -723,6 +817,21 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
               placeholder="UI Systems"
               className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-white outline-none"
             />
+          </label>
+
+          <label className="block text-sm text-slate-300">
+            Completion Target
+            <select
+              value={newDeckCompletionTargetId}
+              onChange={(event) => setNewDeckCompletionTargetId(event.target.value)}
+              className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-white outline-none"
+            >
+              {allDecks.map((deck) => (
+                <option key={deck.id} value={deck.id}>
+                  {deck.label}
+                </option>
+              ))}
+            </select>
           </label>
 
           <label className="flex items-center gap-2 text-sm text-slate-300">
@@ -820,6 +929,21 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
           {activeDeck?.isSystem ? (
             <p className="text-xs text-slate-500">System deck names are fixed, but you can still edit details below.</p>
           ) : null}
+
+          <label className="block text-sm text-slate-300">
+            Completion Target
+            <select
+              value={editDeckCompletionTargetId}
+              onChange={(event) => setEditDeckCompletionTargetId(event.target.value)}
+              className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-white outline-none"
+            >
+              {allDecks.map((deck) => (
+                <option key={deck.id} value={deck.id}>
+                  {deck.label}
+                </option>
+              ))}
+            </select>
+          </label>
 
           <label className="flex items-center gap-2 text-sm text-slate-300">
             <input

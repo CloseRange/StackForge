@@ -42,6 +42,36 @@ const fetchDeckForUser = async (deckId: string, userId: string) => {
   return deck as SFDeckRow;
 };
 
+const resolveCompletionTargetDeckId = async (projectId: string, requestedDeckId?: string) => {
+  if (requestedDeckId) {
+    const { data } = await supabaseAdmin
+      .from("sf_decks")
+      .select("id")
+      .eq("id", requestedDeckId)
+      .eq("project_id", projectId)
+      .single();
+
+    if (!data) {
+      throw new AppError("Completion target deck not found in this project", 400);
+    }
+
+    return requestedDeckId;
+  }
+
+  const { data: completedDeck } = await supabaseAdmin
+    .from("sf_decks")
+    .select("id")
+    .eq("project_id", projectId)
+    .eq("system_key", "COMPLETED")
+    .maybeSingle();
+
+  if (!completedDeck) {
+    throw new AppError("Completed deck not found for this project", 400);
+  }
+
+  return completedDeck.id as string;
+};
+
 export const deckService = {
   async listByProject(projectId: string, userId: string) {
     await ensureProjectAccess(projectId, userId);
@@ -64,6 +94,10 @@ export const deckService = {
   async create(userId: string, payload: unknown) {
     const input = createDeckSchema.parse(payload);
     await ensureProjectAccess(input.projectId, userId);
+    const completionTargetDeckId = await resolveCompletionTargetDeckId(
+      input.projectId,
+      input.completionTargetDeckId
+    );
 
     const slug = toSlug(input.name);
     if (!slug || RESERVED_DECK_SLUGS.has(slug)) {
@@ -96,6 +130,7 @@ export const deckService = {
       .from("sf_decks")
       .insert({
         project_id: input.projectId,
+        completion_target_deck_id: completionTargetDeckId,
         name: input.name.trim(),
         slug,
         description: input.description?.trim() || null,
@@ -168,6 +203,13 @@ export const deckService = {
       updateFields["allow_assignment"] = input.allowAssignment;
     }
 
+    if (input.completionTargetDeckId !== undefined) {
+      updateFields["completion_target_deck_id"] = await resolveCompletionTargetDeckId(
+        existingDeck.project_id,
+        input.completionTargetDeckId
+      );
+    }
+
     if (
       input.isAccessible === false &&
       (input.allowAssignment === undefined || input.allowAssignment === true)
@@ -219,6 +261,20 @@ export const deckService = {
 
     if ((count ?? 0) > 0) {
       throw new AppError("Cannot delete deck while cards are assigned to it", 400);
+    }
+
+    const { count: referencingCount, error: referencingError } = await supabaseAdmin
+      .from("sf_decks")
+      .select("id", { count: "exact", head: true })
+      .eq("completion_target_deck_id", deckId)
+      .neq("id", deckId);
+
+    if (referencingError) {
+      throw new AppError(referencingError.message, 500);
+    }
+
+    if ((referencingCount ?? 0) > 0) {
+      throw new AppError("Cannot delete deck while it is used as a completion target", 400);
     }
 
     const { error } = await supabaseAdmin

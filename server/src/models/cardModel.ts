@@ -16,6 +16,7 @@ export type SFCardRow = {
   difficulty: string;
   xp_value: number;
   assignee_id: string | null;
+  board_slot: number | null;
   deck_id: string;
   project_id: string;
   tags: string[];

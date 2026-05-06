@@ -30,6 +30,7 @@ type BoardState = {
   loadCards: (token: string, projectId: string) => Promise<void>;
   loadDecks: (token: string, projectId: string) => Promise<void>;
   createCard: (token: string, payload: CreateCardInput) => Promise<Card>;
+  removeCard: (token: string, cardId: string) => Promise<void>;
   createDeck: (token: string, payload: CreateDeckInput) => Promise<Deck>;
   updateDeck: (token: string, deckId: string, payload: UpdateDeckInput) => Promise<Deck>;
   removeDeck: (token: string, deckId: string) => Promise<void>;
@@ -105,6 +106,13 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     const card = await cardService.create(token, payload);
     set((state) => ({ cards: [card, ...state.cards], error: null }));
     return card;
+  },
+  async removeCard(token, cardId) {
+    await cardService.remove(token, cardId);
+    set((state) => ({
+      cards: state.cards.filter((card) => card.id !== cardId),
+      error: null
+    }));
   },
   async createDeck(token, payload) {
     const deck = await deckService.create(token, payload);
