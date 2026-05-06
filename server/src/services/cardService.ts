@@ -37,7 +37,7 @@ const ensureDeckForProject = async (deckId: string | null | undefined, projectId
 
   const { data } = await supabaseAdmin
     .from("sf_decks")
-    .select("id")
+    .select("id, is_accessible, allow_assignment")
     .eq("id", deckId)
     .eq("project_id", projectId)
     .single();
@@ -46,7 +46,20 @@ const ensureDeckForProject = async (deckId: string | null | undefined, projectId
     throw new AppError("Deck not found for this project", 400);
   }
 
-  return deckId;
+  return data as { id: string; is_accessible: boolean; allow_assignment: boolean };
+};
+
+const ensureDeckCanAssign = (
+  deck: { is_accessible: boolean; allow_assignment: boolean } | null,
+  isAssigning: boolean
+) => {
+  if (!isAssigning) {
+    return;
+  }
+
+  if (deck && (!deck.is_accessible || !deck.allow_assignment)) {
+    throw new AppError("Cards in this deck cannot be assigned", 400);
+  }
 };
 
 const fetchCardForUser = async (cardId: string, userId: string) => {
@@ -156,7 +169,8 @@ export const cardService = {
     const input = createCardSchema.parse(payload);
     await ensureProjectAccess(input.projectId, userId);
     const assigneeId = await ensureAssignee(input.assigneeId);
-    const deckId = await ensureDeckForProject(input.deckId, input.projectId);
+    const deck = await ensureDeckForProject(input.deckId, input.projectId);
+    ensureDeckCanAssign(deck, Boolean(assigneeId));
 
     const { data: card, error } = await supabaseAdmin
       .from("sf_cards")
@@ -170,7 +184,7 @@ export const cardService = {
         status: toCardStatus(input.status),
         assignee_id: assigneeId,
         project_id: input.projectId,
-        deck_id: deckId,
+        deck_id: deck?.id ?? null,
         tags: input.tags
       })
       .select("id")
@@ -206,12 +220,23 @@ export const cardService = {
     else if (input.difficulty !== undefined) updateFields["xp_value"] = difficultyToXp(input.difficulty);
     if (input.status !== undefined) updateFields["status"] = toCardStatus(input.status);
     if (input.tags !== undefined) updateFields["tags"] = input.tags;
+    const nextAssigneeId =
+      input.assigneeId !== undefined ? await ensureAssignee(input.assigneeId) : existingCard.assignee_id;
+
     if (input.assigneeId !== undefined) {
-      updateFields["assignee_id"] = await ensureAssignee(input.assigneeId);
+      updateFields["assignee_id"] = nextAssigneeId;
     }
+
+    let nextDeck = existingCard.deck_id
+      ? await ensureDeckForProject(existingCard.deck_id, existingCard.project_id)
+      : null;
+
     if (input.deckId !== undefined) {
-      updateFields["deck_id"] = await ensureDeckForProject(input.deckId, existingCard.project_id);
+      nextDeck = await ensureDeckForProject(input.deckId, existingCard.project_id);
+      updateFields["deck_id"] = nextDeck?.id ?? null;
     }
+
+    ensureDeckCanAssign(nextDeck, Boolean(nextAssigneeId));
 
     if (Object.keys(updateFields).length > 0) {
       const { error } = await supabaseAdmin
@@ -255,9 +280,16 @@ export const cardService = {
 
     ensureCardClaimIsMutable(existingCard, userId, { isChangingAssignee: true });
 
+    const deck = existingCard.deck_id
+      ? await ensureDeckForProject(existingCard.deck_id, existingCard.project_id)
+      : null;
+    const nextAssigneeId = await ensureAssignee(input.assigneeId);
+
+    ensureDeckCanAssign(deck, Boolean(nextAssigneeId));
+
     const { error } = await supabaseAdmin
       .from("sf_cards")
-      .update({ assignee_id: await ensureAssignee(input.assigneeId) })
+      .update({ assignee_id: nextAssigneeId })
       .eq("id", cardId);
 
     if (error) {

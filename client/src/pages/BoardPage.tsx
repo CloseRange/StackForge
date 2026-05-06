@@ -22,6 +22,8 @@ type DeckCard = {
   iconValue: string;
   color: DeckColor;
   colorClass: string;
+  isAccessible: boolean;
+  allowAssignment: boolean;
   isSystem: boolean;
   systemKey: string | null;
 };
@@ -81,6 +83,8 @@ const toDeckCard = (deck: Deck): DeckCard => ({
   iconValue: deck.icon || "",
   color: deck.color,
   colorClass: getDeckColorClass(deck.color),
+  isAccessible: deck.isAccessible,
+  allowAssignment: deck.allowAssignment,
   isSystem: deck.isSystem,
   systemKey: deck.systemKey ?? null
 });
@@ -137,12 +141,14 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const [newDeckDescription, setNewDeckDescription] = useState("");
   const [newDeckIcon, setNewDeckIcon] = useState("");
   const [newDeckColor, setNewDeckColor] = useState<Exclude<DeckColor, "emerald">>("teal");
+  const [newDeckIsAccessible, setNewDeckIsAccessible] = useState(true);
   const [isCreatingDeck, setIsCreatingDeck] = useState(false);
   const [isEditDeckModalOpen, setIsEditDeckModalOpen] = useState(false);
   const [editDeckName, setEditDeckName] = useState("");
   const [editDeckDescription, setEditDeckDescription] = useState("");
   const [editDeckIcon, setEditDeckIcon] = useState("");
   const [editDeckColor, setEditDeckColor] = useState<Exclude<DeckColor, "emerald">>("teal");
+  const [editDeckIsAccessible, setEditDeckIsAccessible] = useState(true);
   const [isUpdatingDeck, setIsUpdatingDeck] = useState(false);
   const [isDeletingDeck, setIsDeletingDeck] = useState(false);
   const [deckQuickTitle, setDeckQuickTitle] = useState("");
@@ -228,15 +234,43 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     [activeDeckCards]
   );
 
+  const boardVisibleCards = useMemo(() => {
+    const deckById = new Map(decks.map((deck) => [deck.id, deck]));
+
+    return cards.filter((card) => {
+      if (!card.deckId) {
+        return card.status !== "completed";
+      }
+
+      const deck = deckById.get(card.deckId);
+      return deck ? deck.isAccessible : true;
+    });
+  }, [cards, decks]);
+
+  const isEditingCardAssignmentBlocked = useMemo(() => {
+    if (!editingCard?.deckId) {
+      return false;
+    }
+
+    const deck = decks.find((entry) => entry.id === editingCard.deckId);
+
+    if (!deck) {
+      return false;
+    }
+
+    return !deck.isAccessible || !deck.allowAssignment;
+  }, [decks, editingCard]);
+
   const resetDeckModalForm = () => {
     setNewDeckName("");
     setNewDeckDescription("");
     setNewDeckIcon("");
     setNewDeckColor("teal");
+    setNewDeckIsAccessible(true);
   };
 
   const openEditDeckModal = () => {
-    if (!activeDeck || activeDeck.isSystem) {
+    if (!activeDeck) {
       return;
     }
 
@@ -244,6 +278,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     setEditDeckDescription(activeDeck.description || "");
     setEditDeckIcon(activeDeck.iconValue || "");
     setEditDeckColor(activeDeck.color === "emerald" ? "teal" : activeDeck.color);
+    setEditDeckIsAccessible(activeDeck.isAccessible);
     setIsEditDeckModalOpen(true);
   };
 
@@ -252,6 +287,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     setEditDeckDescription("");
     setEditDeckIcon("");
     setEditDeckColor("teal");
+    setEditDeckIsAccessible(true);
   };
 
   const handleCreateDeck = async () => {
@@ -267,7 +303,9 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
         name: newDeckName.trim(),
         description: newDeckDescription.trim(),
         icon: newDeckIcon.trim(),
-        color: newDeckColor
+        color: newDeckColor,
+        isAccessible: newDeckIsAccessible,
+        allowAssignment: newDeckIsAccessible
       });
 
       setActiveDeckId(deck.id);
@@ -311,7 +349,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   };
 
   const handleUpdateDeck = async () => {
-    if (!token || !activeDeck || activeDeck.isSystem || !editDeckName.trim()) {
+    if (!token || !activeDeck || (!activeDeck.isSystem && !editDeckName.trim())) {
       return;
     }
 
@@ -319,10 +357,12 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
 
     try {
       await updateDeck(token, activeDeck.id, {
-        name: editDeckName.trim(),
+        name: activeDeck.isSystem ? undefined : editDeckName.trim(),
         description: editDeckDescription.trim(),
         icon: editDeckIcon.trim(),
-        color: editDeckColor
+        color: editDeckColor,
+        isAccessible: editDeckIsAccessible,
+        allowAssignment: editDeckIsAccessible
       });
 
       setIsEditDeckModalOpen(false);
@@ -404,7 +444,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
           <>
             {tab === "board" ? (
               <ClaimBoard
-                cards={cards}
+                cards={boardVisibleCards}
                 decks={decks}
                 currentUser={user!}
                 onCreateCard={() => openNewCard("deck")}
@@ -487,6 +527,11 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                             <div className="mt-auto">
                               <p className="text-xl font-semibold text-white">{deck.label}</p>
                               <p className="mt-1 line-clamp-2 text-xs text-white/75">{deck.description}</p>
+                              {!deck.isAccessible ? (
+                                <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/70">
+                                  Hidden On Board
+                                </p>
+                              ) : null}
                             </div>
                           </button>
                         );
@@ -514,19 +559,17 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
+                        <Button variant="outline" onClick={openEditDeckModal}>
+                          Edit Details
+                        </Button>
                         {!activeDeck.isSystem ? (
-                          <>
-                            <Button variant="outline" onClick={openEditDeckModal}>
-                              Rename Or Edit
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              onClick={() => void handleDeleteActiveDeck()}
-                              disabled={isDeletingDeck}
-                            >
-                              {isDeletingDeck ? "Deleting..." : "Delete Deck"}
-                            </Button>
-                          </>
+                          <Button
+                            variant="ghost"
+                            onClick={() => void handleDeleteActiveDeck()}
+                            disabled={isDeletingDeck}
+                          >
+                            {isDeletingDeck ? "Deleting..." : "Delete Deck"}
+                          </Button>
                         ) : null}
                         <Button
                           onClick={() => {
@@ -647,6 +690,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
               projectId={activeProject.id}
               currentUserId={user!.id}
               defaultStatus={draftStatus}
+              isAssignmentBlocked={isEditingCardAssignmentBlocked}
               card={editingCard}
               onClose={() => setIsEditorOpen(false)}
               onCreate={async (payload) => {
@@ -700,6 +744,16 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
               placeholder="UI Systems"
               className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-white outline-none"
             />
+          </label>
+
+          <label className="flex items-center gap-2 text-sm text-slate-300">
+            <input
+              type="checkbox"
+              checked={newDeckIsAccessible}
+              onChange={(event) => setNewDeckIsAccessible(event.target.checked)}
+              className="h-4 w-4 rounded border-white/20 bg-white/5"
+            />
+            Visible on board and assignable
           </label>
 
           <label className="block text-sm text-slate-300">
@@ -779,8 +833,23 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
               value={editDeckName}
               onChange={(event) => setEditDeckName(event.target.value)}
               placeholder="UI Systems"
+              disabled={activeDeck?.isSystem}
               className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-white outline-none"
             />
+          </label>
+
+          {activeDeck?.isSystem ? (
+            <p className="text-xs text-slate-500">System deck names are fixed, but you can still edit details below.</p>
+          ) : null}
+
+          <label className="flex items-center gap-2 text-sm text-slate-300">
+            <input
+              type="checkbox"
+              checked={editDeckIsAccessible}
+              onChange={(event) => setEditDeckIsAccessible(event.target.checked)}
+              className="h-4 w-4 rounded border-white/20 bg-white/5"
+            />
+            Visible on board and assignable
           </label>
 
           <label className="block text-sm text-slate-300">
@@ -837,7 +906,10 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
             >
               Cancel
             </Button>
-            <Button onClick={() => void handleUpdateDeck()} disabled={isUpdatingDeck || !editDeckName.trim()}>
+            <Button
+              onClick={() => void handleUpdateDeck()}
+              disabled={isUpdatingDeck || (!activeDeck?.isSystem && !editDeckName.trim())}
+            >
               {isUpdatingDeck ? "Saving..." : "Save Changes"}
             </Button>
           </div>

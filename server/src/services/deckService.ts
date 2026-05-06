@@ -101,6 +101,8 @@ export const deckService = {
         description: input.description?.trim() || null,
         icon: input.icon?.trim() || null,
         color: input.color,
+        is_accessible: input.isAccessible,
+        allow_assignment: input.allowAssignment,
         is_system: false,
         sort_order: nextSortOrder
       })
@@ -118,13 +120,13 @@ export const deckService = {
     const input = updateDeckSchema.parse(payload);
     const existingDeck = await fetchDeckForUser(deckId, userId);
 
-    if (existingDeck.is_system) {
-      throw new AppError("System decks cannot be edited", 400);
-    }
-
     const updateFields: Record<string, unknown> = {};
 
     if (input.name !== undefined) {
+      if (existingDeck.is_system) {
+        throw new AppError("System deck names cannot be changed", 400);
+      }
+
       const slug = toSlug(input.name);
       if (!slug || RESERVED_DECK_SLUGS.has(slug)) {
         throw new AppError("Deck name is reserved or invalid", 400);
@@ -158,6 +160,21 @@ export const deckService = {
       updateFields["color"] = input.color;
     }
 
+    if (input.isAccessible !== undefined) {
+      updateFields["is_accessible"] = input.isAccessible;
+    }
+
+    if (input.allowAssignment !== undefined) {
+      updateFields["allow_assignment"] = input.allowAssignment;
+    }
+
+    if (
+      input.isAccessible === false &&
+      (input.allowAssignment === undefined || input.allowAssignment === true)
+    ) {
+      updateFields["allow_assignment"] = false;
+    }
+
     const { data: deck, error } = await supabaseAdmin
       .from("sf_decks")
       .update(updateFields)
@@ -167,6 +184,18 @@ export const deckService = {
 
     if (error || !deck) {
       throw new AppError(error?.message ?? "Failed to update deck", 500);
+    }
+
+    if ((deck as SFDeckRow).is_accessible === false) {
+      const { error: unassignError } = await supabaseAdmin
+        .from("sf_cards")
+        .update({ assignee_id: null })
+        .eq("deck_id", deckId)
+        .not("assignee_id", "is", null);
+
+      if (unassignError) {
+        throw new AppError(unassignError.message, 500);
+      }
     }
 
     return serializeDeck(deck as SFDeckRow);

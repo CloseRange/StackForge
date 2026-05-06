@@ -9,6 +9,7 @@ type CardEditorModalProps = {
   projectId: string;
   currentUserId: string;
   defaultStatus: CardStatus;
+  isAssignmentBlocked?: boolean;
   card: Card | null;
   onClose: () => void;
   onCreate: (payload: CreateCardInput) => Promise<void>;
@@ -29,6 +30,7 @@ export const CardEditorModal = ({
   projectId,
   currentUserId,
   defaultStatus,
+  isAssignmentBlocked = false,
   card,
   onClose,
   onCreate,
@@ -59,9 +61,10 @@ export const CardEditorModal = ({
     setStatus(card?.status ?? defaultStatus);
     setTags(card?.tags.join(", ") ?? "");
     setChecklist(card?.checklist.map((item) => ({ label: item.label, completed: item.completed })) ?? []);
-    setAssignToMe(card ? card.assigneeId === currentUserId : true);
+    const defaultAssignToMe = card ? card.assigneeId === currentUserId : true;
+    setAssignToMe(isAssignmentBlocked ? false : defaultAssignToMe);
     setNewChecklistItem("");
-  }, [card, currentUserId, defaultStatus, isOpen]);
+  }, [card, currentUserId, defaultStatus, isAssignmentBlocked, isOpen]);
 
   const addChecklistItem = () => {
     if (!newChecklistItem.trim()) {
@@ -83,7 +86,7 @@ export const CardEditorModal = ({
       difficulty,
       status,
       projectId,
-      assigneeId: assignToMe ? currentUserId : null,
+      assigneeId: isAssignmentBlocked ? null : assignToMe ? currentUserId : null,
       tags: tags
         .split(",")
         .map((item) => item.trim())
@@ -252,9 +255,10 @@ export const CardEditorModal = ({
             type="checkbox"
             checked={assignToMe}
             onChange={(event) => setAssignToMe(event.target.checked)}
+            disabled={isAssignmentBlocked}
             className="h-4 w-4 rounded border-white/20 bg-white/5"
           />
-          Assign this card to me
+          {isAssignmentBlocked ? "Assignment disabled for this deck" : "Assign this card to me"}
         </label>
       </div>
       <div className="mt-6 flex justify-end gap-3">

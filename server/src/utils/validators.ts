@@ -62,7 +62,9 @@ export const createDeckSchema = z.object({
   name: z.string().min(2).max(80),
   description: z.string().max(240).optional().or(z.literal("")),
   icon: z.string().max(64).optional().or(z.literal("")),
-  color: z.enum(deckColors).default("teal")
+  color: z.enum(deckColors).default("teal"),
+  isAccessible: z.boolean().default(true),
+  allowAssignment: z.boolean().default(true)
 });
 
 export const updateDeckSchema = createDeckSchema

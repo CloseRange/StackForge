@@ -6,6 +6,8 @@ export type SFDeckRow = {
   description: string | null;
   icon: string | null;
   color: string;
+  is_accessible: boolean;
+  allow_assignment: boolean;
   is_system: boolean;
   system_key: string | null;
   sort_order: number;

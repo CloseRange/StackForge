@@ -54,6 +54,8 @@ export type Deck = {
   description?: string | null;
   icon?: string | null;
   color: DeckColor;
+  isAccessible: boolean;
+  allowAssignment: boolean;
   isSystem: boolean;
   systemKey?: string | null;
   sortOrder: number;
@@ -94,6 +96,8 @@ export type CreateDeckInput = {
   description?: string;
   icon?: string;
   color: Exclude<DeckColor, "emerald">;
+  isAccessible?: boolean;
+  allowAssignment?: boolean;
 };
 
 export type UpdateDeckInput = Partial<Omit<CreateDeckInput, "projectId">>;

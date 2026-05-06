@@ -43,6 +43,8 @@ export const serializeDeck = (deck: SFDeckRow) => ({
   description: deck.description,
   icon: deck.icon,
   color: deck.color,
+  isAccessible: deck.is_accessible,
+  allowAssignment: deck.allow_assignment,
   isSystem: deck.is_system,
   systemKey: deck.system_key,
   sortOrder: deck.sort_order,

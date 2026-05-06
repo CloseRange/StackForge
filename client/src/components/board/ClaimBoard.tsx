@@ -419,6 +419,7 @@ export const ClaimBoard = ({
 }: ClaimBoardProps) => {
   const [notice, setNotice] = useState<string | null>(null);
   const [busyCardId, setBusyCardId] = useState<string | null>(null);
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
   const activeBoardCards = useMemo(
     () =>
@@ -511,8 +512,20 @@ export const ClaimBoard = ({
   };
 
   return (
-    <DndContext onDragEnd={(event) => void handleDragEnd(event)}>
-      <div className="space-y-4 overflow-x-hidden">
+    <DndContext
+      onDragStart={(event) => setActiveDragId(String(event.active.id))}
+      onDragCancel={() => setActiveDragId(null)}
+      onDragEnd={(event) => {
+        void (async () => {
+          try {
+            await handleDragEnd(event);
+          } finally {
+            setActiveDragId(null);
+          }
+        })();
+      }}
+    >
+      <div className={`space-y-4 overflow-x-hidden ${activeDragId ? "overflow-y-hidden" : ""}`}>
         <section className="rounded-[1.6rem] border border-white/8 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.16),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(16,185,129,0.12),_transparent_28%),linear-gradient(180deg,rgba(15,23,42,0.92),rgba(2,6,23,0.96))] p-4 md:p-4.5">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
             <div>
