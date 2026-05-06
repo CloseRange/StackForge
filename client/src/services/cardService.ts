@@ -1,4 +1,4 @@
-import type { Card, CardStatus, CreateCardInput, UpdateCardInput } from "../types/api";
+import type { Card, CreateCardInput, UpdateCardInput } from "../types/api";
 import { request } from "./api";
 
 export const cardService = {
@@ -19,14 +19,6 @@ export const cardService = {
       method: "PATCH",
       token,
       body: payload
-    });
-  },
-
-  move(token: string, cardId: string, status: CardStatus) {
-    return request<Card>(`/cards/${cardId}/move`, {
-      method: "POST",
-      token,
-      body: { status }
     });
   }
 };

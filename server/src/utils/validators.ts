@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { cardPriorities, cardStatuses, cardTypes } from "../types/cards.js";
+import { cardDifficulties, cardPriorities } from "../types/cards.js";
 import { deckColors } from "../types/decks.js";
 
 const checklistItemSchema = z.object({
@@ -32,13 +32,10 @@ export const updateProjectSchema = createProjectSchema.partial().refine(
 export const createCardSchema = z.object({
   title: z.string().min(2).max(120),
   description: z.string().max(1000).optional().or(z.literal("")),
-  type: z.enum(cardTypes),
   priority: z.enum(cardPriorities),
-  difficulty: z.number().int().min(1).max(10),
-  xpValue: z.number().int().min(1).optional(),
-  status: z.enum(cardStatuses).default("deck"),
+  difficulty: z.enum(cardDifficulties),
   assigneeId: z.string().uuid().optional().nullable(),
-  deckId: z.string().uuid().optional().nullable(),
+  deckId: z.string().uuid(),
   projectId: z.string().uuid(),
   tags: z.array(z.string().min(1).max(24)).max(10).default([]),
   checklist: z.array(checklistItemSchema).max(15).default([])
@@ -48,10 +45,6 @@ export const updateCardSchema = createCardSchema
   .omit({ projectId: true })
   .partial()
   .refine((data) => Object.keys(data).length > 0, "At least one card field must be provided");
-
-export const moveCardSchema = z.object({
-  status: z.enum(cardStatuses)
-});
 
 export const assignCardSchema = z.object({
   assigneeId: z.string().uuid().nullable()

@@ -3,18 +3,18 @@ import { Plus } from "lucide-react";
 
 import { Button } from "../ui/Button";
 import { TaskCard } from "../cards/TaskCard";
-import type { Card, CardStatus } from "../../types/api";
-import { columnLabels } from "../../utils/board";
+import type { Card } from "../../types/api";
+import { columnLabels, type BoardColumnId } from "../../utils/board";
 
 type BoardColumnProps = {
-  status: CardStatus;
+  columnId: BoardColumnId;
   cards: Card[];
-  onCreateCard: (status: CardStatus) => void;
+  onCreateCard: () => void;
   onSelectCard: (card: Card) => void;
 };
 
-export const BoardColumn = ({ status, cards, onCreateCard, onSelectCard }: BoardColumnProps) => {
-  const { isOver, setNodeRef } = useDroppable({ id: status });
+export const BoardColumn = ({ columnId, cards, onCreateCard, onSelectCard }: BoardColumnProps) => {
+  const { isOver, setNodeRef } = useDroppable({ id: columnId });
 
   return (
     <section
@@ -24,11 +24,11 @@ export const BoardColumn = ({ status, cards, onCreateCard, onSelectCard }: Board
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Column</p>
-          <h2 className="font-display text-xl font-semibold text-white">{columnLabels[status]}</h2>
+          <h2 className="font-display text-xl font-semibold text-white">{columnLabels[columnId]}</h2>
         </div>
         <span className="rounded-full border border-white/10 px-2.5 py-1 text-xs text-slate-300">{cards.length}</span>
       </div>
-      <Button variant="outline" className="mb-4 gap-2" onClick={() => onCreateCard(status)}>
+      <Button variant="outline" className="mb-4 gap-2" onClick={onCreateCard}>
         <Plus className="h-4 w-4" />
         Add Card
       </Button>

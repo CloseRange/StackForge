@@ -5,7 +5,6 @@ import { deckService } from "../services/deckService";
 import { projectService } from "../services/projectService";
 import type {
   Card,
-  CardStatus,
   CreateCardInput,
   CreateDeckInput,
   CreateProjectInput,
@@ -35,7 +34,6 @@ type BoardState = {
   updateDeck: (token: string, deckId: string, payload: UpdateDeckInput) => Promise<Deck>;
   removeDeck: (token: string, deckId: string) => Promise<void>;
   updateCard: (token: string, cardId: string, payload: UpdateCardInput) => Promise<Card>;
-  moveCard: (token: string, cardId: string, status: CardStatus) => Promise<void>;
 };
 
 const replaceCard = (cards: Card[], nextCard: Card) =>
@@ -125,14 +123,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     await deckService.remove(token, deckId);
     set((state) => ({
       decks: state.decks.filter((deck) => deck.id !== deckId),
-      cards: state.cards.map((card) =>
-        card.deckId === deckId
-          ? {
-              ...card,
-              deckId: null
-            }
-          : card
-      ),
       error: null
     }));
   },
@@ -140,27 +130,5 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     const card = await cardService.update(token, cardId, payload);
     set((state) => ({ cards: replaceCard(state.cards, card), error: null }));
     return card;
-  },
-  async moveCard(token, cardId, status) {
-    const currentCard = get().cards.find((card) => card.id === cardId);
-
-    if (!currentCard || currentCard.status === status) {
-      return;
-    }
-
-    set((state) => ({
-      cards: replaceCard(state.cards, { ...currentCard, status }),
-      error: null
-    }));
-
-    try {
-      const updatedCard = await cardService.move(token, cardId, status);
-      set((state) => ({ cards: replaceCard(state.cards, updatedCard) }));
-    } catch (error) {
-      set((state) => ({
-        cards: replaceCard(state.cards, currentCard),
-        error: error instanceof Error ? error.message : "Failed to move card"
-      }));
-    }
   }
 }));

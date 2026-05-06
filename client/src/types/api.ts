@@ -15,9 +15,8 @@ export type Project = {
   cardCount: number;
 };
 
-export type CardType = "feature" | "bug" | "refactor" | "docs" | "test";
 export type CardPriority = "common" | "uncommon" | "rare" | "legendary";
-export type CardStatus = "deck" | "in_play" | "blocked" | "review" | "completed";
+export type CardDifficulty = "easy" | "medium" | "hard" | "epic";
 
 export type ChecklistItem = {
   id?: string;
@@ -30,13 +29,11 @@ export type Card = {
   id: string;
   title: string;
   description?: string | null;
-  type: CardType;
   priority: CardPriority;
-  difficulty: number;
+  difficulty: CardDifficulty;
   xpValue: number;
-  status: CardStatus;
   assigneeId?: string | null;
-  deckId?: string | null;
+  deckId: string;
   projectId: string;
   tags: string[];
   checklist: ChecklistItem[];
@@ -76,13 +73,10 @@ export type CreateProjectInput = {
 export type CreateCardInput = {
   title: string;
   description?: string;
-  type: CardType;
   priority: CardPriority;
-  difficulty: number;
-  xpValue?: number;
-  status: CardStatus;
+  difficulty: CardDifficulty;
   assigneeId?: string | null;
-  deckId?: string | null;
+  deckId: string;
   projectId: string;
   tags: string[];
   checklist: ChecklistItem[];

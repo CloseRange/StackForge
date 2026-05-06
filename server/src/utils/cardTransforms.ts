@@ -1,24 +1,27 @@
 import type { SFCardWithChecklist } from "../models/cardModel.js";
 import type { SFDeckRow } from "../models/deckModel.js";
 import type { SFProjectWithCount } from "../models/projectModel.js";
-import type { CardPriorityValue, CardStatusValue, CardTypeValue } from "../types/cards.js";
+import type { CardDifficultyValue, CardPriorityValue } from "../types/cards.js";
 
-// API value (lowercase) → DB enum value (uppercase)
-export const toCardType = (value: CardTypeValue) => value.toUpperCase();
 export const toCardPriority = (value: CardPriorityValue) => value.toUpperCase();
-export const toCardStatus = (value: CardStatusValue) => value.toUpperCase();
+export const toCardDifficulty = (value: CardDifficultyValue) => value.toUpperCase();
 
-export const difficultyToXp = (difficulty: number) => difficulty * 100;
+const difficultyXpMap: Record<CardDifficultyValue, number> = {
+  easy: 25,
+  medium: 50,
+  hard: 100,
+  epic: 200
+};
+
+export const difficultyToXp = (difficulty: CardDifficultyValue) => difficultyXpMap[difficulty];
 
 export const serializeCard = (card: SFCardWithChecklist) => ({
   id: card.id,
   title: card.title,
   description: card.description,
-  type: card.type.toLowerCase(),
   priority: card.priority.toLowerCase(),
-  difficulty: card.difficulty,
+  difficulty: card.difficulty.toLowerCase(),
   xpValue: card.xp_value,
-  status: card.status.toLowerCase(),
   assigneeId: card.assignee_id,
   deckId: card.deck_id,
   projectId: card.project_id,

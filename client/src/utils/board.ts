@@ -1,13 +1,13 @@
-import type { CardPriority, CardStatus, CardType } from "../types/api";
+import type { CardPriority } from "../types/api";
 
-export const columnOrder: CardStatus[] = ["deck", "in_play", "blocked", "review", "completed"];
+export type BoardColumnId = "unclaimed" | "mine" | "claimed";
 
-export const columnLabels: Record<CardStatus, string> = {
-  deck: "Deck",
-  in_play: "In Play",
-  blocked: "Blocked",
-  review: "Review",
-  completed: "Victory"
+export const columnOrder: BoardColumnId[] = ["unclaimed", "mine", "claimed"];
+
+export const columnLabels: Record<BoardColumnId, string> = {
+  unclaimed: "Unclaimed",
+  mine: "Mine",
+  claimed: "Claimed"
 };
 
 export const rarityClasses: Record<CardPriority, string> = {
@@ -15,12 +15,4 @@ export const rarityClasses: Record<CardPriority, string> = {
   uncommon: "border-emerald-400/60 shadow-emerald-950/30",
   rare: "border-sky-400/60 shadow-sky-950/30",
   legendary: "border-amber-400/70 shadow-amber-950/30"
-};
-
-export const typeLabels: Record<CardType, string> = {
-  feature: "Feature",
-  bug: "Bug",
-  refactor: "Refactor",
-  docs: "Docs",
-  test: "Test"
 };

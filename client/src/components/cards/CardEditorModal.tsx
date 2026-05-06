@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 
 import { Button } from "../ui/Button";
 import { Modal } from "../ui/Modal";
-import type { Card, CardPriority, CardStatus, CardType, CreateCardInput, UpdateCardInput } from "../../types/api";
+import type { Card, CardDifficulty, CardPriority, CreateCardInput, Deck, UpdateCardInput } from "../../types/api";
 
 type CardEditorModalProps = {
   isOpen: boolean;
   projectId: string;
   currentUserId: string;
-  defaultStatus: CardStatus;
+  decks: Deck[];
+  defaultDeckId?: string;
   isAssignmentBlocked?: boolean;
   card: Card | null;
   onClose: () => void;
@@ -21,15 +22,20 @@ type ChecklistFormItem = {
   completed: boolean;
 };
 
-const cardTypes: CardType[] = ["feature", "bug", "refactor", "docs", "test"];
 const cardPriorities: CardPriority[] = ["common", "uncommon", "rare", "legendary"];
-const cardStatuses: CardStatus[] = ["deck", "in_play", "blocked", "review", "completed"];
+const difficultyOptions: Array<{ value: CardDifficulty; label: string; xp: number }> = [
+  { value: "easy", label: "Easy", xp: 25 },
+  { value: "medium", label: "Medium", xp: 50 },
+  { value: "hard", label: "Hard", xp: 100 },
+  { value: "epic", label: "Epic", xp: 200 }
+];
 
 export const CardEditorModal = ({
   isOpen,
   projectId,
   currentUserId,
-  defaultStatus,
+  decks,
+  defaultDeckId,
   isAssignmentBlocked = false,
   card,
   onClose,
@@ -38,10 +44,9 @@ export const CardEditorModal = ({
 }: CardEditorModalProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [type, setType] = useState<CardType>("feature");
   const [priority, setPriority] = useState<CardPriority>("common");
-  const [difficulty, setDifficulty] = useState(2);
-  const [status, setStatus] = useState<CardStatus>(defaultStatus);
+  const [difficulty, setDifficulty] = useState<CardDifficulty>("medium");
+  const [deckId, setDeckId] = useState("");
   const [tags, setTags] = useState("");
   const [checklist, setChecklist] = useState<ChecklistFormItem[]>([]);
   const [newChecklistItem, setNewChecklistItem] = useState("");
@@ -55,16 +60,15 @@ export const CardEditorModal = ({
 
     setTitle(card?.title ?? "");
     setDescription(card?.description ?? "");
-    setType(card?.type ?? "feature");
     setPriority(card?.priority ?? "common");
-    setDifficulty(card?.difficulty ?? 2);
-    setStatus(card?.status ?? defaultStatus);
+    setDifficulty(card?.difficulty ?? "medium");
+    setDeckId(card?.deckId ?? defaultDeckId ?? decks[0]?.id ?? "");
     setTags(card?.tags.join(", ") ?? "");
     setChecklist(card?.checklist.map((item) => ({ label: item.label, completed: item.completed })) ?? []);
     const defaultAssignToMe = card ? card.assigneeId === currentUserId : true;
     setAssignToMe(isAssignmentBlocked ? false : defaultAssignToMe);
     setNewChecklistItem("");
-  }, [card, currentUserId, defaultStatus, isAssignmentBlocked, isOpen]);
+  }, [card, currentUserId, decks, defaultDeckId, isAssignmentBlocked, isOpen]);
 
   const addChecklistItem = () => {
     if (!newChecklistItem.trim()) {
@@ -81,10 +85,9 @@ export const CardEditorModal = ({
     const payload = {
       title,
       description,
-      type,
       priority,
       difficulty,
-      status,
+      deckId,
       projectId,
       assigneeId: isAssignmentBlocked ? null : assignToMe ? currentUserId : null,
       tags: tags
@@ -111,9 +114,10 @@ export const CardEditorModal = ({
     <Modal
       isOpen={isOpen}
       title={card ? "Edit Card" : "Forge New Card"}
-      description="Tune rarity, difficulty, XP, and the current battlefield column."
+      description="Tune rarity, difficulty, and the current battlefield deck. XP is set automatically from difficulty."
       onClose={onClose}
     >
+      <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2">
         <label className="flex flex-col gap-2 text-sm text-slate-300 md:col-span-2">
           Title
@@ -135,20 +139,6 @@ export const CardEditorModal = ({
           />
         </label>
         <label className="flex flex-col gap-2 text-sm text-slate-300">
-          Type
-          <select
-            value={type}
-            onChange={(event) => setType(event.target.value as CardType)}
-            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none"
-          >
-            {cardTypes.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-2 text-sm text-slate-300">
           Priority
           <select
             value={priority}
@@ -164,25 +154,28 @@ export const CardEditorModal = ({
         </label>
         <label className="flex flex-col gap-2 text-sm text-slate-300">
           Difficulty
-          <input
-            type="number"
-            min={1}
-            max={10}
-            value={difficulty}
-            onChange={(event) => setDifficulty(Number(event.target.value))}
-            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none"
-          />
-        </label>
-        <label className="flex flex-col gap-2 text-sm text-slate-300">
-          Status
           <select
-            value={status}
-            onChange={(event) => setStatus(event.target.value as CardStatus)}
+            value={difficulty}
+            onChange={(event) => setDifficulty(event.target.value as CardDifficulty)}
             className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none"
           >
-            {cardStatuses.map((item) => (
-              <option key={item} value={item}>
-                {item}
+            {difficultyOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label} ({option.xp} XP)
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-2 text-sm text-slate-300">
+          Deck
+          <select
+            value={deckId}
+            onChange={(event) => setDeckId(event.target.value)}
+            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none"
+          >
+            {decks.map((deck) => (
+              <option key={deck.id} value={deck.id}>
+                {deck.name}
               </option>
             ))}
           </select>
@@ -261,13 +254,16 @@ export const CardEditorModal = ({
           {isAssignmentBlocked ? "Assignment disabled for this deck" : "Assign this card to me"}
         </label>
       </div>
-      <div className="mt-6 flex justify-end gap-3">
-        <Button variant="ghost" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button onClick={() => void submit()} disabled={isSaving || !title.trim()}>
-          {isSaving ? "Saving..." : card ? "Save Card" : "Create Card"}
-        </Button>
+      <div className="sticky bottom-0 -mx-1 border-t border-white/10 bg-slate-900/95 px-1 pt-4 pb-1 backdrop-blur-sm">
+        <div className="flex justify-end gap-3">
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={() => void submit()} disabled={isSaving || !title.trim() || !deckId}>
+            {isSaving ? "Saving..." : card ? "Save Card" : "Create Card"}
+          </Button>
+        </div>
+      </div>
       </div>
     </Modal>
   );

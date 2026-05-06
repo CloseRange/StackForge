@@ -4,14 +4,12 @@ import type { SFCardWithChecklist } from "../models/cardModel.js";
 import {
   difficultyToXp,
   serializeCard,
-  toCardPriority,
-  toCardStatus,
-  toCardType
+  toCardDifficulty,
+  toCardPriority
 } from "../utils/cardTransforms.js";
 import {
   assignCardSchema,
   createCardSchema,
-  moveCardSchema,
   updateCardSchema
 } from "../utils/validators.js";
 
@@ -30,11 +28,7 @@ const ensureProjectAccess = async (projectId: string, userId: string) => {
   }
 };
 
-const ensureDeckForProject = async (deckId: string | null | undefined, projectId: string) => {
-  if (!deckId) {
-    return null;
-  }
-
+const ensureDeckForProject = async (deckId: string, projectId: string) => {
   const { data } = await supabaseAdmin
     .from("sf_decks")
     .select("id, is_accessible, allow_assignment")
@@ -118,13 +112,13 @@ const fetchCardById = async (cardId: string) => {
 const ensureCardClaimIsMutable = (
   card: SFCardWithChecklist,
   userId: string,
-  options: { isChangingStatus?: boolean; isChangingAssignee?: boolean }
+  options: { isChangingAssignee?: boolean }
 ) => {
   if (!card.assignee_id || card.assignee_id === userId) {
     return;
   }
 
-  if (options.isChangingStatus || options.isChangingAssignee) {
+  if (options.isChangingAssignee) {
     throw new AppError("This card is already claimed on another board", 409);
   }
 };
@@ -155,7 +149,6 @@ export const cardService = {
       .from("sf_cards")
       .select(CARD_SELECT)
       .eq("project_id", projectId)
-      .order("status")
       .order("updated_at", { ascending: false });
 
     if (error) {
@@ -177,14 +170,12 @@ export const cardService = {
       .insert({
         title: input.title,
         description: input.description || null,
-        type: toCardType(input.type),
         priority: toCardPriority(input.priority),
-        difficulty: input.difficulty,
-        xp_value: input.xpValue ?? difficultyToXp(input.difficulty),
-        status: toCardStatus(input.status),
+        difficulty: toCardDifficulty(input.difficulty),
+        xp_value: difficultyToXp(input.difficulty),
         assignee_id: assigneeId,
         project_id: input.projectId,
-        deck_id: deck?.id ?? null,
+        deck_id: deck.id,
         tags: input.tags
       })
       .select("id")
@@ -205,20 +196,16 @@ export const cardService = {
     const input = updateCardSchema.parse(payload);
     const existingCard = await fetchCardForUser(cardId, userId);
 
-    ensureCardClaimIsMutable(existingCard, userId, {
-      isChangingStatus: input.status !== undefined,
-      isChangingAssignee: input.assigneeId !== undefined
-    });
+    ensureCardClaimIsMutable(existingCard, userId, { isChangingAssignee: input.assigneeId !== undefined });
 
     const updateFields: Record<string, unknown> = {};
     if (input.title !== undefined) updateFields["title"] = input.title;
     if (input.description !== undefined) updateFields["description"] = input.description || null;
-    if (input.type !== undefined) updateFields["type"] = toCardType(input.type);
     if (input.priority !== undefined) updateFields["priority"] = toCardPriority(input.priority);
-    if (input.difficulty !== undefined) updateFields["difficulty"] = input.difficulty;
-    if (input.xpValue !== undefined) updateFields["xp_value"] = input.xpValue;
-    else if (input.difficulty !== undefined) updateFields["xp_value"] = difficultyToXp(input.difficulty);
-    if (input.status !== undefined) updateFields["status"] = toCardStatus(input.status);
+    if (input.difficulty !== undefined) {
+      updateFields["difficulty"] = toCardDifficulty(input.difficulty);
+      updateFields["xp_value"] = difficultyToXp(input.difficulty);
+    }
     if (input.tags !== undefined) updateFields["tags"] = input.tags;
     const nextAssigneeId =
       input.assigneeId !== undefined ? await ensureAssignee(input.assigneeId) : existingCard.assignee_id;
@@ -227,13 +214,11 @@ export const cardService = {
       updateFields["assignee_id"] = nextAssigneeId;
     }
 
-    let nextDeck = existingCard.deck_id
-      ? await ensureDeckForProject(existingCard.deck_id, existingCard.project_id)
-      : null;
+    let nextDeck = await ensureDeckForProject(existingCard.deck_id, existingCard.project_id);
 
     if (input.deckId !== undefined) {
       nextDeck = await ensureDeckForProject(input.deckId, existingCard.project_id);
-      updateFields["deck_id"] = nextDeck?.id ?? null;
+      updateFields["deck_id"] = nextDeck.id;
     }
 
     ensureDeckCanAssign(nextDeck, Boolean(nextAssigneeId));
@@ -256,33 +241,13 @@ export const cardService = {
     return serializeCard(await fetchCardById(cardId));
   },
 
-  async move(cardId: string, userId: string, payload: unknown) {
-    const input = moveCardSchema.parse(payload);
-    const existingCard = await fetchCardForUser(cardId, userId);
-
-    ensureCardClaimIsMutable(existingCard, userId, { isChangingStatus: true });
-
-    const { error } = await supabaseAdmin
-      .from("sf_cards")
-      .update({ status: toCardStatus(input.status) })
-      .eq("id", cardId);
-
-    if (error) {
-      throw new AppError(error.message, 500);
-    }
-
-    return serializeCard(await fetchCardById(cardId));
-  },
-
   async assign(cardId: string, userId: string, payload: unknown) {
     const input = assignCardSchema.parse(payload);
     const existingCard = await fetchCardForUser(cardId, userId);
 
     ensureCardClaimIsMutable(existingCard, userId, { isChangingAssignee: true });
 
-    const deck = existingCard.deck_id
-      ? await ensureDeckForProject(existingCard.deck_id, existingCard.project_id)
-      : null;
+    const deck = await ensureDeckForProject(existingCard.deck_id, existingCard.project_id);
     const nextAssigneeId = await ensureAssignee(input.assigneeId);
 
     ensureDeckCanAssign(deck, Boolean(nextAssigneeId));

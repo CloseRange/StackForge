@@ -1,35 +1,35 @@
-import { DndContext, type DragEndEvent } from "@dnd-kit/core";
+import { DndContext } from "@dnd-kit/core";
 
 import { BoardColumn } from "./BoardColumn";
-import type { Card, CardStatus } from "../../types/api";
+import type { Card, User } from "../../types/api";
 import { columnOrder } from "../../utils/board";
 
 type BoardViewProps = {
   cards: Card[];
-  onMoveCard: (cardId: string, status: CardStatus) => Promise<void>;
-  onCreateCard: (status: CardStatus) => void;
+  currentUser: User;
+  onCreateCard: () => void;
   onSelectCard: (card: Card) => void;
 };
 
-export const BoardView = ({ cards, onMoveCard, onCreateCard, onSelectCard }: BoardViewProps) => {
-  const handleDragEnd = (event: DragEndEvent) => {
-    const overId = event.over?.id;
-
-    if (!overId || typeof overId !== "string") {
-      return;
-    }
-
-    void onMoveCard(String(event.active.id), overId as CardStatus);
-  };
-
+export const BoardView = ({ cards, currentUser, onCreateCard, onSelectCard }: BoardViewProps) => {
   return (
-    <DndContext onDragEnd={handleDragEnd}>
+    <DndContext>
       <div className="flex gap-4 overflow-x-auto pb-4">
-        {columnOrder.map((status) => (
+        {columnOrder.map((columnId) => (
           <BoardColumn
-            key={status}
-            status={status}
-            cards={cards.filter((card) => card.status === status)}
+            key={columnId}
+            columnId={columnId}
+            cards={cards.filter((card) => {
+              if (columnId === "unclaimed") {
+                return !card.assigneeId;
+              }
+
+              if (columnId === "mine") {
+                return card.assigneeId === currentUser.id;
+              }
+
+              return Boolean(card.assigneeId && card.assigneeId !== currentUser.id);
+            })}
             onCreateCard={onCreateCard}
             onSelectCard={onSelectCard}
           />

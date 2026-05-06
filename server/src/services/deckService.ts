@@ -208,6 +208,19 @@ export const deckService = {
       throw new AppError("System decks cannot be deleted", 400);
     }
 
+    const { count, error: countError } = await supabaseAdmin
+      .from("sf_cards")
+      .select("id", { count: "exact", head: true })
+      .eq("deck_id", deckId);
+
+    if (countError) {
+      throw new AppError(countError.message, 500);
+    }
+
+    if ((count ?? 0) > 0) {
+      throw new AppError("Cannot delete deck while cards are assigned to it", 400);
+    }
+
     const { error } = await supabaseAdmin
       .from("sf_decks")
       .delete()

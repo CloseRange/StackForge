@@ -3,22 +3,17 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   ArrowDownToLine,
   Bug,
-  CheckCircle2,
   Eye,
-  FilePenLine,
-  FlaskConical,
   Layers3,
   Lock,
   Plus,
-  ScrollText,
-  Sparkles,
   Trophy,
   Zap
 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 
 import { Button } from "../ui/Button";
-import type { Card, CardPriority, CardType, Deck, UpdateCardInput, User } from "../../types/api";
+import type { Card, CardPriority, Deck, UpdateCardInput, User } from "../../types/api";
 
 const BOARD_SLOT_COUNT = 8;
 
@@ -34,14 +29,6 @@ const priorityClasses: Record<CardPriority, string> = {
   uncommon: "border-emerald-300/30 bg-emerald-500/15 text-emerald-100",
   rare: "border-sky-300/30 bg-sky-500/15 text-sky-100",
   legendary: "border-amber-300/30 bg-amber-500/15 text-amber-100"
-};
-
-const typeIcons: Record<CardType, typeof Sparkles> = {
-  feature: Sparkles,
-  bug: Bug,
-  refactor: FilePenLine,
-  docs: ScrollText,
-  test: FlaskConical
 };
 
 const deckToneClasses = {
@@ -82,7 +69,8 @@ type BoardCardProps = {
   onAction?: (card: Card) => void;
 };
 
-const formatStatus = (status: Card["status"]) => status.replace("_", " ");
+const formatDifficulty = (difficulty: Card["difficulty"]) =>
+  difficulty.slice(0, 1).toUpperCase() + difficulty.slice(1);
 
 const parseDragCardId = (id: string) => {
   if (!id.startsWith("card-")) {
@@ -137,18 +125,16 @@ const getDeckPresentation = (card: Card, decks: Deck[]): DeckPresentation => {
     };
   }
 
-  const TypeIcon = typeIcons[card.type];
-
   return {
-    label: card.type,
+    label: "General",
     detail: "General deck",
-    mark: <TypeIcon className="h-7 w-7" />,
+    mark: <Layers3 className="h-7 w-7" />,
     toneClass: "from-slate-300/20 via-slate-950 to-slate-950 text-slate-100 border-white/15"
   };
 };
 
 const cardSortWeight = (card: Card, currentUserId: string) => {
-  if (card.assigneeId === currentUserId && card.status !== "completed") {
+  if (card.assigneeId === currentUserId) {
     return 0;
   }
 
@@ -156,11 +142,7 @@ const cardSortWeight = (card: Card, currentUserId: string) => {
     return 1;
   }
 
-  if (card.assigneeId === currentUserId && card.status === "completed") {
-    return 2;
-  }
-
-  return 3;
+  return 2;
 };
 
 const BoardSlot = ({ id, index, children }: { id: string; index: number; children?: ReactNode }) => {
@@ -190,40 +172,6 @@ const BoardSlot = ({ id, index, children }: { id: string; index: number; childre
           </div>
         </div>
       )}
-    </div>
-  );
-};
-
-const CompletedSlot = ({ completedCount }: { completedCount: number }) => {
-  const { isOver, setNodeRef } = useDroppable({ id: "completed-stack" });
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={`relative w-full max-w-[7.75rem] sm:max-w-[8rem] lg:max-w-[8.25rem] aspect-[2/3] rounded-[1.5rem] border border-dashed p-1 transition ${
-        isOver
-          ? "border-emerald-300/60 bg-emerald-500/12 shadow-[0_0_0_1px_rgba(110,231,183,0.25)]"
-          : "border-emerald-300/30 bg-emerald-500/[0.08]"
-      }`}
-    >
-      <div className="flex h-full flex-col justify-between rounded-[1.2rem] border border-emerald-300/20 bg-[radial-gradient(circle_at_top,_rgba(110,231,183,0.15),_transparent_45%),linear-gradient(180deg,rgba(6,78,59,0.45),rgba(2,6,23,0.95))] px-3 py-3.5">
-        <div className="flex items-start justify-between gap-2 text-emerald-100">
-          <div className="rounded-xl border border-emerald-300/20 bg-emerald-500/10 p-2">
-            <CheckCircle2 className="h-4.5 w-4.5" />
-          </div>
-          <div className="text-right">
-            <div className="text-[10px] uppercase tracking-[0.35em] text-emerald-100/70">Completed</div>
-            <div className="mt-1 text-base font-semibold text-white">{completedCount}</div>
-          </div>
-        </div>
-
-        <div>
-          <p className="text-sm font-semibold text-white">Victory Stack</p>
-          <p className="mt-1 text-xs leading-4 text-emerald-100/70">
-            Drop a card here to mark it complete.
-          </p>
-        </div>
-      </div>
     </div>
   );
 };
@@ -321,7 +269,7 @@ const BoardCard = ({
 
           <div className="absolute inset-x-3 bottom-8">
             <div className="px-1">
-              <div className="text-[9px] uppercase tracking-[0.28em] text-white/50">{formatStatus(card.status)}</div>
+              <div className="text-[9px] uppercase tracking-[0.28em] text-white/50">Card</div>
               <h3 className="mt-1 line-clamp-3 text-sm font-semibold leading-snug text-white">{card.title}</h3>
             </div>
           </div>
@@ -366,7 +314,7 @@ const BoardCard = ({
               </div>
               <div className="rounded-lg border border-white/8 bg-white/[0.03] px-2.5 py-2">
                 <div className="text-[10px] uppercase tracking-[0.28em] text-slate-500">Difficulty</div>
-                <div className="mt-1 font-semibold text-white">{card.difficulty}</div>
+                <div className="mt-1 font-semibold text-white">{formatDifficulty(card.difficulty)}</div>
               </div>
               <div className="rounded-lg border border-white/8 bg-white/[0.03] px-2.5 py-2">
                 <div className="text-[10px] uppercase tracking-[0.28em] text-slate-500">XP</div>
@@ -424,21 +372,13 @@ export const ClaimBoard = ({
   const activeBoardCards = useMemo(
     () =>
       cards
-        .filter((card) => card.assigneeId === currentUser.id && card.status !== "completed")
+        .filter((card) => card.assigneeId === currentUser.id)
         .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()),
     [cards, currentUser.id]
   );
 
   const visibleBoardCards = activeBoardCards.slice(0, BOARD_SLOT_COUNT);
   const overflowBoardCount = Math.max(activeBoardCards.length - BOARD_SLOT_COUNT, 0);
-
-  const completedCards = useMemo(
-    () =>
-      cards
-        .filter((card) => card.assigneeId === currentUser.id && card.status === "completed")
-        .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()),
-    [cards, currentUser.id]
-  );
 
   const sortedPoolCards = useMemo(
     () =>
@@ -489,7 +429,7 @@ export const ClaimBoard = ({
       return;
     }
 
-    const isAlreadyOnBoard = card.assigneeId === currentUser.id && card.status !== "completed";
+    const isAlreadyOnBoard = card.assigneeId === currentUser.id;
 
     if (overId.startsWith("board-slot-")) {
       if (!isAlreadyOnBoard && visibleBoardCards.length >= BOARD_SLOT_COUNT) {
@@ -497,17 +437,12 @@ export const ClaimBoard = ({
         return;
       }
 
-      await mutateCard(card.id, { assigneeId: currentUser.id, status: "in_play" }, "Card claimed onto your board.");
-      return;
-    }
-
-    if (overId === "completed-stack") {
-      await mutateCard(card.id, { assigneeId: currentUser.id, status: "completed" }, "Card moved to your completed stack.");
+      await mutateCard(card.id, { assigneeId: currentUser.id }, "Card claimed onto your board.");
       return;
     }
 
     if (overId === "card-pool" && card.assigneeId === currentUser.id) {
-      await mutateCard(card.id, { assigneeId: null, status: "deck" }, "Card returned to the shared pool.");
+      await mutateCard(card.id, { assigneeId: null }, "Card returned to the shared pool.");
     }
   };
 
@@ -530,7 +465,7 @@ export const ClaimBoard = ({
           <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.4em] text-sky-300">Your Playmat</p>
-              <h2 className="mt-1.5 font-display text-2xl font-semibold text-white">Eight active slots, one victory stack</h2>
+              <h2 className="mt-1.5 font-display text-2xl font-semibold text-white">Eight active slots</h2>
               <p className="mt-1.5 max-w-2xl text-sm leading-5 text-slate-300">
                 Drag a card from the collection below onto an empty slot to claim it to your board. Once claimed,
                 that card stays locked to its current owner until it is released back to the pool.
@@ -541,10 +476,6 @@ export const ClaimBoard = ({
               <div className="rounded-xl border border-white/8 bg-white/[0.04] px-3 py-2.5">
                 <div className="text-[10px] uppercase tracking-[0.35em] text-slate-500">Active</div>
                 <div className="mt-1 text-xl font-semibold text-white">{visibleBoardCards.length}/8</div>
-              </div>
-              <div className="rounded-xl border border-emerald-300/15 bg-emerald-500/10 px-3 py-2.5">
-                <div className="text-[10px] uppercase tracking-[0.35em] text-emerald-100/70">Completed</div>
-                <div className="mt-1 text-xl font-semibold text-white">{completedCards.length}</div>
               </div>
               <Button onClick={onCreateCard} className="gap-2 self-start">
                 <Plus className="h-4 w-4" />
@@ -562,7 +493,7 @@ export const ClaimBoard = ({
           {overflowBoardCount > 0 ? (
             <div className="mt-4 rounded-xl border border-amber-300/18 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-100">
               {overflowBoardCount} extra claimed card{overflowBoardCount === 1 ? " is" : "s are"} off the visible board.
-              Release or complete work to get back under the 8-slot limit.
+              Release cards to get back under the 8-slot limit.
             </div>
           ) : null}
 
@@ -585,15 +516,13 @@ export const ClaimBoard = ({
                         onSelectCard={onSelectCard}
                         actionLabel="Return To Pool"
                         onAction={(selectedCard) =>
-                          void mutateCard(selectedCard.id, { assigneeId: null, status: "deck" }, "Card returned to the shared pool.")
+                          void mutateCard(selectedCard.id, { assigneeId: null }, "Card returned to the shared pool.")
                         }
                       />
                     ) : null}
                   </BoardSlot>
                 );
               })}
-
-              <CompletedSlot completedCount={completedCards.length} />
             </div>
           </div>
         </section>
@@ -639,7 +568,7 @@ export const ClaimBoard = ({
                     onAction={
                       card.assigneeId === currentUser.id
                         ? (selectedCard) =>
-                            void mutateCard(selectedCard.id, { assigneeId: null, status: "deck" }, "Card returned to the shared pool.")
+                            void mutateCard(selectedCard.id, { assigneeId: null }, "Card returned to the shared pool.")
                         : undefined
                     }
                   />

@@ -32,17 +32,6 @@ export const cardController = {
     return response.status(200).json({ data: card });
   },
 
-  async move(request: Request, response: Response) {
-    const cardId = typeof request.params.cardId === "string" ? request.params.cardId : undefined;
-
-    if (!cardId) {
-      throw new AppError("Card id is required", 400);
-    }
-
-    const card = await cardService.move(cardId, request.user!.userId, request.body);
-    return response.status(200).json({ data: card });
-  },
-
   async assign(request: Request, response: Response) {
     const cardId = typeof request.params.cardId === "string" ? request.params.cardId : undefined;
 

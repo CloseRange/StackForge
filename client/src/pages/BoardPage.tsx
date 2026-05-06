@@ -10,7 +10,7 @@ import { Modal } from "../components/ui/Modal";
 import { useAuth } from "../hooks/useAuth";
 import { useBoardStore } from "../hooks/useBoardStore";
 import { DashboardLayout } from "../layouts/DashboardLayout";
-import type { Card, CardStatus, Deck, DeckColor } from "../types/api";
+import type { Card, Deck, DeckColor } from "../types/api";
 
 type ProjectTab = "board" | "decks" | "activity";
 
@@ -90,23 +90,7 @@ const toDeckCard = (deck: Deck): DeckCard => ({
 });
 
 const cardBelongsToDeck = (card: Card, deck: DeckCard) => {
-  if (card.deckId === deck.id) {
-    return true;
-  }
-
-  if (card.deckId) {
-    return false;
-  }
-
-  if (deck.systemKey === "COMPLETED") {
-    return card.status === "completed";
-  }
-
-  if (deck.systemKey === "DEBUG") {
-    return card.type === "bug" && card.status !== "completed";
-  }
-
-  return false;
+  return card.deckId === deck.id;
 };
 
 export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
@@ -133,7 +117,6 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<Card | null>(null);
-  const [draftStatus, setDraftStatus] = useState<CardStatus>("deck");
 
   const [activeDeckId, setActiveDeckId] = useState<string | null>(null);
   const [isCreateDeckModalOpen, setIsCreateDeckModalOpen] = useState(false);
@@ -183,8 +166,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
 
   const activeProject = projects.find((project) => project.id === selectedProjectId) ?? null;
 
-  const openNewCard = (status: CardStatus) => {
-    setDraftStatus(status);
+  const openNewCard = () => {
     setEditingCard(null);
     setIsEditorOpen(true);
   };
@@ -238,14 +220,18 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     const deckById = new Map(decks.map((deck) => [deck.id, deck]));
 
     return cards.filter((card) => {
-      if (!card.deckId) {
-        return card.status !== "completed";
-      }
-
       const deck = deckById.get(card.deckId);
       return deck ? deck.isAccessible : true;
     });
   }, [cards, decks]);
+
+  const defaultModalDeckId = useMemo(() => {
+    if (activeDeck) {
+      return activeDeck.id;
+    }
+
+    return decks.find((deck) => deck.isAccessible)?.id ?? decks[0]?.id;
+  }, [activeDeck, decks]);
 
   const isEditingCardAssignmentBlocked = useMemo(() => {
     if (!editingCard?.deckId) {
@@ -325,15 +311,12 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
 
     try {
       const isDebugDeck = activeDeck.systemKey === "DEBUG";
-      const isCompletedDeck = activeDeck.systemKey === "COMPLETED";
 
       await createCard(token, {
         title: deckQuickTitle.trim(),
         description: "",
-        type: isDebugDeck ? "bug" : "feature",
         priority: priorityMap[deckQuickPriority],
-        difficulty: 1,
-        status: isCompletedDeck ? "completed" : "deck",
+        difficulty: "easy",
         projectId: activeProject.id,
         deckId: activeDeck.id,
         tags: [],
@@ -447,10 +430,9 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                 cards={boardVisibleCards}
                 decks={decks}
                 currentUser={user!}
-                onCreateCard={() => openNewCard("deck")}
+                onCreateCard={openNewCard}
                 onSelectCard={(card) => {
                   setEditingCard(card);
-                  setDraftStatus(card.status);
                   setIsEditorOpen(true);
                 }}
                 onUpdateCard={async (cardId, payload) => {
@@ -646,9 +628,6 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                                     {card.priority}
                                   </span>
                                   <span className="rounded-md bg-slate-800 px-2 py-0.5">
-                                    {card.status.replace("_", " ")}
-                                  </span>
-                                  <span className="rounded-md bg-slate-800 px-2 py-0.5">
                                     {card.xpValue} XP
                                   </span>
                                 </div>
@@ -658,7 +637,6 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                                 variant="outline"
                                 onClick={() => {
                                   setEditingCard(card);
-                                  setDraftStatus(card.status);
                                   setIsEditorOpen(true);
                                 }}
                               >
@@ -689,7 +667,8 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
               isOpen={isEditorOpen}
               projectId={activeProject.id}
               currentUserId={user!.id}
-              defaultStatus={draftStatus}
+              decks={decks}
+              defaultDeckId={defaultModalDeckId}
               isAssignmentBlocked={isEditingCardAssignmentBlocked}
               card={editingCard}
               onClose={() => setIsEditorOpen(false)}

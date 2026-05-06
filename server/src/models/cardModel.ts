@@ -12,13 +12,11 @@ export type SFCardRow = {
   id: string;
   title: string;
   description: string | null;
-  type: string;
   priority: string;
-  difficulty: number;
+  difficulty: string;
   xp_value: number;
-  status: string;
   assignee_id: string | null;
-  deck_id: string | null;
+  deck_id: string;
   project_id: string;
   tags: string[];
   created_at: string;

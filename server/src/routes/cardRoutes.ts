@@ -10,6 +10,5 @@ cardRouter.use(requireAuth);
 cardRouter.get("/project/:projectId", asyncHandler(cardController.listByProject));
 cardRouter.post("/", asyncHandler(cardController.create));
 cardRouter.patch("/:cardId", asyncHandler(cardController.update));
-cardRouter.post("/:cardId/move", asyncHandler(cardController.move));
 cardRouter.post("/:cardId/assign", asyncHandler(cardController.assign));
 cardRouter.delete("/:cardId", asyncHandler(cardController.remove));
