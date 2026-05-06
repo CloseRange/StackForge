@@ -81,7 +81,7 @@ export const ProjectsPage = () => {
         </p>
       </div>
 
-      <div ref={createFormRef} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-4">
+      <div ref={createFormRef} className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-4">
         <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
           <Plus className="h-4 w-4 text-sky-300" />
           New Campaign
@@ -142,12 +142,12 @@ export const ProjectsPage = () => {
             <div
               key={project.id}
               className={`rounded-2xl border p-4 ${
-                selectedProjectId === project.id ? "border-sky-300/35 bg-sky-500/10" : "border-white/10 bg-white/[0.03]"
+                selectedProjectId === project.id ? "border-sky-300/35 bg-sky-500/10" : "border-white/10 bg-white/[0.06]"
               }`}
             >
               <h3 className="text-lg font-semibold text-white">{project.name}</h3>
               <p className="mt-1 text-sm text-slate-400">{project.description || "No campaign brief yet."}</p>
-              <p className="mt-3 text-xs uppercase tracking-[0.08em] text-slate-500">{project.cardCount} cards</p>
+              <p className="mt-3 text-xs uppercase tracking-[0.08em] text-slate-400">{project.cardCount} cards</p>
 
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button onClick={() => void openProjectRoute(project.id, "/board")}>Board</Button>
@@ -159,7 +159,7 @@ export const ProjectsPage = () => {
         </div>
 
         {!isLoadingProjects && projects.length === 0 ? (
-          <div className="mt-6 rounded-2xl border border-dashed border-white/10 bg-slate-950/40 px-4 py-6 text-sm text-slate-500">
+          <div className="mt-6 rounded-2xl border border-dashed border-white/15 bg-slate-800/30 px-4 py-6 text-sm text-slate-400">
             No campaigns yet. Create one from the left panel.
           </div>
         ) : null}

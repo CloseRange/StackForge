@@ -9,7 +9,7 @@ type DashboardHeaderProps = {
 };
 
 export const DashboardHeader = ({ onNewProject }: DashboardHeaderProps) => (
-  <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-slate-950/80 backdrop-blur-md">
+  <header className="sticky top-0 z-40 border-b border-white/[0.12] bg-slate-900/85 backdrop-blur-md">
     <div className="mx-auto flex h-14 max-w-[1600px] items-center justify-between px-6">
       {/* Left — logo */}
       <Logo href="/dashboard" />

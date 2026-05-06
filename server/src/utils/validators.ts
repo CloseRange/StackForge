@@ -51,6 +51,11 @@ export const assignCardSchema = z.object({
   assigneeId: z.string().uuid().nullable()
 });
 
+const XP_PAYOUT_VALUES = [0, 25, 50, 75, 100] as const;
+const xpPayoutSchema = z.number().int().refine((v) => (XP_PAYOUT_VALUES as readonly number[]).includes(v), {
+  message: "xpPayout must be 0, 25, 50, 75, or 100"
+});
+
 export const createDeckSchema = z.object({
   projectId: z.string().uuid(),
   completionTargetDeckId: z.string().uuid().optional(),
@@ -59,7 +64,8 @@ export const createDeckSchema = z.object({
   icon: z.string().max(64).optional().or(z.literal("")),
   color: z.enum(deckColors).default("teal"),
   isAccessible: z.boolean().default(true),
-  allowAssignment: z.boolean().default(true)
+  allowAssignment: z.boolean().default(true),
+  xpPayout: xpPayoutSchema.default(0)
 });
 
 export const updateDeckSchema = createDeckSchema

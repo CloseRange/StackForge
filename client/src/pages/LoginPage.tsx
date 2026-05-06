@@ -37,7 +37,7 @@ export const LoginPage = () => {
     <>
       <Header variant="public" />
       <AuthLayout>
-      <form onSubmit={handleSubmit} className="w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-950/70 p-8 shadow-glow">
+      <form onSubmit={handleSubmit} className="w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-800/60 p-8 shadow-glow">
         <p className="text-sm uppercase tracking-[0.38em] text-sky-300">Access</p>
         <h2 className="mt-3 font-display text-3xl font-semibold text-white">Sign in to your forge</h2>
         <p className="mt-2 text-sm text-slate-400">Pick up where your active campaigns left off.</p>

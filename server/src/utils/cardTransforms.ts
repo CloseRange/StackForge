@@ -7,7 +7,7 @@ export const toCardPriority = (value: CardPriorityValue) => value.toUpperCase();
 export const toCardDifficulty = (value: CardDifficultyValue) => value.toUpperCase();
 
 const difficultyXpMap: Record<CardDifficultyValue, number> = {
-  easy: 25,
+  easy: 20,
   medium: 50,
   hard: 100,
   epic: 200
@@ -52,6 +52,7 @@ export const serializeDeck = (deck: SFDeckRow) => ({
   allowAssignment: deck.allow_assignment,
   isSystem: deck.is_system,
   systemKey: deck.system_key,
+  xpPayout: deck.xp_payout ?? 0,
   sortOrder: deck.sort_order,
   createdAt: deck.created_at,
   updatedAt: deck.updated_at

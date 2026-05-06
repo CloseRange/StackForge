@@ -27,6 +27,7 @@ type DeckCard = {
   allowAssignment: boolean;
   isSystem: boolean;
   systemKey: string | null;
+  xpPayout: number;
 };
 
 const COLOR_OPTIONS: Array<{
@@ -82,7 +83,8 @@ const toDeckCard = (deck: Deck): DeckCard => ({
   isAccessible: deck.isAccessible,
   allowAssignment: deck.allowAssignment,
   isSystem: deck.isSystem,
-  systemKey: deck.systemKey ?? null
+  systemKey: deck.systemKey ?? null,
+  xpPayout: deck.xpPayout ?? 0
 });
 
 const cardBelongsToDeck = (card: Card, deck: DeckCard) => {
@@ -123,6 +125,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const [newDeckColor, setNewDeckColor] = useState<Exclude<DeckColor, "emerald">>("teal");
   const [newDeckIsAccessible, setNewDeckIsAccessible] = useState(true);
   const [newDeckCompletionTargetId, setNewDeckCompletionTargetId] = useState("");
+  const [newDeckXpPayout, setNewDeckXpPayout] = useState(0);
   const [isCreatingDeck, setIsCreatingDeck] = useState(false);
   const [isEditDeckModalOpen, setIsEditDeckModalOpen] = useState(false);
   const [editDeckName, setEditDeckName] = useState("");
@@ -131,6 +134,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const [editDeckColor, setEditDeckColor] = useState<Exclude<DeckColor, "emerald">>("teal");
   const [editDeckIsAccessible, setEditDeckIsAccessible] = useState(true);
   const [editDeckCompletionTargetId, setEditDeckCompletionTargetId] = useState("");
+  const [editDeckXpPayout, setEditDeckXpPayout] = useState(0);
   const [isUpdatingDeck, setIsUpdatingDeck] = useState(false);
   const [isDeletingDeck, setIsDeletingDeck] = useState(false);
   const [deckQuickTitle, setDeckQuickTitle] = useState("");
@@ -267,6 +271,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     setNewDeckColor("teal");
     setNewDeckIsAccessible(true);
     setNewDeckCompletionTargetId(completedDeckId);
+    setNewDeckXpPayout(0);
   };
 
   const openEditDeckModal = () => {
@@ -280,6 +285,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     setEditDeckColor(activeDeck.color === "emerald" ? "teal" : activeDeck.color);
     setEditDeckIsAccessible(activeDeck.isAccessible);
     setEditDeckCompletionTargetId(activeDeck.completionTargetDeckId);
+    setEditDeckXpPayout(activeDeck.xpPayout);
     setIsEditDeckModalOpen(true);
   };
 
@@ -290,6 +296,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     setEditDeckColor("teal");
     setEditDeckIsAccessible(true);
     setEditDeckCompletionTargetId("");
+    setEditDeckXpPayout(0);
   };
 
   const handleCreateDeck = async () => {
@@ -308,7 +315,8 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
         icon: newDeckIcon.trim(),
         color: newDeckColor,
         isAccessible: newDeckIsAccessible,
-        allowAssignment: newDeckIsAccessible
+        allowAssignment: newDeckIsAccessible,
+        xpPayout: newDeckXpPayout
       });
 
       setActiveDeckId(deck.id);
@@ -377,7 +385,8 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
         icon: editDeckIcon.trim(),
         color: editDeckColor,
         isAccessible: editDeckIsAccessible,
-        allowAssignment: editDeckIsAccessible
+        allowAssignment: editDeckIsAccessible,
+        xpPayout: editDeckXpPayout
       });
 
       setIsEditDeckModalOpen(false);
@@ -440,6 +449,21 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
 
   const totalXp = cards.reduce((sum, c) => sum + (c.xpValue ?? 0), 0);
 
+  const deckPayoutMap = useMemo(() => {
+    const map = new Map<string, number>();
+    decks.forEach((deck) => map.set(deck.id, deck.xpPayout ?? 0));
+    return map;
+  }, [decks]);
+
+  const earnedXp = useMemo(
+    () =>
+      cards.reduce((sum, c) => {
+        const payout = deckPayoutMap.get(c.deckId) ?? 0;
+        return sum + Math.round((c.xpValue ?? 0) * payout / 100);
+      }, 0),
+    [cards, deckPayoutMap]
+  );
+
   const handleTabChange = (nextTab: ProjectTab) => {
     if (nextTab === "board") {
       navigate("/board");
@@ -455,8 +479,8 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
         <Header
           variant="project"
           projectName={activeProject.name}
-          xp={totalXp}
-          xpMax={Math.max(totalXp + 500, 2000)}
+          xp={earnedXp}
+          xpMax={totalXp || 1}
           activeTab={tab}
           onTabChange={handleTabChange}
         />
@@ -695,7 +719,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                       </div>
 
                       {sortedActiveDeckCards.length === 0 ? (
-                        <p className="rounded-xl border border-dashed border-white/10 bg-slate-950/40 px-4 py-6 text-sm text-slate-500">
+                        <p className="rounded-xl border border-dashed border-white/15 bg-slate-800/30 px-4 py-6 text-sm text-slate-500">
                           No cards in this deck yet.
                         </p>
                       ) : (
@@ -703,7 +727,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                           {sortedActiveDeckCards.map((card) => (
                             <div
                               key={card.id}
-                              className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 md:flex-row md:items-center md:justify-between"
+                              className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 md:flex-row md:items-center md:justify-between"
                             >
                               <div className="min-w-0">
                                 <p className="truncate text-sm font-semibold text-white">{card.title}</p>
@@ -747,7 +771,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
             ) : null}
 
             {tab === "activity" ? (
-              <div className="flex min-h-[22rem] items-center justify-center rounded-[1.5rem] border border-dashed border-white/10 bg-slate-950/30 text-center">
+              <div className="flex min-h-[22rem] items-center justify-center rounded-[1.5rem] border border-dashed border-white/15 bg-slate-800/20 text-center">
                 <div>
                   <h2 className="font-display text-2xl font-semibold text-white">Activity stream coming next</h2>
                   <p className="mt-2 text-sm text-slate-400">
@@ -783,7 +807,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
             />
           </>
         ) : (
-          <div className="flex min-h-[28rem] items-center justify-center rounded-[2rem] border border-dashed border-white/10 bg-slate-950/30 text-center">
+          <div className="flex min-h-[28rem] items-center justify-center rounded-[2rem] border border-dashed border-white/15 bg-slate-800/20 text-center">
             <div>
               <h2 className="font-display text-2xl font-semibold text-white">Pick a project first</h2>
               <p className="mt-2 max-w-md text-sm text-slate-400">
@@ -883,6 +907,27 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                   }`}
                 >
                   {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm text-slate-300">XP Payout</p>
+            <p className="mt-0.5 text-xs text-slate-400">Percentage of a card's XP counted toward project progress when the card sits in this deck.</p>
+            <div className="mt-2 grid grid-cols-5 gap-2">
+              {([0, 25, 50, 75, 100] as const).map((pct) => (
+                <button
+                  key={pct}
+                  type="button"
+                  onClick={() => setNewDeckXpPayout(pct)}
+                  className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+                    newDeckXpPayout === pct
+                      ? "border-amber-300/60 bg-amber-400/20 text-amber-100 ring-2 ring-amber-300/40"
+                      : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
+                  }`}
+                >
+                  {pct}%
                 </button>
               ))}
             </div>
@@ -994,6 +1039,27 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                   }`}
                 >
                   {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm text-slate-300">XP Payout</p>
+            <p className="mt-0.5 text-xs text-slate-400">Percentage of a card's XP counted toward project progress when the card sits in this deck.</p>
+            <div className="mt-2 grid grid-cols-5 gap-2">
+              {([0, 25, 50, 75, 100] as const).map((pct) => (
+                <button
+                  key={pct}
+                  type="button"
+                  onClick={() => setEditDeckXpPayout(pct)}
+                  className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+                    editDeckXpPayout === pct
+                      ? "border-amber-300/60 bg-amber-400/20 text-amber-100 ring-2 ring-amber-300/40"
+                      : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
+                  }`}
+                >
+                  {pct}%
                 </button>
               ))}
             </div>

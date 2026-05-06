@@ -23,7 +23,7 @@ export const TaskCard = ({ card, onSelect }: TaskCardProps) => {
       ref={setNodeRef}
       type="button"
       onClick={() => onSelect(card)}
-      className={`group w-full rounded-3xl border bg-slate-950/80 p-4 text-left shadow-xl transition hover:-translate-y-0.5 ${rarityClasses[card.priority]} ${isDragging ? "opacity-70" : "opacity-100"}`}
+      className={`group w-full rounded-3xl border bg-slate-900/60 p-4 text-left shadow-xl transition hover:-translate-y-0.5 ${rarityClasses[card.priority]} ${isDragging ? "opacity-70" : "opacity-100"}`}
       style={{
         transform: CSS.Translate.toString(transform)
       }}
@@ -42,7 +42,7 @@ export const TaskCard = ({ card, onSelect }: TaskCardProps) => {
       </div>
       <div>
         <h3 className="font-display text-lg font-semibold text-white">{card.title}</h3>
-        <p className="mt-2 line-clamp-3 text-sm text-slate-400">{card.description || "No description yet."}</p>
+        <p className="mt-2 line-clamp-3 text-sm text-slate-300">{card.description || "No description yet."}</p>
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         {card.tags.map((tag) => (
@@ -52,7 +52,7 @@ export const TaskCard = ({ card, onSelect }: TaskCardProps) => {
         ))}
       </div>
       <div className="mt-5 flex items-center justify-between">
-        <div className="text-xs text-slate-500">Difficulty {formatDifficulty(card.difficulty)}</div>
+        <div className="text-xs text-slate-400">Difficulty {formatDifficulty(card.difficulty)}</div>
         <div className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm font-semibold text-white">
             {assigneeInitial}

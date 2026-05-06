@@ -3,8 +3,8 @@ export default {
     theme: {
         extend: {
             colors: {
-                panel: "#11161f",
-                ink: "#d9e4f4",
+                panel: "#1a2540",
+                ink: "#e2eaf6",
                 ember: "#f97316",
                 moss: "#34d399",
                 steel: "#7dd3fc"

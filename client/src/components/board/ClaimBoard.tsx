@@ -147,19 +147,19 @@ const BoardSlot = ({ id, index, children }: { id: string; index: number; childre
       className={`relative w-full max-w-[9rem] sm:max-w-[9.5rem] lg:max-w-[10rem] aspect-[2/3] rounded-[1.5rem] border border-dashed p-1 transition ${
         isOver
           ? "border-sky-300/60 bg-sky-500/12 shadow-[0_0_0_1px_rgba(125,211,252,0.2)]"
-          : "border-white/8 bg-white/[0.02]"
+          : "border-white/[0.12] bg-white/[0.02]"
       }`}
     >
       {children ? (
         children
       ) : (
-        <div className="flex h-full flex-col justify-between rounded-[1.2rem] border border-white/5 bg-slate-950/60 px-3 py-3.5">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.45em] text-slate-500">
+        <div className="flex h-full flex-col justify-between rounded-[1.2rem] border border-white/5 bg-slate-800/50 px-3 py-3.5">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.45em] text-slate-400">
             Slot {index + 1}
           </div>
           <div>
             <p className="text-sm font-semibold text-slate-300">Drop A Card</p>
-            <p className="mt-1 text-xs leading-4 text-slate-500">
+            <p className="mt-1 text-xs leading-4 text-slate-400">
               Claim this work onto your board. Claimed cards lock to their current owner.
             </p>
           </div>
@@ -210,7 +210,7 @@ const CardPoolDropZone = ({ children }: { children: ReactNode }) => {
     <div
       ref={setNodeRef}
       className={`rounded-[1.6rem] border p-3 transition ${
-        isOver ? "border-sky-300/45 bg-sky-500/10" : "border-white/8 bg-slate-900/45"
+        isOver ? "border-sky-300/45 bg-sky-500/10" : "border-white/[0.12] bg-slate-900/45"
       }`}
     >
       {children}
@@ -321,13 +321,13 @@ const BoardCard = ({
               : "right-full -translate-x-2 group-hover/card:-translate-x-4"
           }`}
         >
-          <div className="relative z-[80] rounded-[1.25rem] border border-white/10 bg-slate-950/96 p-3 shadow-[0_24px_64px_rgba(2,6,23,0.58)] backdrop-blur-md">
+          <div className="relative z-[80] rounded-[1.25rem] border border-white/10 bg-slate-900/95 p-3 shadow-[0_24px_64px_rgba(2,6,23,0.58)] backdrop-blur-md">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="text-[10px] uppercase tracking-[0.35em] text-slate-500">Details</div>
+                <div className="text-[10px] uppercase tracking-[0.35em] text-slate-400">Details</div>
                 <div className="mt-1.5 text-sm font-semibold text-white">{card.title}</div>
               </div>
-              <Eye className="mt-1 h-4 w-4 text-slate-500" />
+              <Eye className="mt-1 h-4 w-4 text-slate-400" />
             </div>
 
             <p className="mt-2.5 text-xs leading-5 text-slate-300">
@@ -337,12 +337,12 @@ const BoardCard = ({
             <div className="mt-3 flex flex-wrap gap-1.5">
               {card.tags.length > 0 ? (
                 card.tags.map((tag) => (
-                  <span key={tag} className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-slate-300">
+                  <span key={tag} className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[11px] text-slate-300">
                     #{tag}
                   </span>
                 ))
               ) : (
-                <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-slate-500">
+                <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[11px] text-slate-400">
                   No tags yet
                 </span>
               )}
@@ -521,7 +521,7 @@ export const ClaimBoard = ({
       }}
     >
       <div className={`space-y-4 overflow-x-hidden ${activeDragId ? "overflow-y-hidden" : ""}`}>
-        <section className="rounded-[1.6rem] border border-white/8 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.16),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(16,185,129,0.12),_transparent_28%),linear-gradient(180deg,rgba(15,23,42,0.92),rgba(2,6,23,0.96))] p-4 md:p-4.5">
+        <section className="rounded-[1.6rem] border border-white/[0.12] bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.16),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(16,185,129,0.12),_transparent_28%),linear-gradient(180deg,rgba(15,23,42,0.92),rgba(2,6,23,0.96))] p-4 md:p-4.5">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.4em] text-sky-300">Your Playmat</p>
@@ -533,8 +533,8 @@ export const ClaimBoard = ({
             </div>
 
             <div className="flex flex-wrap gap-2.5">
-              <div className="rounded-xl border border-white/8 bg-white/[0.04] px-3 py-2.5">
-                <div className="text-[10px] uppercase tracking-[0.35em] text-slate-500">Active</div>
+              <div className="rounded-xl border border-white/[0.12] bg-white/[0.04] px-3 py-2.5">
+                <div className="text-[10px] uppercase tracking-[0.35em] text-slate-400">Active</div>
                 <div className="mt-1 text-xl font-semibold text-white">{occupiedBoardSlots}/{BOARD_SLOT_COUNT}</div>
               </div>
               <Button onClick={onCreateCard} className="gap-2 self-start">
@@ -588,23 +588,23 @@ export const ClaimBoard = ({
         <CardPoolDropZone>
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.38em] text-slate-500">Card Library</p>
+              <p className="text-xs uppercase tracking-[0.38em] text-slate-400">Card Library</p>
               <h3 className="mt-1.5 font-display text-xl font-semibold text-white">Every card in the project</h3>
               <p className="mt-1.5 max-w-2xl text-sm leading-5 text-slate-400">
                 Unclaimed cards can be dragged onto your board. Cards already claimed by another user stay visible
                 here, but they are locked until released by their owner.
               </p>
             </div>
-            <div className="flex items-center gap-2.5 rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2.5 text-sm text-slate-300">
+            <div className="flex items-center gap-2.5 rounded-xl border border-white/[0.12] bg-white/[0.06] px-3 py-2.5 text-sm text-slate-300">
               <Zap className="h-4 w-4 text-amber-300" />
               Drop one of your claimed cards back here to release it.
             </div>
           </div>
 
           {sortedPoolCards.length === 0 ? (
-            <div className="mt-4 rounded-[1.25rem] border border-dashed border-white/8 bg-slate-950/40 px-4 py-8 text-center">
+            <div className="mt-4 rounded-[1.25rem] border border-dashed border-white/[0.12] bg-slate-800/30 px-4 py-8 text-center">
               <div className="font-semibold text-white">No cards yet</div>
-              <p className="mt-2 text-sm text-slate-500">Forge the first card to populate the shared library.</p>
+              <p className="mt-2 text-sm text-slate-400">Forge the first card to populate the shared library.</p>
             </div>
           ) : (
             <div className="mt-4 grid justify-center gap-2 [grid-template-columns:repeat(auto-fill,minmax(8.5rem,8.5rem))] sm:[grid-template-columns:repeat(auto-fill,minmax(9.25rem,9.25rem))] lg:[grid-template-columns:repeat(auto-fill,minmax(9.75rem,9.75rem))]">

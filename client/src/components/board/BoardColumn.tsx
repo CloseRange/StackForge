@@ -19,11 +19,11 @@ export const BoardColumn = ({ columnId, cards, onCreateCard, onSelectCard }: Boa
   return (
     <section
       ref={setNodeRef}
-      className={`flex min-h-[32rem] min-w-[18rem] flex-1 flex-col rounded-[2rem] border border-white/8 bg-slate-900/70 p-4 transition ${isOver ? "border-sky-300/40 bg-slate-900" : ""}`}
+      className={`flex min-h-[32rem] min-w-[18rem] flex-1 flex-col rounded-[2rem] border border-white/[0.12] bg-slate-800/50 p-4 transition ${isOver ? "border-sky-300/50 bg-slate-800/70" : ""}`}
     >
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Column</p>
+          <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Column</p>
           <h2 className="font-display text-xl font-semibold text-white">{columnLabels[columnId]}</h2>
         </div>
         <span className="rounded-full border border-white/10 px-2.5 py-1 text-xs text-slate-300">{cards.length}</span>
@@ -37,7 +37,7 @@ export const BoardColumn = ({ columnId, cards, onCreateCard, onSelectCard }: Boa
           <TaskCard key={card.id} card={card} onSelect={onSelectCard} />
         ))}
         {cards.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center rounded-3xl border border-dashed border-white/10 bg-slate-950/40 px-4 text-center text-sm text-slate-500">
+          <div className="flex flex-1 items-center justify-center rounded-3xl border border-dashed border-white/15 bg-slate-800/30 px-4 text-center text-sm text-slate-400">
             Drop a card here or create a new one.
           </div>
         ) : null}

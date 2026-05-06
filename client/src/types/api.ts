@@ -57,6 +57,7 @@ export type Deck = {
   allowAssignment: boolean;
   isSystem: boolean;
   systemKey?: string | null;
+  xpPayout: number;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -96,6 +97,7 @@ export type CreateDeckInput = {
   color: Exclude<DeckColor, "emerald">;
   isAccessible?: boolean;
   allowAssignment?: boolean;
+  xpPayout?: number;
 };
 
 export type UpdateDeckInput = Partial<Omit<CreateDeckInput, "projectId">>;

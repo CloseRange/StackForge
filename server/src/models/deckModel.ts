@@ -11,6 +11,7 @@ export type SFDeckRow = {
   allow_assignment: boolean;
   is_system: boolean;
   system_key: string | null;
+  xp_payout: number;
   sort_order: number;
   created_at: string;
   updated_at: string;

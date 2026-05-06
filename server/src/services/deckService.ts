@@ -138,6 +138,7 @@ export const deckService = {
         color: input.color,
         is_accessible: input.isAccessible,
         allow_assignment: input.allowAssignment,
+        xp_payout: input.xpPayout ?? 0,
         is_system: false,
         sort_order: nextSortOrder
       })
@@ -201,6 +202,10 @@ export const deckService = {
 
     if (input.allowAssignment !== undefined) {
       updateFields["allow_assignment"] = input.allowAssignment;
+    }
+
+    if (input.xpPayout !== undefined) {
+      updateFields["xp_payout"] = input.xpPayout;
     }
 
     if (input.completionTargetDeckId !== undefined) {
