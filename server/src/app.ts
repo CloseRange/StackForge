@@ -7,6 +7,7 @@ import { env } from "./config/env.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { authRouter } from "./routes/authRoutes.js";
 import { cardRouter } from "./routes/cardRoutes.js";
+import { deckRouter } from "./routes/deckRoutes.js";
 import { projectRouter } from "./routes/projectRoutes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -37,6 +38,7 @@ app.get("/health", (_request, response) => {
 app.use("/api/auth", authRouter);
 app.use("/api/projects", projectRouter);
 app.use("/api/cards", cardRouter);
+app.use("/api/decks", deckRouter);
 
 // Serve static files (React build)
 app.use(express.static(path.join(__dirname, "../public")));

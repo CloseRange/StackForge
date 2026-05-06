@@ -1,6 +1,7 @@
 import { createContext, startTransition, useEffect, useState, type ReactNode } from "react";
 
 import { authService } from "../services/authService";
+import { AUTH_EXPIRED_EVENT } from "../services/api";
 import type { AuthPayload, User } from "../types/api";
 
 type AuthContextValue = {
@@ -45,6 +46,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(storedAuth?.user ?? null);
       setIsLoading(false);
     });
+  }, []);
+
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      startTransition(() => {
+        setToken(null);
+        setUser(null);
+      });
+    };
+
+    window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+    return () => {
+      window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+    };
   }, []);
 
   const persistAuth = (payload: AuthPayload) => {

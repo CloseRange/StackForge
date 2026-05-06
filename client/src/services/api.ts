@@ -1,4 +1,5 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? "/api";
+export const AUTH_EXPIRED_EVENT = "stackforge-auth-expired";
 
 type RequestOptions = {
   method?: string;
@@ -34,6 +35,13 @@ export const request = async <T>(path: string, options: RequestOptions = {}) => 
 
   if (!response.ok) {
     const message = payload.message ?? "Request failed";
+
+    // If the backend rejects our bearer token, immediately drop local auth state.
+    if (response.status === 401 && options.token) {
+      localStorage.removeItem("stackforge-auth");
+      window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+    }
+
     throw new ApiError(message, response.status);
   }
 

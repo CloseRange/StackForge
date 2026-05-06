@@ -30,6 +30,25 @@ const ensureProjectAccess = async (projectId: string, userId: string) => {
   }
 };
 
+const ensureDeckForProject = async (deckId: string | null | undefined, projectId: string) => {
+  if (!deckId) {
+    return null;
+  }
+
+  const { data } = await supabaseAdmin
+    .from("sf_decks")
+    .select("id")
+    .eq("id", deckId)
+    .eq("project_id", projectId)
+    .single();
+
+  if (!data) {
+    throw new AppError("Deck not found for this project", 400);
+  }
+
+  return deckId;
+};
+
 const fetchCardForUser = async (cardId: string, userId: string) => {
   const { data: card } = await supabaseAdmin
     .from("sf_cards")
@@ -83,6 +102,20 @@ const fetchCardById = async (cardId: string) => {
   return data as SFCardWithChecklist;
 };
 
+const ensureCardClaimIsMutable = (
+  card: SFCardWithChecklist,
+  userId: string,
+  options: { isChangingStatus?: boolean; isChangingAssignee?: boolean }
+) => {
+  if (!card.assignee_id || card.assignee_id === userId) {
+    return;
+  }
+
+  if (options.isChangingStatus || options.isChangingAssignee) {
+    throw new AppError("This card is already claimed on another board", 409);
+  }
+};
+
 const replaceChecklist = async (
   cardId: string,
   items: { label: string; completed: boolean }[]
@@ -123,6 +156,7 @@ export const cardService = {
     const input = createCardSchema.parse(payload);
     await ensureProjectAccess(input.projectId, userId);
     const assigneeId = await ensureAssignee(input.assigneeId);
+    const deckId = await ensureDeckForProject(input.deckId, input.projectId);
 
     const { data: card, error } = await supabaseAdmin
       .from("sf_cards")
@@ -136,6 +170,7 @@ export const cardService = {
         status: toCardStatus(input.status),
         assignee_id: assigneeId,
         project_id: input.projectId,
+        deck_id: deckId,
         tags: input.tags
       })
       .select("id")
@@ -154,7 +189,12 @@ export const cardService = {
 
   async update(cardId: string, userId: string, payload: unknown) {
     const input = updateCardSchema.parse(payload);
-    await fetchCardForUser(cardId, userId);
+    const existingCard = await fetchCardForUser(cardId, userId);
+
+    ensureCardClaimIsMutable(existingCard, userId, {
+      isChangingStatus: input.status !== undefined,
+      isChangingAssignee: input.assigneeId !== undefined
+    });
 
     const updateFields: Record<string, unknown> = {};
     if (input.title !== undefined) updateFields["title"] = input.title;
@@ -168,6 +208,9 @@ export const cardService = {
     if (input.tags !== undefined) updateFields["tags"] = input.tags;
     if (input.assigneeId !== undefined) {
       updateFields["assignee_id"] = await ensureAssignee(input.assigneeId);
+    }
+    if (input.deckId !== undefined) {
+      updateFields["deck_id"] = await ensureDeckForProject(input.deckId, existingCard.project_id);
     }
 
     if (Object.keys(updateFields).length > 0) {
@@ -190,7 +233,9 @@ export const cardService = {
 
   async move(cardId: string, userId: string, payload: unknown) {
     const input = moveCardSchema.parse(payload);
-    await fetchCardForUser(cardId, userId);
+    const existingCard = await fetchCardForUser(cardId, userId);
+
+    ensureCardClaimIsMutable(existingCard, userId, { isChangingStatus: true });
 
     const { error } = await supabaseAdmin
       .from("sf_cards")
@@ -206,7 +251,9 @@ export const cardService = {
 
   async assign(cardId: string, userId: string, payload: unknown) {
     const input = assignCardSchema.parse(payload);
-    await fetchCardForUser(cardId, userId);
+    const existingCard = await fetchCardForUser(cardId, userId);
+
+    ensureCardClaimIsMutable(existingCard, userId, { isChangingAssignee: true });
 
     const { error } = await supabaseAdmin
       .from("sf_cards")

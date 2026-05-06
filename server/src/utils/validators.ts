@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { cardPriorities, cardStatuses, cardTypes } from "../types/cards.js";
+import { deckColors } from "../types/decks.js";
 
 const checklistItemSchema = z.object({
   label: z.string().min(1).max(120),
@@ -37,6 +38,7 @@ export const createCardSchema = z.object({
   xpValue: z.number().int().min(1).optional(),
   status: z.enum(cardStatuses).default("deck"),
   assigneeId: z.string().uuid().optional().nullable(),
+  deckId: z.string().uuid().optional().nullable(),
   projectId: z.string().uuid(),
   tags: z.array(z.string().min(1).max(24)).max(10).default([]),
   checklist: z.array(checklistItemSchema).max(15).default([])
@@ -54,3 +56,16 @@ export const moveCardSchema = z.object({
 export const assignCardSchema = z.object({
   assigneeId: z.string().uuid().nullable()
 });
+
+export const createDeckSchema = z.object({
+  projectId: z.string().uuid(),
+  name: z.string().min(2).max(80),
+  description: z.string().max(240).optional().or(z.literal("")),
+  icon: z.string().max(64).optional().or(z.literal("")),
+  color: z.enum(deckColors).default("teal")
+});
+
+export const updateDeckSchema = createDeckSchema
+  .omit({ projectId: true })
+  .partial()
+  .refine((data) => Object.keys(data).length > 0, "At least one deck field must be provided");

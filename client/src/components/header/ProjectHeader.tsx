@@ -32,7 +32,7 @@ export const ProjectHeader = ({
     <div className="mx-auto flex h-14 max-w-[1600px] items-center justify-between px-6">
       {/* Left — logo + project name */}
       <div className="flex items-center gap-3">
-        <Logo href="/dashboard" />
+        <Logo href="/" />
         <span className="hidden text-slate-600 sm:block">/</span>
         <span className="hidden max-w-48 truncate text-sm font-semibold text-white sm:block">
           {projectName}
@@ -40,16 +40,16 @@ export const ProjectHeader = ({
       </div>
 
       {/* Center — tabs */}
-      <nav className="flex items-center gap-0.5 rounded-xl border border-white/8 bg-white/[0.03] p-1">
+      <nav className="flex items-center gap-2">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => onTabChange?.(tab.id)}
-            className={`rounded-lg px-4 py-1.5 text-sm font-medium transition ${
+            className={`rounded-xl border px-4 py-1.5 text-sm font-semibold transition ${
               activeTab === tab.id
-                ? "bg-white/10 text-white shadow-sm"
-                : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                ? "border-sky-300/35 bg-sky-500/15 text-sky-100"
+                : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20 hover:bg-white/10 hover:text-white"
             }`}
           >
             {tab.label}

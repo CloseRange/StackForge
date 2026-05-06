@@ -36,9 +36,27 @@ export type Card = {
   xpValue: number;
   status: CardStatus;
   assigneeId?: string | null;
+  deckId?: string | null;
   projectId: string;
   tags: string[];
   checklist: ChecklistItem[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DeckColor = "teal" | "cyan" | "amber" | "rose" | "indigo" | "emerald";
+
+export type Deck = {
+  id: string;
+  projectId: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  icon?: string | null;
+  color: DeckColor;
+  isSystem: boolean;
+  systemKey?: string | null;
+  sortOrder: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -62,9 +80,20 @@ export type CreateCardInput = {
   xpValue?: number;
   status: CardStatus;
   assigneeId?: string | null;
+  deckId?: string | null;
   projectId: string;
   tags: string[];
   checklist: ChecklistItem[];
 };
 
 export type UpdateCardInput = Partial<Omit<CreateCardInput, "projectId">>;
+
+export type CreateDeckInput = {
+  projectId: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  color: Exclude<DeckColor, "emerald">;
+};
+
+export type UpdateDeckInput = Partial<Omit<CreateDeckInput, "projectId">>;

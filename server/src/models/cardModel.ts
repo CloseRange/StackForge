@@ -18,6 +18,7 @@ export type SFCardRow = {
   xp_value: number;
   status: string;
   assignee_id: string | null;
+  deck_id: string | null;
   project_id: string;
   tags: string[];
   created_at: string;

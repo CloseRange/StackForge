@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Bug, Layers3, Plus, PlusCircle, Sparkles, Trophy } from "lucide-react";
+import { ArrowLeft, Bug, Layers3, PlusCircle, Sparkles, Trophy } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-import { BoardView } from "../components/board/BoardView";
+import { ClaimBoard } from "../components/board/ClaimBoard";
 import { CardEditorModal } from "../components/cards/CardEditorModal";
 import { Header } from "../components/header/Header";
 import { Button } from "../components/ui/Button";
@@ -9,33 +10,27 @@ import { Modal } from "../components/ui/Modal";
 import { useAuth } from "../hooks/useAuth";
 import { useBoardStore } from "../hooks/useBoardStore";
 import { DashboardLayout } from "../layouts/DashboardLayout";
-import type { Card, CardStatus } from "../types/api";
+import type { Card, CardStatus, Deck, DeckColor } from "../types/api";
 
 type ProjectTab = "board" | "decks" | "activity";
-
-type DeckColor = "teal" | "cyan" | "amber" | "rose" | "indigo";
-
-type CustomDeck = {
-  id: string;
-  label: string;
-  description: string;
-  icon: string;
-  color: DeckColor;
-};
 
 type DeckCard = {
   id: string;
   label: string;
   description: string;
   icon: "debug" | "completed" | "custom";
-  color: DeckColor | "debug" | "completed";
+  iconValue: string;
+  color: DeckColor;
   colorClass: string;
+  isSystem: boolean;
+  systemKey: string | null;
 };
 
-const CUSTOM_DECK_PREFIX = "deck:";
-const FIXED_DECK_IDS = ["debug", "completed"] as const;
-
-const COLOR_OPTIONS: Array<{ value: DeckColor; label: string; className: string }> = [
+const COLOR_OPTIONS: Array<{
+  value: Exclude<DeckColor, "emerald">;
+  label: string;
+  className: string;
+}> = [
   {
     value: "teal",
     label: "Teal",
@@ -69,22 +64,8 @@ const priorityMap = {
   high: "rare"
 } as const;
 
-const toDeckId = (value: string) =>
-  value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-
-const toDeckLabel = (id: string) => id.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-
-const getDeckColorClass = (color: DeckColor | "debug" | "completed") => {
-  if (color === "debug") {
-    return "border-rose-300/30 bg-rose-500/10 text-rose-100";
-  }
-
-  if (color === "completed") {
+const getDeckColorClass = (color: DeckColor) => {
+  if (color === "emerald") {
     return "border-emerald-300/30 bg-emerald-500/10 text-emerald-100";
   }
 
@@ -92,49 +73,84 @@ const getDeckColorClass = (color: DeckColor | "debug" | "completed") => {
   return option?.className ?? "border-teal-300/30 bg-teal-500/10 text-teal-100";
 };
 
-export const BoardPage = () => {
+const toDeckCard = (deck: Deck): DeckCard => ({
+  id: deck.id,
+  label: deck.name,
+  description: deck.description || "Custom deck",
+  icon: deck.systemKey === "DEBUG" ? "debug" : deck.systemKey === "COMPLETED" ? "completed" : "custom",
+  iconValue: deck.icon || "",
+  color: deck.color,
+  colorClass: getDeckColorClass(deck.color),
+  isSystem: deck.isSystem,
+  systemKey: deck.systemKey ?? null
+});
+
+const cardBelongsToDeck = (card: Card, deck: DeckCard) => {
+  if (card.deckId === deck.id) {
+    return true;
+  }
+
+  if (card.deckId) {
+    return false;
+  }
+
+  if (deck.systemKey === "COMPLETED") {
+    return card.status === "completed";
+  }
+
+  if (deck.systemKey === "DEBUG") {
+    return card.type === "bug" && card.status !== "completed";
+  }
+
+  return false;
+};
+
+export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
+  const navigate = useNavigate();
   const { token, user } = useAuth();
   const {
     projects,
     cards,
+    decks,
     selectedProjectId,
-    isLoadingProjects,
     isLoadingCards,
+    isLoadingDecks,
     error,
-    selectProject,
     clearError,
     loadProjects,
-    createProject,
     loadCards,
+    loadDecks,
     createCard,
+    createDeck,
+    updateDeck,
+    removeDeck,
     updateCard,
-    moveCard
   } = useBoardStore();
-
-  const [projectName, setProjectName] = useState("");
-  const [projectDescription, setProjectDescription] = useState("");
-  const [isCreatingProject, setIsCreatingProject] = useState(false);
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<Card | null>(null);
   const [draftStatus, setDraftStatus] = useState<CardStatus>("deck");
 
-  const [activeTab, setActiveTab] = useState<ProjectTab>("board");
   const [activeDeckId, setActiveDeckId] = useState<string | null>(null);
   const [isCreateDeckModalOpen, setIsCreateDeckModalOpen] = useState(false);
   const [newDeckName, setNewDeckName] = useState("");
   const [newDeckDescription, setNewDeckDescription] = useState("");
   const [newDeckIcon, setNewDeckIcon] = useState("");
-  const [newDeckColor, setNewDeckColor] = useState<DeckColor>("teal");
-  const [customDecks, setCustomDecks] = useState<CustomDeck[]>([]);
+  const [newDeckColor, setNewDeckColor] = useState<Exclude<DeckColor, "emerald">>("teal");
+  const [isCreatingDeck, setIsCreatingDeck] = useState(false);
+  const [isEditDeckModalOpen, setIsEditDeckModalOpen] = useState(false);
+  const [editDeckName, setEditDeckName] = useState("");
+  const [editDeckDescription, setEditDeckDescription] = useState("");
+  const [editDeckIcon, setEditDeckIcon] = useState("");
+  const [editDeckColor, setEditDeckColor] = useState<Exclude<DeckColor, "emerald">>("teal");
+  const [isUpdatingDeck, setIsUpdatingDeck] = useState(false);
+  const [isDeletingDeck, setIsDeletingDeck] = useState(false);
   const [deckQuickTitle, setDeckQuickTitle] = useState("");
   const [deckQuickPriority, setDeckQuickPriority] = useState<"low" | "medium" | "high">("medium");
   const [isDeckQuickAdding, setIsDeckQuickAdding] = useState(false);
   const [isDeckQuickAddOpen, setIsDeckQuickAddOpen] = useState(false);
 
   const deckQuickTitleRef = useRef<HTMLInputElement>(null);
-
-  const createFormRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!token) {
@@ -149,60 +165,15 @@ export const BoardPage = () => {
       return;
     }
 
-    void loadCards(token, selectedProjectId);
-  }, [loadCards, selectedProjectId, token]);
+    void Promise.all([loadCards(token, selectedProjectId), loadDecks(token, selectedProjectId)]);
+  }, [loadCards, loadDecks, selectedProjectId, token]);
 
   useEffect(() => {
-    setActiveTab("board");
     setActiveDeckId(null);
     setIsDeckQuickAddOpen(false);
     setDeckQuickTitle("");
     setDeckQuickPriority("medium");
   }, [selectedProjectId]);
-
-  useEffect(() => {
-    if (!selectedProjectId) {
-      setCustomDecks([]);
-      setActiveDeckId(null);
-      return;
-    }
-
-    const storageKey = `stackforge-decks:${selectedProjectId}`;
-    const raw = localStorage.getItem(storageKey);
-
-    if (!raw) {
-      setCustomDecks([]);
-      setActiveDeckId(null);
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(raw) as CustomDeck[];
-      const sanitized = parsed
-        .filter((deck) => deck.id && deck.label && !["bugs", "debug", "completed"].includes(deck.id))
-        .map((deck) => ({
-          id: deck.id,
-          label: deck.label,
-          description: deck.description ?? "",
-          icon: deck.icon ?? "",
-          color: deck.color ?? "teal"
-        }));
-      setCustomDecks(sanitized);
-      setActiveDeckId(null);
-    } catch {
-      setCustomDecks([]);
-      setActiveDeckId(null);
-    }
-  }, [selectedProjectId]);
-
-  useEffect(() => {
-    if (!selectedProjectId) {
-      return;
-    }
-
-    const storageKey = `stackforge-decks:${selectedProjectId}`;
-    localStorage.setItem(storageKey, JSON.stringify(customDecks));
-  }, [customDecks, selectedProjectId]);
 
   const activeProject = projects.find((project) => project.id === selectedProjectId) ?? null;
 
@@ -212,89 +183,7 @@ export const BoardPage = () => {
     setIsEditorOpen(true);
   };
 
-  const handleCreateProject = async () => {
-    if (!token || !projectName.trim()) {
-      return;
-    }
-
-    setIsCreatingProject(true);
-
-    try {
-      const project = await createProject(token, {
-        name: projectName,
-        description: projectDescription
-      });
-
-      setProjectName("");
-      setProjectDescription("");
-      selectProject(project.id);
-      await loadCards(token, project.id);
-    } finally {
-      setIsCreatingProject(false);
-    }
-  };
-
-  const inferredCustomDecks = useMemo(() => {
-    const ids = new Set<{ id: string; label: string }>();
-
-    cards.forEach((card) => {
-      card.tags.forEach((tag) => {
-        if (tag.startsWith(CUSTOM_DECK_PREFIX)) {
-          const id = tag.slice(CUSTOM_DECK_PREFIX.length).trim();
-          if (id && !["bugs", "debug", "completed"].includes(id)) {
-            ids.add({ id, label: toDeckLabel(id) });
-          }
-        }
-      });
-    });
-
-    return Array.from(ids);
-  }, [cards]);
-
-  const allDecks = useMemo<DeckCard[]>(() => {
-    const customMap = new Map<string, CustomDeck>();
-    customDecks.forEach((deck) => customMap.set(deck.id, deck));
-    inferredCustomDecks.forEach((deck) => {
-      if (!customMap.has(deck.id)) {
-        customMap.set(deck.id, {
-          id: deck.id,
-          label: deck.label,
-          description: "",
-          icon: "",
-          color: "teal"
-        });
-      }
-    });
-
-    const mergedCustom = Array.from(customMap.values()).map((deck) => ({
-      id: deck.id,
-      label: deck.label,
-      description: deck.description || "Custom deck",
-      icon: "custom" as const,
-      color: deck.color,
-      colorClass: getDeckColorClass(deck.color)
-    }));
-
-    return [
-      ...mergedCustom,
-      {
-        id: "debug",
-        label: "Debug",
-        description: "Track defects and unstable behavior",
-        icon: "debug",
-        color: "debug",
-        colorClass: getDeckColorClass("debug")
-      },
-      {
-        id: "completed",
-        label: "Completed",
-        description: "Finished cards and shipped work",
-        icon: "completed",
-        color: "completed",
-        colorClass: getDeckColorClass("completed")
-      }
-    ];
-  }, [customDecks, inferredCustomDecks]);
+  const allDecks = useMemo<DeckCard[]>(() => decks.map(toDeckCard), [decks]);
 
   useEffect(() => {
     if (activeDeckId && !allDecks.some((deck) => deck.id === activeDeckId)) {
@@ -306,18 +195,10 @@ export const BoardPage = () => {
     const counts = new Map<string, number>();
 
     allDecks.forEach((deck) => {
-      if (deck.id === "debug") {
-        counts.set(deck.id, cards.filter((card) => card.type === "bug").length);
-        return;
-      }
-
-      if (deck.id === "completed") {
-        counts.set(deck.id, cards.filter((card) => card.status === "completed").length);
-        return;
-      }
-
-      const targetTag = `${CUSTOM_DECK_PREFIX}${deck.id}`;
-      counts.set(deck.id, cards.filter((card) => card.tags.includes(targetTag)).length);
+      counts.set(
+        deck.id,
+        cards.reduce((sum, card) => (cardBelongsToDeck(card, deck) ? sum + 1 : sum), 0)
+      );
     });
 
     return counts;
@@ -336,16 +217,7 @@ export const BoardPage = () => {
       return [];
     }
 
-    if (activeDeck.id === "debug") {
-      return cards.filter((card) => card.type === "bug");
-    }
-
-    if (activeDeck.id === "completed") {
-      return cards.filter((card) => card.status === "completed");
-    }
-
-    const targetTag = `${CUSTOM_DECK_PREFIX}${activeDeck.id}`;
-    return cards.filter((card) => card.tags.includes(targetTag));
+    return cards.filter((card) => cardBelongsToDeck(card, activeDeck));
   }, [activeDeck, cards]);
 
   const sortedActiveDeckCards = useMemo(
@@ -363,36 +235,47 @@ export const BoardPage = () => {
     setNewDeckColor("teal");
   };
 
-  const handleCreateDeck = () => {
-    const trimmed = newDeckName.trim();
-    const id = toDeckId(trimmed);
-
-    if (!trimmed || !id || FIXED_DECK_IDS.includes(id as (typeof FIXED_DECK_IDS)[number])) {
+  const openEditDeckModal = () => {
+    if (!activeDeck || activeDeck.isSystem) {
       return;
     }
 
-    const exists = allDecks.some((deck) => deck.id === id);
-    if (exists) {
-      setActiveDeckId(id);
-      setIsCreateDeckModalOpen(false);
-      resetDeckModalForm();
+    setEditDeckName(activeDeck.label);
+    setEditDeckDescription(activeDeck.description || "");
+    setEditDeckIcon(activeDeck.iconValue || "");
+    setEditDeckColor(activeDeck.color === "emerald" ? "teal" : activeDeck.color);
+    setIsEditDeckModalOpen(true);
+  };
+
+  const resetEditDeckModalForm = () => {
+    setEditDeckName("");
+    setEditDeckDescription("");
+    setEditDeckIcon("");
+    setEditDeckColor("teal");
+  };
+
+  const handleCreateDeck = async () => {
+    if (!token || !activeProject || !newDeckName.trim()) {
       return;
     }
 
-    setCustomDecks((previous) => [
-      ...previous,
-      {
-        id,
-        label: trimmed,
+    setIsCreatingDeck(true);
+
+    try {
+      const deck = await createDeck(token, {
+        projectId: activeProject.id,
+        name: newDeckName.trim(),
         description: newDeckDescription.trim(),
         icon: newDeckIcon.trim(),
         color: newDeckColor
-      }
-    ]);
+      });
 
-    setActiveDeckId(id);
-    setIsCreateDeckModalOpen(false);
-    resetDeckModalForm();
+      setActiveDeckId(deck.id);
+      setIsCreateDeckModalOpen(false);
+      resetDeckModalForm();
+    } finally {
+      setIsCreatingDeck(false);
+    }
   };
 
   const handleDeckQuickAdd = async () => {
@@ -403,10 +286,8 @@ export const BoardPage = () => {
     setIsDeckQuickAdding(true);
 
     try {
-      const isDebugDeck = activeDeck.id === "debug";
-      const isCompletedDeck = activeDeck.id === "completed";
-      const customDeckTag =
-        !isDebugDeck && !isCompletedDeck ? `${CUSTOM_DECK_PREFIX}${activeDeck.id}` : undefined;
+      const isDebugDeck = activeDeck.systemKey === "DEBUG";
+      const isCompletedDeck = activeDeck.systemKey === "COMPLETED";
 
       await createCard(token, {
         title: deckQuickTitle.trim(),
@@ -416,7 +297,8 @@ export const BoardPage = () => {
         difficulty: 1,
         status: isCompletedDeck ? "completed" : "deck",
         projectId: activeProject.id,
-        tags: customDeckTag ? [customDeckTag] : [],
+        deckId: activeDeck.id,
+        tags: [],
         checklist: []
       });
 
@@ -428,77 +310,67 @@ export const BoardPage = () => {
     }
   };
 
-  const sidebar = (
-    <div className="flex h-full flex-col gap-6">
-      <div>
-        <p className="text-xs uppercase tracking-[0.38em] text-sky-300">Campaigns</p>
-        <h2 className="mt-3 font-display text-2xl font-semibold text-white">Projects as campaigns</h2>
-        <p className="mt-2 text-sm text-slate-400">
-          Create campaigns, then deal cards into the board and push them to victory.
-        </p>
-      </div>
-      <div ref={createFormRef} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-4">
-        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
-          <Plus className="h-4 w-4 text-sky-300" />
-          New Campaign
-        </div>
-        <div className="space-y-3">
-          <input
-            value={projectName}
-            onChange={(event) => setProjectName(event.target.value)}
-            placeholder="StackForge Launch"
-            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none"
-          />
-          <textarea
-            value={projectDescription}
-            onChange={(event) => setProjectDescription(event.target.value)}
-            placeholder="What are we shipping in this campaign?"
-            rows={3}
-            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none"
-          />
-          <Button
-            className="w-full"
-            onClick={() => void handleCreateProject()}
-            disabled={isCreatingProject || !projectName.trim()}
-          >
-            {isCreatingProject ? "Creating..." : "Create Project"}
-          </Button>
-        </div>
-      </div>
-      <div className="flex-1 overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.03] p-4">
-        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
-          <Layers3 className="h-4 w-4 text-amber-300" />
-          Active Campaigns
-        </div>
-        <div className="space-y-2 overflow-y-auto pr-1">
-          {projects.map((project) => (
-            <button
-              key={project.id}
-              type="button"
-              onClick={() => selectProject(project.id)}
-              className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
-                project.id === selectedProjectId
-                  ? "border-sky-300/40 bg-sky-400/10"
-                  : "border-white/8 bg-slate-950/40 hover:bg-white/[0.06]"
-              }`}
-            >
-              <div className="font-semibold text-white">{project.name}</div>
-              <div className="mt-1 text-sm text-slate-400">
-                {project.description || "No campaign brief yet."}
-              </div>
-            </button>
-          ))}
-          {!isLoadingProjects && projects.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-white/10 bg-slate-950/40 px-4 py-6 text-sm text-slate-500">
-              No campaigns yet. Create one to unlock the board.
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  );
+  const handleUpdateDeck = async () => {
+    if (!token || !activeDeck || activeDeck.isSystem || !editDeckName.trim()) {
+      return;
+    }
+
+    setIsUpdatingDeck(true);
+
+    try {
+      await updateDeck(token, activeDeck.id, {
+        name: editDeckName.trim(),
+        description: editDeckDescription.trim(),
+        icon: editDeckIcon.trim(),
+        color: editDeckColor
+      });
+
+      setIsEditDeckModalOpen(false);
+      resetEditDeckModalForm();
+    } catch {
+      // Error surfaced via board store error banner.
+    } finally {
+      setIsUpdatingDeck(false);
+    }
+  };
+
+  const handleDeleteActiveDeck = async () => {
+    if (!token || !activeDeck || activeDeck.isSystem) {
+      return;
+    }
+
+    const shouldDelete = globalThis.confirm(
+      `Delete deck "${activeDeck.label}"? Cards will remain and be unassigned from this deck.`
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setIsDeletingDeck(true);
+
+    try {
+      await removeDeck(token, activeDeck.id);
+      setActiveDeckId(null);
+      setIsDeckQuickAddOpen(false);
+      setDeckQuickTitle("");
+    } catch {
+      // Error surfaced via board store error banner.
+    } finally {
+      setIsDeletingDeck(false);
+    }
+  };
 
   const totalXp = cards.reduce((sum, c) => sum + (c.xpValue ?? 0), 0);
+
+  const handleTabChange = (nextTab: ProjectTab) => {
+    if (nextTab === "board") {
+      navigate("/board");
+      return;
+    }
+
+    navigate(`/${nextTab}`);
+  };
 
   return (
     <>
@@ -508,20 +380,17 @@ export const BoardPage = () => {
           projectName={activeProject.name}
           xp={totalXp}
           xpMax={Math.max(totalXp + 500, 2000)}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
+          activeTab={tab}
+          onTabChange={handleTabChange}
         />
       ) : (
         <Header
           variant="dashboard"
-          onNewProject={() => {
-            createFormRef.current?.scrollIntoView({ behavior: "smooth" });
-            (createFormRef.current?.querySelector("input") as HTMLInputElement | null)?.focus();
-          }}
+          onNewProject={() => navigate("/")}
         />
       )}
 
-      <DashboardLayout sidebar={sidebar}>
+      <DashboardLayout>
         {error ? (
           <div className="mb-4 flex items-center justify-between rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
             <span>{error}</span>
@@ -533,26 +402,28 @@ export const BoardPage = () => {
 
         {activeProject ? (
           <>
-            {activeTab === "board" ? (
-              <BoardView
+            {tab === "board" ? (
+              <ClaimBoard
                 cards={cards}
-                onMoveCard={async (cardId, status) => {
-                  if (!token) {
-                    return;
-                  }
-
-                  await moveCard(token, cardId, status);
-                }}
-                onCreateCard={openNewCard}
+                decks={decks}
+                currentUser={user!}
+                onCreateCard={() => openNewCard("deck")}
                 onSelectCard={(card) => {
                   setEditingCard(card);
                   setDraftStatus(card.status);
                   setIsEditorOpen(true);
                 }}
+                onUpdateCard={async (cardId, payload) => {
+                  if (!token) {
+                    return;
+                  }
+
+                  await updateCard(token, cardId, payload);
+                }}
               />
             ) : null}
 
-            {activeTab === "decks" ? (
+            {tab === "decks" ? (
               <div className="space-y-4">
                 {!activeDeck ? (
                   <>
@@ -563,6 +434,10 @@ export const BoardPage = () => {
                         Pick a deck card to open it. Debug and Completed stay pinned at the end.
                       </p>
                     </div>
+
+                    {isLoadingDecks ? (
+                      <p className="text-sm text-slate-500">Loading decks...</p>
+                    ) : null}
 
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                       <button
@@ -638,14 +513,30 @@ export const BoardPage = () => {
                         <p className="mt-1 text-sm text-slate-400">{activeDeck.description}</p>
                       </div>
 
-                      <Button
-                        onClick={() => {
-                          setIsDeckQuickAddOpen((previous) => !previous);
-                          setTimeout(() => deckQuickTitleRef.current?.focus(), 0);
-                        }}
-                      >
-                        Quick Add Card
-                      </Button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {!activeDeck.isSystem ? (
+                          <>
+                            <Button variant="outline" onClick={openEditDeckModal}>
+                              Rename Or Edit
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              onClick={() => void handleDeleteActiveDeck()}
+                              disabled={isDeletingDeck}
+                            >
+                              {isDeletingDeck ? "Deleting..." : "Delete Deck"}
+                            </Button>
+                          </>
+                        ) : null}
+                        <Button
+                          onClick={() => {
+                            setIsDeckQuickAddOpen((previous) => !previous);
+                            setTimeout(() => deckQuickTitleRef.current?.focus(), 0);
+                          }}
+                        >
+                          Quick Add Card
+                        </Button>
+                      </div>
                     </div>
 
                     {isDeckQuickAddOpen ? (
@@ -740,7 +631,7 @@ export const BoardPage = () => {
               </div>
             ) : null}
 
-            {activeTab === "activity" ? (
+            {tab === "activity" ? (
               <div className="flex min-h-[22rem] items-center justify-center rounded-[1.5rem] border border-dashed border-white/10 bg-slate-950/30 text-center">
                 <div>
                   <h2 className="font-display text-2xl font-semibold text-white">Activity stream coming next</h2>
@@ -777,10 +668,11 @@ export const BoardPage = () => {
         ) : (
           <div className="flex min-h-[28rem] items-center justify-center rounded-[2rem] border border-dashed border-white/10 bg-slate-950/30 text-center">
             <div>
-              <h2 className="font-display text-2xl font-semibold text-white">Your board is waiting</h2>
+              <h2 className="font-display text-2xl font-semibold text-white">Pick a project first</h2>
               <p className="mt-2 max-w-md text-sm text-slate-400">
-                Create a campaign in the sidebar, then add cards and drag them from deck to victory.
+                Open the projects home page, choose a campaign, then come back to board, decks, or activity.
               </p>
+              <Button className="mt-4" onClick={() => navigate("/")}>Go To Projects</Button>
             </div>
           </div>
         )}
@@ -793,7 +685,7 @@ export const BoardPage = () => {
       <Modal
         isOpen={isCreateDeckModalOpen}
         title="Create A New Deck"
-        description="Define your deck metadata now. We will wire icon rendering later."
+        description="Deck metadata is now persisted to your project in the database."
         onClose={() => {
           setIsCreateDeckModalOpen(false);
           resetDeckModalForm();
@@ -864,8 +756,89 @@ export const BoardPage = () => {
             >
               Cancel
             </Button>
-            <Button onClick={handleCreateDeck} disabled={!newDeckName.trim()}>
-              Create Deck
+            <Button onClick={() => void handleCreateDeck()} disabled={isCreatingDeck || !newDeckName.trim()}>
+              {isCreatingDeck ? "Creating..." : "Create Deck"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isEditDeckModalOpen}
+        title="Edit Deck"
+        description="Rename deck or update metadata."
+        onClose={() => {
+          setIsEditDeckModalOpen(false);
+          resetEditDeckModalForm();
+        }}
+      >
+        <div className="space-y-4">
+          <label className="block text-sm text-slate-300">
+            Deck Name
+            <input
+              value={editDeckName}
+              onChange={(event) => setEditDeckName(event.target.value)}
+              placeholder="UI Systems"
+              className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-white outline-none"
+            />
+          </label>
+
+          <label className="block text-sm text-slate-300">
+            Details
+            <textarea
+              value={editDeckDescription}
+              onChange={(event) => setEditDeckDescription(event.target.value)}
+              placeholder="What kind of work belongs in this deck?"
+              rows={3}
+              className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-white outline-none"
+            />
+          </label>
+
+          <label className="block text-sm text-slate-300">
+            Icon (Placeholder)
+            <div className="mt-2 flex items-center gap-3">
+              <input
+                value={editDeckIcon}
+                onChange={(event) => setEditDeckIcon(event.target.value)}
+                placeholder="sparkles"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-white outline-none"
+              />
+              <div className="rounded-xl border border-white/10 bg-white/5 p-2 text-slate-300">
+                <Sparkles className="h-5 w-5" />
+              </div>
+            </div>
+          </label>
+
+          <div>
+            <p className="text-sm text-slate-300">Color</p>
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
+              {COLOR_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setEditDeckColor(option.value)}
+                  className={`rounded-xl border px-3 py-2 text-sm transition ${option.className} ${
+                    editDeckColor === option.value ? "ring-2 ring-white/60" : ""
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setIsEditDeckModalOpen(false);
+                resetEditDeckModalForm();
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={() => void handleUpdateDeck()} disabled={isUpdatingDeck || !editDeckName.trim()}>
+              {isUpdatingDeck ? "Saving..." : "Save Changes"}
             </Button>
           </div>
         </div>
