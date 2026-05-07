@@ -11,10 +11,12 @@ projectRouter.use(requireAuth);
 projectRouter.get("/", asyncHandler(projectController.list));
 projectRouter.post("/", asyncHandler(projectController.create));
 projectRouter.get("/:projectId", asyncHandler(projectController.getById));
+projectRouter.get("/:projectId/stats", asyncHandler(projectController.getStats));
 projectRouter.patch("/:projectId", asyncHandler(projectController.update));
 projectRouter.delete("/:projectId", asyncHandler(projectController.remove));
 
 // Member management (owner-only writes, read open to members)
 projectRouter.get("/:projectId/members", asyncHandler(memberController.list));
 projectRouter.post("/:projectId/members", asyncHandler(memberController.add));
+projectRouter.patch("/:projectId/members/:userId", asyncHandler(memberController.updatePermissions));
 projectRouter.delete("/:projectId/members/:userId", asyncHandler(memberController.remove));

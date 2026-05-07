@@ -45,3 +45,31 @@ export const ensureProjectOwner = async (projectId: string, userId: string) => {
     throw new AppError("Project not found or access denied", 404);
   }
 };
+
+/**
+ * Verifies that `userId` is the project owner or an ADMIN project member.
+ */
+export const ensureProjectAdmin = async (projectId: string, userId: string) => {
+  const { data: owned } = await supabaseAdmin
+    .from("sf_projects")
+    .select("id")
+    .eq("id", projectId)
+    .eq("owner_id", userId)
+    .maybeSingle();
+
+  if (owned) {
+    return;
+  }
+
+  const { data: member } = await supabaseAdmin
+    .from("sf_project_members")
+    .select("id")
+    .eq("project_id", projectId)
+    .eq("user_id", userId)
+    .eq("role", "ADMIN")
+    .maybeSingle();
+
+  if (!member) {
+    throw new AppError("Project not found or access denied", 404);
+  }
+};

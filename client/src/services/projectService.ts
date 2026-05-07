@@ -1,6 +1,20 @@
 import type { CreateProjectInput, Project, ProjectMember, ProjectMembersResponse } from "../types/api";
 import { request } from "./api";
 
+type UpdateMemberPermissionsInput = {
+  role: "MEMBER" | "ADMIN";
+  deckReadMode: "FULL_ACCESS" | "NO_ACCESS" | "WHITELIST" | "BLACKLIST";
+  deckReadDeckIds: string[];
+  deckWriteMode: "FULL_ACCESS" | "NO_ACCESS" | "WHITELIST" | "BLACKLIST";
+  deckWriteDeckIds: string[];
+};
+
+type ProjectStats = {
+  totalXp: number;
+  earnedXp: number;
+  cardCount: number;
+};
+
 export const projectService = {
   list(token: string) {
     return request<Project[]>("/projects", { token });
@@ -14,6 +28,10 @@ export const projectService = {
     });
   },
 
+  getStats(token: string, projectId: string) {
+    return request<ProjectStats>(`/projects/${projectId}/stats`, { token });
+  },
+
   listMembers(token: string, projectId: string) {
     return request<ProjectMembersResponse>(`/projects/${projectId}/members`, { token });
   },
@@ -23,6 +41,19 @@ export const projectService = {
       method: "POST",
       token,
       body: { userCode }
+    });
+  },
+
+  updateMemberPermissions(
+    token: string,
+    projectId: string,
+    userId: string,
+    payload: UpdateMemberPermissionsInput
+  ) {
+    return request<ProjectMember>(`/projects/${projectId}/members/${userId}`, {
+      method: "PATCH",
+      token,
+      body: payload
     });
   },
 

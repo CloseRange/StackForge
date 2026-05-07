@@ -8,6 +8,7 @@ import {
   toCardDifficulty,
   toCardPriority
 } from "../utils/cardTransforms.js";
+import { canReadDeck, canWriteDeck, getProjectMemberPolicy } from "../utils/memberPermissions.js";
 import { ensureProjectAccess } from "../utils/projectAccess.js";
 import {
   assignCardSchema,
@@ -181,14 +182,10 @@ const fetchCardForUser = async (cardId: string, userId: string) => {
     throw new AppError("Card not found", 404);
   }
 
-  const { data: project } = await supabaseAdmin
-    .from("sf_projects")
-    .select("id")
-    .eq("id", (card as SFCardWithChecklist).project_id)
-    .eq("owner_id", userId)
-    .single();
+  await ensureProjectAccess((card as SFCardWithChecklist).project_id, userId);
+  const policy = await getProjectMemberPolicy((card as SFCardWithChecklist).project_id, userId);
 
-  if (!project) {
+  if (!canReadDeck(policy, (card as SFCardWithChecklist).deck_id)) {
     throw new AppError("Card not found", 404);
   }
 
@@ -258,6 +255,7 @@ const replaceChecklist = async (
 export const cardService = {
   async listByProject(projectId: string, userId: string) {
     await ensureProjectAccess(projectId, userId);
+    const policy = await getProjectMemberPolicy(projectId, userId);
 
     const { data, error } = await supabaseAdmin
       .from("sf_cards")
@@ -269,12 +267,20 @@ export const cardService = {
       throw new AppError(error.message, 500);
     }
 
-    return serializeCardsWithAssignees(data as SFCardWithChecklist[]);
+    const filtered = (data as SFCardWithChecklist[]).filter((card) => canReadDeck(policy, card.deck_id));
+
+    return serializeCardsWithAssignees(filtered);
   },
 
   async create(userId: string, payload: unknown) {
     const input = createCardSchema.parse(payload);
     await ensureProjectAccess(input.projectId, userId);
+    const policy = await getProjectMemberPolicy(input.projectId, userId);
+
+    if (!canWriteDeck(policy, input.deckId)) {
+      throw new AppError("You do not have permission to create cards in this deck", 403);
+    }
+
     const assigneeId = await ensureAssignee(input.assigneeId);
     const deck = await ensureDeckForProject(input.deckId, input.projectId);
     ensureDeckCanAssign(deck, Boolean(assigneeId));
@@ -310,6 +316,15 @@ export const cardService = {
   async update(cardId: string, userId: string, payload: unknown) {
     const input = updateCardSchema.parse(payload);
     const existingCard = await fetchCardForUser(cardId, userId);
+    const policy = await getProjectMemberPolicy(existingCard.project_id, userId);
+
+    if (!canWriteDeck(policy, existingCard.deck_id)) {
+      throw new AppError("You do not have permission to edit cards in this deck", 403);
+    }
+
+    if (input.deckId && !canWriteDeck(policy, input.deckId)) {
+      throw new AppError("You do not have permission to move cards to that deck", 403);
+    }
 
     ensureCardClaimIsMutable(existingCard, userId, { isChangingAssignee: input.assigneeId !== undefined });
 
@@ -367,6 +382,11 @@ export const cardService = {
   async assign(cardId: string, userId: string, payload: unknown) {
     const input = assignCardSchema.parse(payload);
     const existingCard = await fetchCardForUser(cardId, userId);
+    const policy = await getProjectMemberPolicy(existingCard.project_id, userId);
+
+    if (!canWriteDeck(policy, existingCard.deck_id)) {
+      throw new AppError("You do not have permission to claim cards in this deck", 403);
+    }
 
     ensureCardClaimIsMutable(existingCard, userId, { isChangingAssignee: true });
 
@@ -388,7 +408,12 @@ export const cardService = {
   },
 
   async remove(cardId: string, userId: string) {
-    await fetchCardForUser(cardId, userId);
+    const card = await fetchCardForUser(cardId, userId);
+    const policy = await getProjectMemberPolicy(card.project_id, userId);
+
+    if (!canWriteDeck(policy, card.deck_id)) {
+      throw new AppError("You do not have permission to delete cards in this deck", 403);
+    }
 
     const { error } = await supabaseAdmin
       .from("sf_cards")

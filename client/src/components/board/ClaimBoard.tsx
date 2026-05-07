@@ -284,6 +284,12 @@ const BoardCard = ({
             <div className="mt-1.5 text-[9px] font-semibold uppercase tracking-[0.3em] text-white/60">
               {deckPresentation.label}
             </div>
+            {isLocked ? (
+              <div className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-rose-300/25 bg-rose-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-rose-100">
+                <Lock className="h-3 w-3" />
+                Locked
+              </div>
+            ) : null}
           </div>
 
           <div className="absolute bottom-2.5 left-2.5 rounded-full border border-amber-200/35 bg-amber-500/18 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-amber-100">
@@ -293,13 +299,6 @@ const BoardCard = ({
           <div className={`absolute right-2.5 top-2.5 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.15em] ${priorityClasses[card.priority]}`}>
             {priorityLabels[card.priority]}
           </div>
-
-          {isLocked ? (
-            <div className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-full border border-rose-300/25 bg-rose-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-rose-100">
-              <Lock className="h-3 w-3" />
-              Locked
-            </div>
-          ) : null}
 
           <div className="absolute inset-x-3 bottom-10">
             <div className="px-1">

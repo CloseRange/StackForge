@@ -60,6 +60,16 @@ export const assignCardSchema = z.object({
   assigneeId: z.string().uuid().nullable()
 });
 
+const deckPermissionModes = ["FULL_ACCESS", "NO_ACCESS", "WHITELIST", "BLACKLIST"] as const;
+
+export const setMemberPermissionsSchema = z.object({
+  role: z.enum(["MEMBER", "ADMIN"]),
+  deckReadMode: z.enum(deckPermissionModes),
+  deckReadDeckIds: z.array(z.string().uuid()).max(200).default([]),
+  deckWriteMode: z.enum(deckPermissionModes),
+  deckWriteDeckIds: z.array(z.string().uuid()).max(200).default([])
+});
+
 const XP_PAYOUT_VALUES = [0, 25, 50, 75, 100] as const;
 const xpPayoutSchema = z.number().int().refine((v) => (XP_PAYOUT_VALUES as readonly number[]).includes(v), {
   message: "xpPayout must be 0, 25, 50, 75, or 100"

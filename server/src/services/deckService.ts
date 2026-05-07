@@ -2,6 +2,7 @@ import { supabaseAdmin } from "../config/db.js";
 import { AppError } from "../middleware/errorHandler.js";
 import type { SFDeckRow } from "../models/deckModel.js";
 import { serializeDeck } from "../utils/cardTransforms.js";
+import { canCreateDeck, canReadDeck, canWriteDeck, getProjectMemberPolicy } from "../utils/memberPermissions.js";
 import { ensureProjectAccess } from "../utils/projectAccess.js";
 import { createDeckSchema, updateDeckSchema } from "../utils/validators.js";
 
@@ -63,6 +64,7 @@ const resolveCompletionTargetDeckId = async (projectId: string, requestedDeckId?
 export const deckService = {
   async listByProject(projectId: string, userId: string) {
     await ensureProjectAccess(projectId, userId);
+    const policy = await getProjectMemberPolicy(projectId, userId);
 
     const { data, error } = await supabaseAdmin
       .from("sf_decks")
@@ -76,12 +78,20 @@ export const deckService = {
       throw new AppError(error.message, 500);
     }
 
-    return (data as SFDeckRow[]).map(serializeDeck);
+    return (data as SFDeckRow[])
+      .filter((deck) => canReadDeck(policy, deck.id))
+      .map(serializeDeck);
   },
 
   async create(userId: string, payload: unknown) {
     const input = createDeckSchema.parse(payload);
     await ensureProjectAccess(input.projectId, userId);
+    const policy = await getProjectMemberPolicy(input.projectId, userId);
+
+    if (!canCreateDeck(policy)) {
+      throw new AppError("You do not have permission to create decks", 403);
+    }
+
     const completionTargetDeckId = await resolveCompletionTargetDeckId(
       input.projectId,
       input.completionTargetDeckId
@@ -143,6 +153,11 @@ export const deckService = {
   async update(deckId: string, userId: string, payload: unknown) {
     const input = updateDeckSchema.parse(payload);
     const existingDeck = await fetchDeckForUser(deckId, userId);
+    const policy = await getProjectMemberPolicy(existingDeck.project_id, userId);
+
+    if (!canWriteDeck(policy, existingDeck.id)) {
+      throw new AppError("You do not have permission to edit this deck", 403);
+    }
 
     const updateFields: Record<string, unknown> = {};
 
@@ -238,6 +253,11 @@ export const deckService = {
 
   async remove(deckId: string, userId: string) {
     const existingDeck = await fetchDeckForUser(deckId, userId);
+    const policy = await getProjectMemberPolicy(existingDeck.project_id, userId);
+
+    if (!canWriteDeck(policy, existingDeck.id)) {
+      throw new AppError("You do not have permission to delete this deck", 403);
+    }
 
     if (existingDeck.is_system) {
       throw new AppError("System decks cannot be deleted", 400);

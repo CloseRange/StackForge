@@ -156,5 +156,42 @@ export const projectService = {
     if (error) {
       throw new AppError(error.message, 500);
     }
+  },
+
+  async getStats(projectId: string, userId: string) {
+    // Verify user has access to project
+    await ensureProjectAccess(projectId, userId);
+
+    // Get all cards with their deck info (unfiltered by permission)
+    const { data: cards, error } = await supabaseAdmin
+      .from("sf_cards")
+      .select("id, xp_value, deck_id, sf_decks(xp_payout)")
+      .eq("project_id", projectId);
+
+    if (error) {
+      throw new AppError(error.message, 500);
+    }
+
+    // Calculate totals
+    let totalXp = 0;
+    let earnedXp = 0;
+
+    if (cards && Array.isArray(cards)) {
+      for (const card of cards) {
+        const xpValue = (card as any).xp_value ?? 0;
+        totalXp += xpValue;
+
+        // Calculate earned XP based on deck payout
+        const deckData = (card as any).sf_decks as any;
+        const payout = (deckData?.xp_payout ?? 0) as number;
+        earnedXp += Math.round((xpValue * payout) / 100);
+      }
+    }
+
+    return {
+      totalXp,
+      earnedXp,
+      cardCount: cards?.length ?? 0
+    };
   }
 };

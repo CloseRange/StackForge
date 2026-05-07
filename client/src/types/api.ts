@@ -86,13 +86,21 @@ export type ProjectMember = {
   id: string;
   role: string;
   displayName: string;
+  firstName: string;
+  lastName: string;
+  statusMessage: string;
   userCode: string | null;
   avatarUrl: string | null;
   joinedAt?: string;
+  deckReadMode: "FULL_ACCESS" | "NO_ACCESS" | "WHITELIST" | "BLACKLIST";
+  deckReadDeckIds: string[];
+  deckWriteMode: "FULL_ACCESS" | "NO_ACCESS" | "WHITELIST" | "BLACKLIST";
+  deckWriteDeckIds: string[];
 };
 
 export type ProjectMembersResponse = {
   ownerId: string | null;
+  owner: ProjectMember | null;
   members: ProjectMember[];
 };
 

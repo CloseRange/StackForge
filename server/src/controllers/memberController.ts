@@ -40,5 +40,25 @@ export const memberController = {
 
     await memberService.remove(projectId, request.user!.userId, targetUserId);
     return response.status(204).send();
+  },
+
+  async updatePermissions(request: Request, response: Response) {
+    const projectId =
+      typeof request.params.projectId === "string" ? request.params.projectId : undefined;
+    const targetUserId =
+      typeof request.params.userId === "string" ? request.params.userId : undefined;
+
+    if (!projectId || !targetUserId) {
+      throw new AppError("Project id and user id are required", 400);
+    }
+
+    const member = await memberService.updatePermissions(
+      projectId,
+      request.user!.userId,
+      targetUserId,
+      request.body
+    );
+
+    return response.status(200).json({ data: member });
   }
 };

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Bug, Layers3, PlusCircle, Sparkles, Trophy, UserMinus, UserPlus, Users } from "lucide-react";
+import { ArrowLeft, Bug, ChevronDown, ChevronUp, Layers3, PlusCircle, Sparkles, Trophy, UserMinus, UserPlus, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { ClaimBoard } from "../components/board/ClaimBoard";
@@ -14,6 +14,23 @@ import { projectService } from "../services/projectService";
 import type { Card, CardDifficulty, CardPriority, Deck, DeckColor, ProjectMember } from "../types/api";
 
 type ProjectTab = "board" | "decks" | "members" | "activity";
+
+type DeckPermissionMode = "FULL_ACCESS" | "NO_ACCESS" | "WHITELIST" | "BLACKLIST";
+
+type MemberPermissionDraft = {
+  role: "MEMBER" | "ADMIN";
+  deckReadMode: DeckPermissionMode;
+  deckReadDeckIds: string[];
+  deckWriteMode: DeckPermissionMode;
+  deckWriteDeckIds: string[];
+};
+
+const DECK_PERMISSION_MODE_OPTIONS: Array<{ value: DeckPermissionMode; label: string }> = [
+  { value: "FULL_ACCESS", label: "Full Access" },
+  { value: "NO_ACCESS", label: "No Access" },
+  { value: "WHITELIST", label: "Whitelist" },
+  { value: "BLACKLIST", label: "Blacklist" }
+];
 
 type DeckCard = {
   id: string;
@@ -157,16 +174,25 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   // Members tab state
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [membersOwnerId, setMembersOwnerId] = useState<string | null>(null);
+  const [ownerProfile, setOwnerProfile] = useState<ProjectMember | null>(null);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   const [membersError, setMembersError] = useState<string | null>(null);
   const [inviteCode, setInviteCode] = useState("");
   const [isInviting, setIsInviting] = useState(false);
+  const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
+  const [memberPermissionDrafts, setMemberPermissionDrafts] = useState<Record<string, MemberPermissionDraft>>({});
+  const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
   const [deckQuickTitle, setDeckQuickTitle] = useState("");
   const [deckQuickPriority, setDeckQuickPriority] = useState<CardPriority>("uncommon");
   const [deckQuickDifficulty, setDeckQuickDifficulty] = useState<CardDifficulty>("easy");
   const [isDeckQuickAdding, setIsDeckQuickAdding] = useState(false);
   const [isDeckQuickAddOpen, setIsDeckQuickAddOpen] = useState(false);
   const [deletingCardId, setDeletingCardId] = useState<string | null>(null);
+  
+  // Project-wide stats (not filtered by member permissions)
+  const [projectTotalXp, setProjectTotalXp] = useState(0);
+  const [projectEarnedXp, setProjectEarnedXp] = useState(0);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
 
   const deckQuickTitleRef = useRef<HTMLInputElement>(null);
   const isDeckQuickAddInFlightRef = useRef(false);
@@ -196,8 +222,42 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     // Reset members when project changes
     setMembers([]);
     setMembersOwnerId(null);
+    setOwnerProfile(null);
     setMembersError(null);
+    setExpandedMemberId(null);
+    setMemberPermissionDrafts({});
+    setSavingMemberId(null);
   }, [selectedProjectId]);
+
+  // Load project-wide stats (not filtered by member permissions)
+  useEffect(() => {
+    if (!token || !selectedProjectId) {
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoadingStats(true);
+
+    projectService
+      .getStats(token, selectedProjectId)
+      .then((stats) => {
+        if (!cancelled) {
+          setProjectTotalXp(stats.totalXp);
+          setProjectEarnedXp(stats.earnedXp);
+        }
+      })
+      .catch((err: unknown) => {
+        // Silently handle stats load errors
+        console.error("Failed to load project stats:", err);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingStats(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, selectedProjectId]);
 
   // Load members when the members tab is opened
   useEffect(() => {
@@ -215,6 +275,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
         if (!cancelled) {
           setMembers(result.members);
           setMembersOwnerId(result.ownerId);
+          setOwnerProfile(result.owner);
         }
       })
       .catch((err: unknown) => {
@@ -232,6 +293,11 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   }, [tab, token, selectedProjectId]);
 
   const activeProject = projects.find((project) => project.id === selectedProjectId) ?? null;
+  const viewerRole =
+    user?.id === membersOwnerId
+      ? "OWNER"
+      : members.find((member) => member.id === user?.id)?.role ?? "MEMBER";
+  const canManageMembers = viewerRole === "OWNER" || viewerRole === "ADMIN";
 
   const openNewCard = () => {
     setEditingCard(null);
@@ -532,6 +598,119 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     }
   };
 
+  const getMemberDraft = (member: ProjectMember): MemberPermissionDraft => {
+    return (
+      memberPermissionDrafts[member.id] ?? {
+        role: member.role === "ADMIN" ? "ADMIN" : "MEMBER",
+        deckReadMode: member.deckReadMode,
+        deckReadDeckIds: [...member.deckReadDeckIds],
+        deckWriteMode: member.deckWriteMode,
+        deckWriteDeckIds: [...member.deckWriteDeckIds]
+      }
+    );
+  };
+
+  const updateMemberDraft = (memberId: string, partial: Partial<MemberPermissionDraft>) => {
+    setMemberPermissionDrafts((previous) => {
+      const base = previous[memberId];
+
+      if (!base) {
+        const member = members.find((entry) => entry.id === memberId);
+
+        if (!member) {
+          return previous;
+        }
+
+        return {
+          ...previous,
+          [memberId]: {
+            role: member.role === "ADMIN" ? "ADMIN" : "MEMBER",
+            deckReadMode: member.deckReadMode,
+            deckReadDeckIds: [...member.deckReadDeckIds],
+            deckWriteMode: member.deckWriteMode,
+            deckWriteDeckIds: [...member.deckWriteDeckIds],
+            ...partial
+          }
+        };
+      }
+
+      return {
+        ...previous,
+        [memberId]: {
+          ...base,
+          ...partial
+        }
+      };
+    });
+  };
+
+  const toggleDeckId = (
+    memberId: string,
+    key: "deckReadDeckIds" | "deckWriteDeckIds",
+    deckId: string
+  ) => {
+    const member = members.find((entry) => entry.id === memberId);
+
+    if (!member) {
+      return;
+    }
+
+    const draft = getMemberDraft(member);
+    const current = draft[key];
+    const next = current.includes(deckId)
+      ? current.filter((entry) => entry !== deckId)
+      : [...current, deckId];
+
+    updateMemberDraft(memberId, { [key]: next } as Partial<MemberPermissionDraft>);
+  };
+
+  const handleSaveMemberPermissions = async (member: ProjectMember) => {
+    if (!token || !selectedProjectId) {
+      return;
+    }
+
+    const draft = getMemberDraft(member);
+    setSavingMemberId(member.id);
+    setMembersError(null);
+
+    try {
+      const updatedMember = await projectService.updateMemberPermissions(
+        token,
+        selectedProjectId,
+        member.id,
+        draft
+      );
+
+      setMembers((previous) =>
+        previous.map((entry) => (entry.id === member.id ? updatedMember : entry))
+      );
+
+      setMemberPermissionDrafts((previous) => {
+        const next = { ...previous };
+        delete next[member.id];
+        return next;
+      });
+    } catch (err: unknown) {
+      setMembersError(err instanceof Error ? err.message : "Failed to update member permissions");
+    } finally {
+      setSavingMemberId((current) => (current === member.id ? null : current));
+    }
+  };
+
+  const formatJoinedAt = (value?: string) => {
+    if (!value) {
+      return "Unknown";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return "Unknown";
+    }
+
+    return date.toLocaleDateString();
+  };
+
   const totalXp = cards.reduce((sum, c) => sum + (c.xpValue ?? 0), 0);
 
   const deckPayoutMap = useMemo(() => {
@@ -564,8 +743,8 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
         <Header
           variant="project"
           projectName={activeProject.name}
-          xp={earnedXp}
-          xpMax={totalXp || 1}
+          xp={projectEarnedXp}
+          xpMax={projectTotalXp || 1}
           activeTab={tab}
           onTabChange={handleTabChange}
         />
@@ -864,8 +1043,8 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
 
             {tab === "members" ? (
               <div className="space-y-5">
-                {/* Invite section — only visible to the project owner */}
-                {user?.id === membersOwnerId ? (
+                {/* Invite section — visible to owner/admin */}
+                {canManageMembers ? (
                   <div className="rounded-[1.5rem] border border-white/10 bg-slate-900/60 p-4 md:p-5">
                     <div className="flex items-center gap-2 text-sky-300">
                       <UserPlus className="h-4 w-4" />
@@ -927,19 +1106,40 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                   ) : (
                     <div className="space-y-2">
                       {/* Owner row */}
-                      {activeProject ? (
-                        <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-300/30 bg-amber-400/10 text-sm font-bold text-amber-200">
-                            {activeProject.ownerId === user?.id
-                              ? (user.displayName?.[0] ?? "?").toUpperCase()
-                              : "?"}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-white">
-                              {activeProject.ownerId === user?.id ? (user.displayName ?? "You") : activeProject.ownerId}
-                            </p>
-                            <p className="text-xs text-amber-300">Owner</p>
-                          </div>
+                      {ownerProfile ? (
+                        <div className="rounded-xl border border-amber-300/25 bg-amber-400/[0.08] px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedMemberId((current) =>
+                                current === ownerProfile.id ? null : ownerProfile.id
+                              )
+                            }
+                            className="flex w-full items-center gap-3 text-left"
+                          >
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-300/30 bg-amber-400/10 text-sm font-bold text-amber-200">
+                              {(ownerProfile.displayName?.[0] ?? "?").toUpperCase()}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-white">{ownerProfile.displayName}</p>
+                              <p className="text-xs text-amber-300">Owner</p>
+                            </div>
+                            {expandedMemberId === ownerProfile.id ? (
+                              <ChevronUp className="h-4 w-4 text-amber-200" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-amber-200" />
+                            )}
+                          </button>
+
+                          {expandedMemberId === ownerProfile.id ? (
+                            <div className="mt-3 grid gap-2 rounded-lg border border-white/10 bg-black/20 p-3 text-xs text-slate-300 md:grid-cols-2">
+                              <p><span className="text-slate-400">Name:</span> {ownerProfile.displayName}</p>
+                              <p><span className="text-slate-400">Role:</span> Owner</p>
+                              <p><span className="text-slate-400">User Code:</span> {ownerProfile.userCode ? `#${ownerProfile.userCode}` : "N/A"}</p>
+                              <p><span className="text-slate-400">Status:</span> {ownerProfile.statusMessage || "No status message"}</p>
+                              <p className="md:col-span-2"><span className="text-slate-400">Full Name:</span> {`${ownerProfile.firstName} ${ownerProfile.lastName}`.trim() || "Not set"}</p>
+                            </div>
+                          ) : null}
                         </div>
                       ) : null}
 
@@ -947,25 +1147,182 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                       {members.map((member) => (
                         <div
                           key={member.id}
-                          className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3"
+                          className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3"
                         >
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 bg-slate-800 text-sm font-bold text-white">
-                            {(member.displayName?.[0] ?? "?").toUpperCase()}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-white">{member.displayName}</p>
-                            <p className="text-xs text-slate-400">
-                              {member.userCode ? `#${member.userCode}` : "Member"}
-                            </p>
-                          </div>
-                          {user?.id === membersOwnerId ? (
+                          <div className="flex items-center gap-3">
                             <button
                               type="button"
-                              onClick={() => void handleRemoveMember(member.id)}
-                              className="ml-2 rounded-lg border border-rose-400/20 bg-transparent px-3 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/15 hover:text-rose-100"
+                              onClick={() =>
+                                setExpandedMemberId((current) =>
+                                  current === member.id ? null : member.id
+                                )
+                              }
+                              className="flex min-w-0 flex-1 items-center gap-3 text-left"
                             >
-                              <UserMinus className="h-3.5 w-3.5" />
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 bg-slate-800 text-sm font-bold text-white">
+                                {(member.displayName?.[0] ?? "?").toUpperCase()}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-semibold text-white">{member.displayName}</p>
+                                <p className="text-xs text-slate-400">
+                                  {member.userCode ? `#${member.userCode}` : "Member"}
+                                </p>
+                              </div>
+                              {expandedMemberId === member.id ? (
+                                <ChevronUp className="h-4 w-4 text-slate-300" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 text-slate-300" />
+                              )}
                             </button>
+
+                            {canManageMembers ? (
+                              <button
+                                type="button"
+                                onClick={() => void handleRemoveMember(member.id)}
+                                className="ml-2 rounded-lg border border-rose-400/20 bg-transparent px-3 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/15 hover:text-rose-100"
+                              >
+                                <UserMinus className="h-3.5 w-3.5" />
+                              </button>
+                            ) : null}
+                          </div>
+
+                          {expandedMemberId === member.id ? (
+                            <div className="mt-3 space-y-3 rounded-lg border border-white/10 bg-black/20 p-3 text-xs text-slate-300">
+                              <div className="grid gap-2 md:grid-cols-2">
+                                <p><span className="text-slate-400">Name:</span> {member.displayName}</p>
+                                <p><span className="text-slate-400">Role:</span> {member.role}</p>
+                                <p><span className="text-slate-400">User Code:</span> {member.userCode ? `#${member.userCode}` : "N/A"}</p>
+                                <p><span className="text-slate-400">Joined:</span> {formatJoinedAt(member.joinedAt)}</p>
+                                <p><span className="text-slate-400">Status:</span> {member.statusMessage || "No status message"}</p>
+                                <p><span className="text-slate-400">Full Name:</span> {`${member.firstName} ${member.lastName}`.trim() || "Not set"}</p>
+                              </div>
+
+                              {canManageMembers ? (
+                                <>
+                                  <div className="grid gap-3 md:grid-cols-3">
+                                    <label className="text-slate-300">
+                                      <span className="mb-1 block text-[11px] uppercase tracking-[0.14em] text-slate-400">Role</span>
+                                      <select
+                                        value={getMemberDraft(member).role}
+                                        onChange={(event) =>
+                                          updateMemberDraft(member.id, {
+                                            role: event.target.value as "MEMBER" | "ADMIN"
+                                          })
+                                        }
+                                        className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white outline-none"
+                                      >
+                                        <option value="MEMBER">Member</option>
+                                        <option value="ADMIN">Admin</option>
+                                      </select>
+                                    </label>
+
+                                    <label className="text-slate-300">
+                                      <span className="mb-1 block text-[11px] uppercase tracking-[0.14em] text-slate-400">Deck Read</span>
+                                      <select
+                                        value={getMemberDraft(member).deckReadMode}
+                                        onChange={(event) =>
+                                          updateMemberDraft(member.id, {
+                                            deckReadMode: event.target.value as DeckPermissionMode,
+                                            deckReadDeckIds:
+                                              event.target.value === "WHITELIST" || event.target.value === "BLACKLIST"
+                                                ? getMemberDraft(member).deckReadDeckIds
+                                                : []
+                                          })
+                                        }
+                                        className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white outline-none"
+                                      >
+                                        {DECK_PERMISSION_MODE_OPTIONS.map((option) => (
+                                          <option key={option.value} value={option.value}>{option.label}</option>
+                                        ))}
+                                      </select>
+                                    </label>
+
+                                    <label className="text-slate-300">
+                                      <span className="mb-1 block text-[11px] uppercase tracking-[0.14em] text-slate-400">Deck Write</span>
+                                      <select
+                                        value={getMemberDraft(member).deckWriteMode}
+                                        onChange={(event) =>
+                                          updateMemberDraft(member.id, {
+                                            deckWriteMode: event.target.value as DeckPermissionMode,
+                                            deckWriteDeckIds:
+                                              event.target.value === "WHITELIST" || event.target.value === "BLACKLIST"
+                                                ? getMemberDraft(member).deckWriteDeckIds
+                                                : []
+                                          })
+                                        }
+                                        className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white outline-none"
+                                      >
+                                        {DECK_PERMISSION_MODE_OPTIONS.map((option) => (
+                                          <option key={option.value} value={option.value}>{option.label}</option>
+                                        ))}
+                                      </select>
+                                    </label>
+                                  </div>
+
+                                  {getMemberDraft(member).deckReadMode === "WHITELIST" ||
+                                  getMemberDraft(member).deckReadMode === "BLACKLIST" ? (
+                                    <div>
+                                      <p className="mb-2 text-[11px] uppercase tracking-[0.14em] text-slate-400">
+                                        Read {getMemberDraft(member).deckReadMode === "WHITELIST" ? "Whitelist" : "Blacklist"}
+                                      </p>
+                                      <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+                                        {allDecks.map((deck) => {
+                                          const selected = getMemberDraft(member).deckReadDeckIds.includes(deck.id);
+
+                                          return (
+                                            <label key={`read-${member.id}-${deck.id}`} className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-2 py-1.5">
+                                              <input
+                                                type="checkbox"
+                                                checked={selected}
+                                                onChange={() => toggleDeckId(member.id, "deckReadDeckIds", deck.id)}
+                                                className="h-3.5 w-3.5"
+                                              />
+                                              <span className="truncate text-xs text-slate-200">{deck.label}</span>
+                                            </label>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  ) : null}
+
+                                  {getMemberDraft(member).deckWriteMode === "WHITELIST" ||
+                                  getMemberDraft(member).deckWriteMode === "BLACKLIST" ? (
+                                    <div>
+                                      <p className="mb-2 text-[11px] uppercase tracking-[0.14em] text-slate-400">
+                                        Write {getMemberDraft(member).deckWriteMode === "WHITELIST" ? "Whitelist" : "Blacklist"}
+                                      </p>
+                                      <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+                                        {allDecks.map((deck) => {
+                                          const selected = getMemberDraft(member).deckWriteDeckIds.includes(deck.id);
+
+                                          return (
+                                            <label key={`write-${member.id}-${deck.id}`} className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-2 py-1.5">
+                                              <input
+                                                type="checkbox"
+                                                checked={selected}
+                                                onChange={() => toggleDeckId(member.id, "deckWriteDeckIds", deck.id)}
+                                                className="h-3.5 w-3.5"
+                                              />
+                                              <span className="truncate text-xs text-slate-200">{deck.label}</span>
+                                            </label>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  ) : null}
+
+                                  <div className="flex justify-end">
+                                    <Button
+                                      onClick={() => void handleSaveMemberPermissions(member)}
+                                      disabled={savingMemberId === member.id}
+                                      className="min-w-32"
+                                    >
+                                      {savingMemberId === member.id ? "Saving..." : "Save Permissions"}
+                                    </Button>
+                                  </div>
+                                </>
+                              ) : null}
+                            </div>
                           ) : null}
                         </div>
                       ))}

@@ -1,12 +1,14 @@
 import { supabaseAdmin } from "../config/db.js";
 import { AppError } from "../middleware/errorHandler.js";
-import { ensureProjectAccess, ensureProjectOwner } from "../utils/projectAccess.js";
+import { ensureProjectAccess, ensureProjectAdmin } from "../utils/projectAccess.js";
+import { setMemberPermissionsSchema } from "../utils/validators.js";
 import { z } from "zod";
 
 type UserMetadata = {
   displayName?: string;
   firstName?: string;
   lastName?: string;
+  statusMessage?: string;
   avatarUrl?: string;
   avatarPath?: string;
   userCode?: string;
@@ -33,7 +35,35 @@ type MemberRow = {
   user_id: string;
   role: string;
   invited_by: string | null;
+  deck_read_mode: string;
+  deck_read_deck_ids: string[] | null;
+  deck_write_mode: string;
+  deck_write_deck_ids: string[] | null;
   created_at: string;
+};
+
+type MemberSummary = {
+  id: string;
+  role: string;
+  joinedAt?: string;
+  displayName: string;
+  firstName: string;
+  lastName: string;
+  statusMessage: string;
+  userCode: string | null;
+  avatarUrl: string | null;
+  deckReadMode: "FULL_ACCESS" | "NO_ACCESS" | "WHITELIST" | "BLACKLIST";
+  deckReadDeckIds: string[];
+  deckWriteMode: "FULL_ACCESS" | "NO_ACCESS" | "WHITELIST" | "BLACKLIST";
+  deckWriteDeckIds: string[];
+};
+
+const normalizePermissionMode = (value: string | null | undefined) => {
+  if (value === "NO_ACCESS" || value === "WHITELIST" || value === "BLACKLIST") {
+    return value;
+  }
+
+  return "FULL_ACCESS" as const;
 };
 
 const findUserByCode = async (userCode: string) => {
@@ -68,6 +98,36 @@ const findUserByCode = async (userCode: string) => {
   return null;
 };
 
+const toMemberSummary = (
+  user: { id: string; email?: string | null; user_metadata?: unknown },
+  role: string,
+  joinedAt?: string,
+  permissions?: {
+    deckReadMode?: string;
+    deckReadDeckIds?: string[] | null;
+    deckWriteMode?: string;
+    deckWriteDeckIds?: string[] | null;
+  }
+): MemberSummary => {
+  const meta = normalizeMetadata(user.user_metadata);
+
+  return {
+    id: user.id,
+    role,
+    joinedAt,
+    displayName: resolveDisplayName(user.email, meta),
+    firstName: meta.firstName ?? "",
+    lastName: meta.lastName ?? "",
+    statusMessage: meta.statusMessage ?? "",
+    userCode: meta.userCode ?? null,
+    avatarUrl: meta.avatarUrl ?? null,
+    deckReadMode: normalizePermissionMode(permissions?.deckReadMode),
+    deckReadDeckIds: permissions?.deckReadDeckIds ?? [],
+    deckWriteMode: normalizePermissionMode(permissions?.deckWriteMode),
+    deckWriteDeckIds: permissions?.deckWriteDeckIds ?? []
+  };
+};
+
 const enrichMember = async (member: MemberRow) => {
   const { data, error } = await supabaseAdmin.auth.admin.getUserById(member.user_id);
 
@@ -75,16 +135,12 @@ const enrichMember = async (member: MemberRow) => {
     return null;
   }
 
-  const meta = normalizeMetadata(data.user.user_metadata);
-
-  return {
-    id: member.user_id,
-    role: member.role,
-    joinedAt: member.created_at,
-    displayName: resolveDisplayName(data.user.email, meta),
-    userCode: meta.userCode ?? null,
-    avatarUrl: meta.avatarUrl ?? null
-  };
+  return toMemberSummary(data.user, member.role, member.created_at, {
+    deckReadMode: member.deck_read_mode,
+    deckReadDeckIds: member.deck_read_deck_ids,
+    deckWriteMode: member.deck_write_mode,
+    deckWriteDeckIds: member.deck_write_deck_ids
+  });
 };
 
 export const memberService = {
@@ -110,14 +166,38 @@ export const memberService = {
     const members = await Promise.all((rows as MemberRow[]).map(enrichMember));
     const filtered = members.filter(Boolean);
 
+    const ownerId = (project as { owner_id: string } | null)?.owner_id ?? null;
+    let owner: MemberSummary | null = null;
+
+    if (ownerId) {
+      const { data: ownerAuth, error: ownerError } = await supabaseAdmin.auth.admin.getUserById(ownerId);
+
+      if (!ownerError && ownerAuth.user) {
+        owner = toMemberSummary(ownerAuth.user, "OWNER");
+      }
+    }
+
     return {
-      ownerId: (project as { owner_id: string } | null)?.owner_id ?? null,
+      ownerId,
+      owner,
       members: filtered
     };
   },
 
-  async add(projectId: string, ownerId: string, payload: unknown) {
-    await ensureProjectOwner(projectId, ownerId);
+  async add(projectId: string, actorUserId: string, payload: unknown) {
+    await ensureProjectAdmin(projectId, actorUserId);
+
+    const { data: project } = await supabaseAdmin
+      .from("sf_projects")
+      .select("owner_id")
+      .eq("id", projectId)
+      .single();
+
+    const ownerId = (project as { owner_id: string } | null)?.owner_id;
+
+    if (!ownerId) {
+      throw new AppError("Project not found", 404);
+    }
 
     const { userCode } = addMemberSchema.parse(payload);
 
@@ -147,26 +227,59 @@ export const memberService = {
       project_id: projectId,
       user_id: targetUser.id,
       role: "MEMBER",
-      invited_by: ownerId
+      invited_by: actorUserId
     });
 
     if (error) {
       throw new AppError(error.message, 500);
     }
 
-    const meta = normalizeMetadata(targetUser.user_metadata);
-
-    return {
-      id: targetUser.id,
-      role: "MEMBER",
-      displayName: resolveDisplayName(targetUser.email, meta),
-      userCode: meta.userCode ?? null,
-      avatarUrl: meta.avatarUrl ?? null
-    };
+    return toMemberSummary(targetUser, "MEMBER");
   },
 
-  async remove(projectId: string, ownerId: string, targetUserId: string) {
-    await ensureProjectOwner(projectId, ownerId);
+  async remove(projectId: string, actorUserId: string, targetUserId: string) {
+    await ensureProjectAdmin(projectId, actorUserId);
+
+    const { data: project } = await supabaseAdmin
+      .from("sf_projects")
+      .select("owner_id")
+      .eq("id", projectId)
+      .single();
+
+    const ownerId = (project as { owner_id: string } | null)?.owner_id;
+
+    if (!ownerId) {
+      throw new AppError("Project not found", 404);
+    }
+
+    if (targetUserId === ownerId) {
+      throw new AppError("Project owner cannot be removed", 400);
+    }
+
+    const { data: actorMember } = await supabaseAdmin
+      .from("sf_project_members")
+      .select("role")
+      .eq("project_id", projectId)
+      .eq("user_id", actorUserId)
+      .maybeSingle();
+
+    const actorIsOwner = ownerId === actorUserId;
+    const actorIsAdmin = actorMember?.role === "ADMIN";
+
+    const { data: targetMember } = await supabaseAdmin
+      .from("sf_project_members")
+      .select("role")
+      .eq("project_id", projectId)
+      .eq("user_id", targetUserId)
+      .maybeSingle();
+
+    if (!targetMember) {
+      throw new AppError("Member not found", 404);
+    }
+
+    if (!actorIsOwner && actorIsAdmin && targetMember.role === "ADMIN") {
+      throw new AppError("Only the owner can remove an admin", 403);
+    }
 
     const { error } = await supabaseAdmin
       .from("sf_project_members")
@@ -177,5 +290,119 @@ export const memberService = {
     if (error) {
       throw new AppError(error.message, 500);
     }
+  },
+
+  async updatePermissions(
+    projectId: string,
+    actorUserId: string,
+    targetUserId: string,
+    payload: unknown
+  ) {
+    await ensureProjectAdmin(projectId, actorUserId);
+
+    const input = setMemberPermissionsSchema.parse(payload);
+
+    const { data: project } = await supabaseAdmin
+      .from("sf_projects")
+      .select("owner_id")
+      .eq("id", projectId)
+      .single();
+
+    const ownerId = (project as { owner_id: string } | null)?.owner_id;
+
+    if (!ownerId) {
+      throw new AppError("Project not found", 404);
+    }
+
+    if (targetUserId === ownerId) {
+      throw new AppError("Owner role and permissions are always full access", 400);
+    }
+
+    const { data: actorMember } = await supabaseAdmin
+      .from("sf_project_members")
+      .select("role")
+      .eq("project_id", projectId)
+      .eq("user_id", actorUserId)
+      .maybeSingle();
+
+    const actorIsOwner = ownerId === actorUserId;
+    const actorIsAdmin = actorMember?.role === "ADMIN";
+
+    const { data: targetMember } = await supabaseAdmin
+      .from("sf_project_members")
+      .select("role")
+      .eq("project_id", projectId)
+      .eq("user_id", targetUserId)
+      .maybeSingle();
+
+    if (!targetMember) {
+      throw new AppError("Member not found", 404);
+    }
+
+    if (!actorIsOwner && actorIsAdmin) {
+      if (input.role === "ADMIN" || targetMember.role === "ADMIN") {
+        throw new AppError("Only the owner can grant or edit admin permissions", 403);
+      }
+    }
+
+    const deckIds = [...new Set([...input.deckReadDeckIds, ...input.deckWriteDeckIds])];
+
+    if (deckIds.length > 0) {
+      const { data: decks, error: decksError } = await supabaseAdmin
+        .from("sf_decks")
+        .select("id")
+        .eq("project_id", projectId)
+        .in("id", deckIds);
+
+      if (decksError) {
+        throw new AppError(decksError.message, 500);
+      }
+
+      const existing = new Set((decks ?? []).map((deck: { id: string }) => deck.id));
+      const missing = deckIds.filter((deckId) => !existing.has(deckId));
+
+      if (missing.length > 0) {
+        throw new AppError("One or more selected decks are not in this project", 400);
+      }
+    }
+
+    if (
+      (input.deckReadMode === "WHITELIST" || input.deckReadMode === "BLACKLIST") &&
+      input.deckReadDeckIds.length === 0
+    ) {
+      throw new AppError("Read deck list is required for whitelist or blacklist mode", 400);
+    }
+
+    if (
+      (input.deckWriteMode === "WHITELIST" || input.deckWriteMode === "BLACKLIST") &&
+      input.deckWriteDeckIds.length === 0
+    ) {
+      throw new AppError("Write deck list is required for whitelist or blacklist mode", 400);
+    }
+
+    const { error } = await supabaseAdmin
+      .from("sf_project_members")
+      .update({
+        role: input.role,
+        deck_read_mode: input.deckReadMode,
+        deck_read_deck_ids: input.deckReadDeckIds,
+        deck_write_mode: input.deckWriteMode,
+        deck_write_deck_ids: input.deckWriteDeckIds
+      })
+      .eq("project_id", projectId)
+      .eq("user_id", targetUserId);
+
+    if (error) {
+      throw new AppError(error.message, 500);
+    }
+
+    const { data: updatedMember } = await supabaseAdmin
+      .from("sf_project_members")
+      .select("*")
+      .eq("project_id", projectId)
+      .eq("user_id", targetUserId)
+      .single();
+
+    return await enrichMember(updatedMember as MemberRow);
   }
 };

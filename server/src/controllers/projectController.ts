@@ -48,5 +48,17 @@ export const projectController = {
 
     await projectService.remove(projectId, request.user!.userId);
     return response.status(204).send();
+  },
+
+  async getStats(request: Request, response: Response) {
+    const projectId =
+      typeof request.params.projectId === "string" ? request.params.projectId : undefined;
+
+    if (!projectId) {
+      throw new AppError("Project id is required", 400);
+    }
+
+    const stats = await projectService.getStats(projectId, request.user!.userId);
+    return response.status(200).json({ data: stats });
   }
 };
