@@ -11,6 +11,9 @@ type AuthContextValue = {
   isLoading: boolean;
   login: (payload: { email: string; password: string }) => Promise<void>;
   register: (payload: { email: string; password: string; displayName: string }) => Promise<void>;
+  refreshProfile: () => Promise<void>;
+  updateProfile: (payload: { firstName?: string; lastName?: string; statusMessage?: string; avatarUrl?: string }) => Promise<void>;
+  uploadAvatar: (file: File) => Promise<void>;
   logout: () => void;
 };
 
@@ -70,6 +73,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  const persistUser = (nextUser: User) => {
+    if (!token) {
+      return;
+    }
+
+    const payload: AuthPayload = {
+      token,
+      user: nextUser
+    };
+
+    localStorage.setItem(authStorageKey, JSON.stringify(payload));
+    startTransition(() => {
+      setUser(nextUser);
+    });
+  };
+
   const login = async (payload: { email: string; password: string }) => {
     const auth = await authService.login(payload);
     persistAuth(auth);
@@ -78,6 +97,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const register = async (payload: { email: string; password: string; displayName: string }) => {
     const auth = await authService.register(payload);
     persistAuth(auth);
+  };
+
+  const refreshProfile = async () => {
+    if (!token) {
+      return;
+    }
+
+    const profile = await authService.getProfile(token);
+    persistUser(profile);
+  };
+
+  const updateProfile = async (payload: { firstName?: string; lastName?: string; statusMessage?: string; avatarUrl?: string }) => {
+    if (!token) {
+      return;
+    }
+
+    const profile = await authService.updateProfile(token, payload);
+    persistUser(profile);
+  };
+
+  const uploadAvatar = async (file: File) => {
+    if (!token) {
+      return;
+    }
+
+    const profile = await authService.uploadAvatar(token, file);
+    persistUser(profile);
   };
 
   const logout = () => {
@@ -97,6 +143,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isLoading,
         login,
         register,
+        refreshProfile,
+        updateProfile,
+        uploadAvatar,
         logout
       }}
     >

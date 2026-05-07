@@ -10,8 +10,8 @@ type HeaderProps =
       projectName: string;
       xp?: number;
       xpMax?: number;
-      activeTab?: "board" | "decks" | "activity";
-      onTabChange?: (tab: "board" | "decks" | "activity") => void;
+      activeTab?: "board" | "decks" | "members" | "activity";
+      onTabChange?: (tab: "board" | "decks" | "members" | "activity") => void;
       onInvite?: () => void;
     };
 

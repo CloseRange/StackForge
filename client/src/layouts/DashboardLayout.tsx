@@ -14,9 +14,11 @@ export const DashboardLayout = ({ sidebar, children }: DashboardLayoutProps) => 
         }`}
       >
         {sidebar ? (
-          <aside className="rounded-[2rem] border border-white/[0.14] bg-slate-800/50 p-5 shadow-glow">{sidebar}</aside>
+          <aside className="rounded-[2rem] border border-white/[0.14] bg-[linear-gradient(180deg,rgba(20,28,41,0.96),rgba(13,19,30,0.96))] p-5 shadow-glow">
+            {sidebar}
+          </aside>
         ) : null}
-        <div className="rounded-[2rem] border border-white/[0.14] bg-slate-800/40 p-5 shadow-glow">
+        <div className="rounded-[2rem] border border-white/[0.14] bg-[linear-gradient(180deg,rgba(19,27,40,0.95),rgba(11,16,26,0.95))] p-5 shadow-glow">
           {children}
         </div>
       </div>

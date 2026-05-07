@@ -3,7 +3,7 @@ import { UserPlus, Zap } from "lucide-react";
 import { Logo } from "./Logo";
 import { ProfileMenu } from "./ProfileMenu";
 
-type ProjectTab = "board" | "decks" | "activity";
+type ProjectTab = "board" | "decks" | "members" | "activity";
 
 type ProjectHeaderProps = {
   projectName: string;
@@ -17,6 +17,7 @@ type ProjectHeaderProps = {
 const TABS: { id: ProjectTab; label: string }[] = [
   { id: "board", label: "Board" },
   { id: "decks", label: "Decks" },
+  { id: "members", label: "Members" },
   { id: "activity", label: "Activity" },
 ];
 
@@ -28,7 +29,7 @@ export const ProjectHeader = ({
   onTabChange,
   onInvite,
 }: ProjectHeaderProps) => (
-  <header className="sticky top-0 z-40 border-b border-white/[0.12] bg-slate-900/85 backdrop-blur-md">
+  <header className="sticky top-0 z-40 border-b border-white/[0.12] bg-[linear-gradient(180deg,rgba(12,18,30,0.95),rgba(9,14,24,0.92))] backdrop-blur-md">
     <div className="mx-auto flex h-14 max-w-[1600px] items-center justify-between px-6">
       {/* Left — logo + project name */}
       <div className="flex items-center gap-3">
@@ -48,8 +49,8 @@ export const ProjectHeader = ({
             onClick={() => onTabChange?.(tab.id)}
             className={`rounded-xl border px-4 py-1.5 text-sm font-semibold transition ${
               activeTab === tab.id
-                ? "border-sky-300/35 bg-sky-500/15 text-sky-100"
-                : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20 hover:bg-white/10 hover:text-white"
+                ? "border-sky-300/40 bg-sky-500/12 text-sky-100 shadow-[0_0_0_1px_rgba(125,211,252,0.16)]"
+                : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
             }`}
           >
             {tab.label}
@@ -59,7 +60,7 @@ export const ProjectHeader = ({
 
       {/* Right — XP + invite + avatar */}
       <div className="flex items-center gap-3">
-        <div className="hidden items-center gap-1.5 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-1.5 md:flex">
+        <div className="hidden items-center gap-1.5 rounded-xl border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 md:flex">
           <Zap className="h-3.5 w-3.5 text-amber-300" />
           <span className="text-xs font-semibold text-amber-200">
             {xp.toLocaleString()} / {xpMax.toLocaleString()} XP
@@ -69,7 +70,7 @@ export const ProjectHeader = ({
         <button
           type="button"
           onClick={onInvite}
-          className="hidden items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3.5 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10 hover:text-white sm:flex"
+          className="hidden items-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.04] px-3.5 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/[0.09] hover:text-white sm:flex"
         >
           <UserPlus className="h-4 w-4" />
           Invite

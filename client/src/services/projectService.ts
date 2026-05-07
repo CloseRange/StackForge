@@ -1,4 +1,4 @@
-import type { CreateProjectInput, Project } from "../types/api";
+import type { CreateProjectInput, Project, ProjectMember, ProjectMembersResponse } from "../types/api";
 import { request } from "./api";
 
 export const projectService = {
@@ -11,6 +11,25 @@ export const projectService = {
       method: "POST",
       token,
       body: payload
+    });
+  },
+
+  listMembers(token: string, projectId: string) {
+    return request<ProjectMembersResponse>(`/projects/${projectId}/members`, { token });
+  },
+
+  addMember(token: string, projectId: string, userCode: string) {
+    return request<ProjectMember>(`/projects/${projectId}/members`, {
+      method: "POST",
+      token,
+      body: { userCode }
+    });
+  },
+
+  removeMember(token: string, projectId: string, userId: string) {
+    return request<void>(`/projects/${projectId}/members/${userId}`, {
+      method: "DELETE",
+      token
     });
   }
 };

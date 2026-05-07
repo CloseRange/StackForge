@@ -2,6 +2,7 @@ import { supabaseAdmin } from "../config/db.js";
 import { AppError } from "../middleware/errorHandler.js";
 import type { SFDeckRow } from "../models/deckModel.js";
 import { serializeDeck } from "../utils/cardTransforms.js";
+import { ensureProjectAccess } from "../utils/projectAccess.js";
 import { createDeckSchema, updateDeckSchema } from "../utils/validators.js";
 
 const RESERVED_DECK_SLUGS = new Set(["debug", "completed"]);
@@ -13,19 +14,6 @@ const toSlug = (name: string) =>
     .replace(/[^a-z0-9\s-]/g, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-");
-
-const ensureProjectAccess = async (projectId: string, userId: string) => {
-  const { data } = await supabaseAdmin
-    .from("sf_projects")
-    .select("id")
-    .eq("id", projectId)
-    .eq("owner_id", userId)
-    .single();
-
-  if (!data) {
-    throw new AppError("Project not found", 404);
-  }
-};
 
 const fetchDeckForUser = async (deckId: string, userId: string) => {
   const { data: deck } = await supabaseAdmin

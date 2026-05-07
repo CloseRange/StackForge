@@ -19,6 +19,15 @@ export const loginSchema = z.object({
   password: z.string().min(1)
 });
 
+export const updateProfileSchema = z
+  .object({
+    firstName: z.string().trim().min(1).max(40).optional(),
+    lastName: z.string().trim().min(1).max(40).optional(),
+    statusMessage: z.string().trim().max(140).optional().or(z.literal("")),
+    avatarUrl: z.string().trim().url().optional().or(z.literal(""))
+  })
+  .refine((data) => Object.keys(data).length > 0, "At least one profile field must be provided");
+
 export const createProjectSchema = z.object({
   name: z.string().min(2).max(80),
   description: z.string().max(240).optional().or(z.literal(""))

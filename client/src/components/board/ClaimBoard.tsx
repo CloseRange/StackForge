@@ -16,19 +16,19 @@ const priorityLabels: Record<CardPriority, string> = {
 };
 
 const priorityClasses: Record<CardPriority, string> = {
-  common: "border-slate-300/20 bg-slate-900/80 text-slate-200",
-  uncommon: "border-emerald-300/30 bg-emerald-500/15 text-emerald-100",
-  rare: "border-sky-300/30 bg-sky-500/15 text-sky-100",
-  legendary: "border-amber-300/30 bg-amber-500/15 text-amber-100"
+  common: "border-slate-300/25 bg-slate-900/78 text-slate-200",
+  uncommon: "border-emerald-300/35 bg-emerald-500/14 text-emerald-100",
+  rare: "border-indigo-300/35 bg-indigo-500/14 text-indigo-100",
+  legendary: "border-amber-300/35 bg-amber-500/14 text-amber-100"
 };
 
 const deckToneClasses = {
-  teal: "bg-[radial-gradient(circle_at_25%_0%,rgba(94,234,212,0.34),transparent_55%),linear-gradient(180deg,rgba(45,212,191,0.22),rgba(6,18,34,0.96))] text-teal-100 border-teal-200/45",
-  cyan: "bg-[radial-gradient(circle_at_25%_0%,rgba(103,232,249,0.34),transparent_55%),linear-gradient(180deg,rgba(34,211,238,0.22),rgba(6,18,34,0.96))] text-cyan-100 border-cyan-200/45",
-  amber: "bg-[radial-gradient(circle_at_25%_0%,rgba(252,211,77,0.34),transparent_55%),linear-gradient(180deg,rgba(245,158,11,0.22),rgba(6,18,34,0.96))] text-amber-100 border-amber-200/45",
-  rose: "bg-[radial-gradient(circle_at_25%_0%,rgba(251,113,133,0.34),transparent_55%),linear-gradient(180deg,rgba(244,63,94,0.22),rgba(6,18,34,0.96))] text-rose-100 border-rose-200/45",
-  indigo: "bg-[radial-gradient(circle_at_25%_0%,rgba(165,180,252,0.34),transparent_55%),linear-gradient(180deg,rgba(99,102,241,0.22),rgba(6,18,34,0.96))] text-indigo-100 border-indigo-200/45",
-  emerald: "bg-[radial-gradient(circle_at_25%_0%,rgba(110,231,183,0.34),transparent_55%),linear-gradient(180deg,rgba(16,185,129,0.22),rgba(6,18,34,0.96))] text-emerald-100 border-emerald-200/45"
+  teal: "bg-[radial-gradient(ellipse_at_20%_0%,rgba(45,212,191,0.42),transparent_60%),linear-gradient(180deg,rgba(22,46,48,0.96),rgba(12,26,32,0.99))] text-teal-100 border-teal-300/50",
+  cyan: "bg-[radial-gradient(ellipse_at_20%_0%,rgba(34,211,238,0.42),transparent_60%),linear-gradient(180deg,rgba(18,44,54,0.96),rgba(10,24,36,0.99))] text-cyan-100 border-cyan-300/50",
+  amber: "bg-[radial-gradient(ellipse_at_20%_0%,rgba(245,158,11,0.40),transparent_60%),linear-gradient(180deg,rgba(46,38,16,0.96),rgba(28,22,10,0.99))] text-amber-100 border-amber-300/50",
+  rose: "bg-[radial-gradient(ellipse_at_20%_0%,rgba(244,63,94,0.40),transparent_60%),linear-gradient(180deg,rgba(50,22,28,0.96),rgba(30,12,18,0.99))] text-rose-100 border-rose-300/50",
+  indigo: "bg-[radial-gradient(ellipse_at_20%_0%,rgba(139,92,246,0.44),transparent_60%),linear-gradient(180deg,rgba(34,22,60,0.96),rgba(20,14,42,0.99))] text-violet-100 border-violet-300/50",
+  emerald: "bg-[radial-gradient(ellipse_at_20%_0%,rgba(16,185,129,0.42),transparent_60%),linear-gradient(180deg,rgba(16,46,34,0.96),rgba(8,28,20,0.99))] text-emerald-100 border-emerald-300/50"
 } as const;
 
 type ClaimBoardProps = {
@@ -146,14 +146,14 @@ const BoardSlot = ({ id, index, children }: { id: string; index: number; childre
       ref={setNodeRef}
       className={`relative w-full max-w-[9rem] sm:max-w-[9.5rem] lg:max-w-[10rem] aspect-[2/3] rounded-[1.5rem] border border-dashed p-1 transition ${
         isOver
-          ? "border-sky-300/60 bg-sky-500/12 shadow-[0_0_0_1px_rgba(125,211,252,0.2)]"
-          : "border-white/[0.12] bg-white/[0.02]"
+          ? "border-sky-300/55 bg-sky-500/10 shadow-[0_0_0_1px_rgba(125,211,252,0.2)]"
+          : "border-white/[0.14] bg-[linear-gradient(180deg,rgba(17,24,38,0.84),rgba(9,14,23,0.9))]"
       }`}
     >
       {children ? (
         children
       ) : (
-        <div className="flex h-full flex-col justify-between rounded-[1.2rem] border border-white/5 bg-slate-800/50 px-3 py-3.5">
+        <div className="flex h-full flex-col justify-between rounded-[1.2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(29,40,58,0.76),rgba(16,23,35,0.9))] px-3 py-3.5">
           <div className="text-[10px] font-semibold uppercase tracking-[0.45em] text-slate-400">
             Slot {index + 1}
           </div>
@@ -210,7 +210,7 @@ const CardPoolDropZone = ({ children }: { children: ReactNode }) => {
     <div
       ref={setNodeRef}
       className={`rounded-[1.6rem] border p-3 transition ${
-        isOver ? "border-sky-300/45 bg-sky-500/10" : "border-white/[0.12] bg-slate-900/45"
+        isOver ? "border-sky-300/45 bg-sky-500/10" : "border-white/[0.14] bg-[linear-gradient(180deg,rgba(17,24,38,0.9),rgba(10,15,24,0.94))]"
       }`}
     >
       {children}
@@ -237,8 +237,11 @@ const BoardCard = ({
   });
   const [detailSide, setDetailSide] = useState<"left" | "right">("right");
 
-  const ownerName = card.assigneeId === currentUser.id ? getDisplayName(currentUser) : "Claimed";
-  const ownerInitial = card.assigneeId === currentUser.id ? getInitial(ownerName) : "?";
+  const ownerName =
+    card.assignee?.displayName ||
+    (card.assigneeId === currentUser.id ? getDisplayName(currentUser) : "Claimed");
+  const ownerInitial = getInitial(ownerName);
+  const ownerAvatarUrl = card.assignee?.avatarUrl ?? (card.assigneeId === currentUser.id ? currentUser.avatarUrl ?? null : null);
   const showOwnerBadge = Boolean(card.assigneeId);
   const transformStyle = transform ? CSS.Translate.toString(transform) : undefined;
 
@@ -265,10 +268,11 @@ const BoardCard = ({
         {...(draggable && !isBusy ? attributes : {})}
       >
         <div
-          className={`relative aspect-[2/3] rounded-[1.35rem] border p-2.5 shadow-[0_18px_45px_rgba(2,6,23,0.38)] transition-[transform,box-shadow,filter] duration-300 ${
+          className={`relative aspect-[2/3] rounded-[1.35rem] border p-2.5 shadow-[0_18px_45px_rgba(2,6,23,0.42)] transition-[transform,box-shadow,filter] duration-300 ${
             deckPresentation.toneClass
           } ${isLocked ? "opacity-80" : ""} ${isDragging ? "scale-[1.03]" : "transform-gpu group-hover/card:[transform:perspective(960px)_translateY(-10px)_rotateX(4deg)_rotateY(-2deg)_rotateZ(1.2deg)] group-hover/card:shadow-[0_42px_96px_rgba(2,6,23,0.62)]"}`}
         >
+          <div className="pointer-events-none absolute inset-[6px] rounded-[1rem] border border-white/18" />
           <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[1.35rem]">
             <div className="absolute inset-y-0 -left-[65%] w-[50%] -skew-x-12 bg-gradient-to-r from-transparent via-white/25 to-transparent opacity-0 transition-all duration-500 group-hover/card:left-[125%] group-hover/card:opacity-100" />
           </div>
@@ -282,7 +286,7 @@ const BoardCard = ({
             </div>
           </div>
 
-          <div className="absolute bottom-2.5 left-2.5 rounded-full border border-emerald-200/35 bg-emerald-500/20 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-emerald-100">
+          <div className="absolute bottom-2.5 left-2.5 rounded-full border border-amber-200/35 bg-amber-500/18 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-amber-100">
             {card.xpValue} XP
           </div>
 
@@ -305,9 +309,15 @@ const BoardCard = ({
 
           <div className="absolute bottom-1 right-1">
             <div
-              className={`flex h-8 w-8 items-center justify-center rounded-full border-2 border-slate-950 bg-gradient-to-br from-sky-300 to-cyan-500 text-xs font-semibold text-slate-950 shadow-[0_10px_20px_rgba(14,165,233,0.28)] ${showOwnerBadge ? "opacity-100" : "opacity-0"}`}
+              className={`flex h-8 w-8 items-center justify-center rounded-full border-2 border-slate-950 bg-gradient-to-br from-amber-200 to-amber-400 text-xs font-semibold text-slate-950 shadow-[0_10px_20px_rgba(245,158,11,0.28)] ${showOwnerBadge ? "opacity-100" : "opacity-0"}`}
             >
-              {showOwnerBadge ? ownerInitial : null}
+              {showOwnerBadge ? (
+                ownerAvatarUrl ? (
+                  <img src={ownerAvatarUrl} alt={ownerName} className="h-full w-full rounded-full object-cover" />
+                ) : (
+                  ownerInitial
+                )
+              ) : null}
             </div>
           </div>
         </div>
@@ -321,7 +331,7 @@ const BoardCard = ({
               : "right-full -translate-x-2 group-hover/card:-translate-x-4"
           }`}
         >
-          <div className="relative z-[80] rounded-[1.25rem] border border-white/10 bg-slate-900/95 p-3 shadow-[0_24px_64px_rgba(2,6,23,0.58)] backdrop-blur-md">
+          <div className="relative z-[80] rounded-[1.25rem] border border-white/12 bg-[linear-gradient(180deg,rgba(22,30,44,0.97),rgba(12,18,30,0.98))] p-3 shadow-[0_24px_64px_rgba(2,6,23,0.58)] backdrop-blur-md">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-[10px] uppercase tracking-[0.35em] text-slate-400">Details</div>
@@ -521,10 +531,10 @@ export const ClaimBoard = ({
       }}
     >
       <div className={`space-y-4 overflow-x-hidden ${activeDragId ? "overflow-y-hidden" : ""}`}>
-        <section className="rounded-[1.6rem] border border-white/[0.12] bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.16),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(16,185,129,0.12),_transparent_28%),linear-gradient(180deg,rgba(15,23,42,0.92),rgba(2,6,23,0.96))] p-4 md:p-4.5">
+        <section className="rounded-[1.6rem] border border-white/[0.14] bg-[radial-gradient(circle_at_18%_0%,rgba(56,189,248,0.1),transparent_34%),radial-gradient(circle_at_92%_94%,rgba(16,185,129,0.1),transparent_28%),linear-gradient(180deg,rgba(17,24,38,0.92),rgba(8,13,22,0.96))] p-4 md:p-4.5">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.4em] text-sky-300">Your Playmat</p>
+              <p className="text-xs uppercase tracking-[0.4em] text-slate-300">Your Playmat</p>
               <h2 className="mt-1.5 font-display text-2xl font-semibold text-white">{BOARD_SLOT_COUNT} active slots</h2>
               <p className="mt-1.5 max-w-2xl text-sm leading-5 text-slate-300">
                 Drag a card from the collection below onto an empty slot to claim it to your board. Once claimed,
@@ -533,7 +543,7 @@ export const ClaimBoard = ({
             </div>
 
             <div className="flex flex-wrap gap-2.5">
-              <div className="rounded-xl border border-white/[0.12] bg-white/[0.04] px-3 py-2.5">
+              <div className="rounded-xl border border-white/[0.14] bg-white/[0.03] px-3 py-2.5">
                 <div className="text-[10px] uppercase tracking-[0.35em] text-slate-400">Active</div>
                 <div className="mt-1 text-xl font-semibold text-white">{occupiedBoardSlots}/{BOARD_SLOT_COUNT}</div>
               </div>
@@ -545,7 +555,7 @@ export const ClaimBoard = ({
           </div>
 
           {notice ? (
-            <div className="mt-4 rounded-xl border border-sky-300/18 bg-sky-500/10 px-3 py-2.5 text-sm text-sky-100">
+            <div className="mt-4 rounded-xl border border-sky-300/24 bg-sky-500/10 px-3 py-2.5 text-sm text-sky-100">
               {notice}
             </div>
           ) : null}
@@ -588,14 +598,14 @@ export const ClaimBoard = ({
         <CardPoolDropZone>
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.38em] text-slate-400">Card Library</p>
+              <p className="text-xs uppercase tracking-[0.38em] text-slate-300">Card Library</p>
               <h3 className="mt-1.5 font-display text-xl font-semibold text-white">Every card in the project</h3>
               <p className="mt-1.5 max-w-2xl text-sm leading-5 text-slate-400">
                 Unclaimed cards can be dragged onto your board. Cards already claimed by another user stay visible
                 here, but they are locked until released by their owner.
               </p>
             </div>
-            <div className="flex items-center gap-2.5 rounded-xl border border-white/[0.12] bg-white/[0.06] px-3 py-2.5 text-sm text-slate-300">
+            <div className="flex items-center gap-2.5 rounded-xl border border-white/[0.14] bg-white/[0.04] px-3 py-2.5 text-sm text-slate-300">
               <Zap className="h-4 w-4 text-amber-300" />
               Drop one of your claimed cards back here to release it.
             </div>

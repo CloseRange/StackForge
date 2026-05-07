@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../config/db.js";
+import { env } from "../config/env.js";
 import { AppError } from "../middleware/errorHandler.js";
 import type { SFCardWithChecklist } from "../models/cardModel.js";
 import {
@@ -7,6 +8,7 @@ import {
   toCardDifficulty,
   toCardPriority
 } from "../utils/cardTransforms.js";
+import { ensureProjectAccess } from "../utils/projectAccess.js";
 import {
   assignCardSchema,
   createCardSchema,
@@ -15,17 +17,129 @@ import {
 
 const CARD_SELECT = "*, checklist:sf_checklist_items(*)" as const;
 
-const ensureProjectAccess = async (projectId: string, userId: string) => {
-  const { data } = await supabaseAdmin
-    .from("sf_projects")
-    .select("id")
-    .eq("id", projectId)
-    .eq("owner_id", userId)
-    .single();
+type AssigneeMetadata = {
+  displayName?: string;
+  firstName?: string;
+  lastName?: string;
+  avatarUrl?: string;
+  avatarPath?: string;
+};
 
-  if (!data) {
-    throw new AppError("Project not found", 404);
+type AssigneeSummary = {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
+};
+
+const normalizeAssigneeMetadata = (metadata: unknown): AssigneeMetadata => {
+  if (!metadata || typeof metadata !== "object") {
+    return {};
   }
+
+  return metadata as AssigneeMetadata;
+};
+
+const getAvatarPathFromUrl = (avatarUrl: string | undefined) => {
+  if (!avatarUrl) {
+    return undefined;
+  }
+
+  const publicMarker = `/storage/v1/object/public/${env.SUPABASE_AVATAR_BUCKET}/`;
+  const signedMarker = `/storage/v1/object/sign/${env.SUPABASE_AVATAR_BUCKET}/`;
+
+  if (avatarUrl.includes(publicMarker)) {
+    const raw = avatarUrl.split(publicMarker)[1]?.split("?")[0];
+    return raw ? decodeURIComponent(raw) : undefined;
+  }
+
+  if (avatarUrl.includes(signedMarker)) {
+    const raw = avatarUrl.split(signedMarker)[1]?.split("?")[0];
+    return raw ? decodeURIComponent(raw) : undefined;
+  }
+
+  return undefined;
+};
+
+const getSignedAvatarUrl = async (path: string) => {
+  const { data, error } = await supabaseAdmin.storage
+    .from(env.SUPABASE_AVATAR_BUCKET)
+    .createSignedUrl(path, 60 * 60 * 24 * 30);
+
+  if (error || !data.signedUrl) {
+    return null;
+  }
+
+  return data.signedUrl;
+};
+
+const resolveAssigneeDisplayName = (email: string | null | undefined, metadata: AssigneeMetadata) => {
+  const fromMetadata = metadata.displayName?.trim();
+
+  if (fromMetadata) {
+    return fromMetadata;
+  }
+
+  const composed = `${metadata.firstName ?? ""} ${metadata.lastName ?? ""}`.trim();
+
+  if (composed) {
+    return composed;
+  }
+
+  const local = email?.split("@")[0]?.trim();
+  return local || "Operator";
+};
+
+const resolveAssigneeAvatar = async (metadata: AssigneeMetadata) => {
+  const path = metadata.avatarPath ?? getAvatarPathFromUrl(metadata.avatarUrl);
+
+  if (path) {
+    return await getSignedAvatarUrl(path);
+  }
+
+  return metadata.avatarUrl ?? null;
+};
+
+const getAssigneeSummary = async (
+  assigneeId: string,
+  cache: Map<string, AssigneeSummary | null>
+) => {
+  if (cache.has(assigneeId)) {
+    return cache.get(assigneeId) ?? null;
+  }
+
+  const { data, error } = await supabaseAdmin.auth.admin.getUserById(assigneeId);
+
+  if (error || !data.user) {
+    cache.set(assigneeId, null);
+    return null;
+  }
+
+  const metadata = normalizeAssigneeMetadata(data.user.user_metadata);
+  const summary: AssigneeSummary = {
+    id: data.user.id,
+    displayName: resolveAssigneeDisplayName(data.user.email, metadata),
+    avatarUrl: await resolveAssigneeAvatar(metadata)
+  };
+
+  cache.set(assigneeId, summary);
+  return summary;
+};
+
+const serializeCardsWithAssignees = async (cards: SFCardWithChecklist[]) => {
+  const cache = new Map<string, AssigneeSummary | null>();
+  const assigneeIds = [...new Set(cards.map((card) => card.assignee_id).filter(Boolean) as string[])];
+
+  await Promise.all(assigneeIds.map((assigneeId) => getAssigneeSummary(assigneeId, cache)));
+
+  return cards.map((card) => ({
+    ...serializeCard(card),
+    assignee: card.assignee_id ? cache.get(card.assignee_id) ?? null : null
+  }));
+};
+
+const serializeCardWithAssignee = async (card: SFCardWithChecklist) => {
+  const [serialized] = await serializeCardsWithAssignees([card]);
+  return serialized;
 };
 
 const ensureDeckForProject = async (deckId: string, projectId: string) => {
@@ -155,7 +269,7 @@ export const cardService = {
       throw new AppError(error.message, 500);
     }
 
-    return (data as SFCardWithChecklist[]).map(serializeCard);
+    return serializeCardsWithAssignees(data as SFCardWithChecklist[]);
   },
 
   async create(userId: string, payload: unknown) {
@@ -190,7 +304,7 @@ export const cardService = {
       await replaceChecklist(card.id, input.checklist);
     }
 
-    return serializeCard(await fetchCardById(card.id));
+    return serializeCardWithAssignee(await fetchCardById(card.id));
   },
 
   async update(cardId: string, userId: string, payload: unknown) {
@@ -247,7 +361,7 @@ export const cardService = {
       await replaceChecklist(cardId, input.checklist);
     }
 
-    return serializeCard(await fetchCardById(cardId));
+    return serializeCardWithAssignee(await fetchCardById(cardId));
   },
 
   async assign(cardId: string, userId: string, payload: unknown) {
@@ -270,7 +384,7 @@ export const cardService = {
       throw new AppError(error.message, 500);
     }
 
-    return serializeCard(await fetchCardById(cardId));
+    return serializeCardWithAssignee(await fetchCardById(cardId));
   },
 
   async remove(cardId: string, userId: string) {

@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { LogOut, Settings, User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../hooks/useAuth";
 
 export const ProfileMenu = () => {
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -27,10 +29,14 @@ export const ProfileMenu = () => {
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-cyan-400 text-xs font-black text-slate-950 shadow-md shadow-sky-500/20 transition hover:opacity-90"
+        className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-sky-500 to-cyan-400 text-xs font-black text-slate-950 shadow-md shadow-sky-500/20 transition hover:opacity-90"
         aria-label="Open profile menu"
       >
-        {initials}
+        {user?.avatarUrl ? (
+          <img src={user.avatarUrl} alt="Profile avatar" className="h-full w-full object-cover" />
+        ) : (
+          initials
+        )}
       </button>
 
       {isOpen && (
@@ -45,6 +51,10 @@ export const ProfileMenu = () => {
           <div className="py-1.5">
             <button
               type="button"
+              onClick={() => {
+                navigate("/profile");
+                setIsOpen(false);
+              }}
               className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
             >
               <User className="h-4 w-4" />

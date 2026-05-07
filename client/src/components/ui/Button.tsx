@@ -6,9 +6,10 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const variantClasses: Record<NonNullable<ButtonProps["variant"]>, string> = {
-  primary: "bg-gradient-to-r from-sky-400 to-cyan-300 text-slate-950 hover:from-sky-300 hover:to-cyan-200",
-  ghost: "bg-white/5 text-slate-100 hover:bg-white/10",
-  outline: "border border-white/15 bg-transparent text-slate-100 hover:bg-white/5"
+  primary:
+    "border border-sky-200/40 bg-gradient-to-r from-sky-300 via-cyan-300 to-indigo-300 text-slate-950 shadow-[0_10px_26px_rgba(56,189,248,0.22)] hover:from-sky-200 hover:via-cyan-200 hover:to-indigo-200",
+  ghost: "border border-white/10 bg-white/[0.04] text-slate-100 hover:bg-white/[0.08]",
+  outline: "border border-white/18 bg-transparent text-slate-100 hover:bg-white/[0.06]"
 };
 
 export const Button = ({ variant = "primary", className = "", children, ...props }: ButtonProps) => {

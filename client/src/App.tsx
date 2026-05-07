@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { BoardPage } from "./pages/BoardPage";
 import { LoginPage } from "./pages/LoginPage";
+import { ProfilePage } from "./pages/ProfilePage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { RegisterPage } from "./pages/RegisterPage";
 
@@ -20,7 +21,7 @@ const ProtectedProjectsPage = () => {
   return <ProjectsPage />;
 };
 
-const ProtectedWorkspacePage = ({ tab }: { tab: "board" | "decks" | "activity" }) => {
+const ProtectedWorkspacePage = ({ tab }: { tab: "board" | "decks" | "members" | "activity" }) => {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
@@ -34,6 +35,20 @@ const ProtectedWorkspacePage = ({ tab }: { tab: "board" | "decks" | "activity" }
   return <BoardPage tab={tab} />;
 };
 
+const ProtectedProfilePage = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div className="flex min-h-screen items-center justify-center text-slate-300">Loading StackForge...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <ProfilePage />;
+};
+
 export const App = () => {
   return (
     <BrowserRouter>
@@ -43,7 +58,9 @@ export const App = () => {
         <Route path="/" element={<ProtectedProjectsPage />} />
         <Route path="/board" element={<ProtectedWorkspacePage tab="board" />} />
         <Route path="/decks" element={<ProtectedWorkspacePage tab="decks" />} />
+        <Route path="/members" element={<ProtectedWorkspacePage tab="members" />} />
         <Route path="/activity" element={<ProtectedWorkspacePage tab="activity" />} />
+        <Route path="/profile" element={<ProtectedProfilePage />} />
       </Routes>
     </BrowserRouter>
   );

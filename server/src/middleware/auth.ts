@@ -22,10 +22,24 @@ export const requireAuth = async (request: Request, _response: Response, next: N
       return next(new AppError("Invalid token", 401));
     }
 
+    const metadata = user.user_metadata as
+      | {
+          displayName?: string;
+          firstName?: string;
+          lastName?: string;
+          statusMessage?: string;
+          userCode?: string;
+        }
+      | undefined;
+
     request.user = {
       userId: user.id,
       email: user.email ?? "",
-      displayName: (user.user_metadata as { displayName?: string } | undefined)?.displayName
+      displayName: metadata?.displayName,
+      firstName: metadata?.firstName,
+      lastName: metadata?.lastName,
+      statusMessage: metadata?.statusMessage,
+      userCode: metadata?.userCode
     };
 
     return next();

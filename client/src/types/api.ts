@@ -2,6 +2,10 @@ export type User = {
   id: string;
   email: string;
   displayName?: string;
+  firstName?: string;
+  lastName?: string;
+  statusMessage?: string;
+  userCode?: string;
   avatarUrl?: string | null;
 };
 
@@ -37,6 +41,11 @@ export type Card = {
   deckId: string;
   projectId: string;
   tags: string[];
+  assignee?: {
+    id: string;
+    displayName: string;
+    avatarUrl: string | null;
+  } | null;
   checklist: ChecklistItem[];
   createdAt: string;
   updatedAt: string;
@@ -71,6 +80,20 @@ export type AuthPayload = {
 export type CreateProjectInput = {
   name: string;
   description?: string;
+};
+
+export type ProjectMember = {
+  id: string;
+  role: string;
+  displayName: string;
+  userCode: string | null;
+  avatarUrl: string | null;
+  joinedAt?: string;
+};
+
+export type ProjectMembersResponse = {
+  ownerId: string | null;
+  members: ProjectMember[];
 };
 
 export type CreateCardInput = {

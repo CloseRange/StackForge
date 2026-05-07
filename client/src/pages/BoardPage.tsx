@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Bug, Layers3, PlusCircle, Sparkles, Trophy } from "lucide-react";
+import { ArrowLeft, Bug, Layers3, PlusCircle, Sparkles, Trophy, UserMinus, UserPlus, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { ClaimBoard } from "../components/board/ClaimBoard";
@@ -10,9 +10,10 @@ import { Modal } from "../components/ui/Modal";
 import { useAuth } from "../hooks/useAuth";
 import { useBoardStore } from "../hooks/useBoardStore";
 import { DashboardLayout } from "../layouts/DashboardLayout";
-import type { Card, CardDifficulty, CardPriority, Deck, DeckColor } from "../types/api";
+import { projectService } from "../services/projectService";
+import type { Card, CardDifficulty, CardPriority, Deck, DeckColor, ProjectMember } from "../types/api";
 
-type ProjectTab = "board" | "decks" | "activity";
+type ProjectTab = "board" | "decks" | "members" | "activity";
 
 type DeckCard = {
   id: string;
@@ -69,6 +70,21 @@ const getDeckColorClass = (color: DeckColor) => {
 
   const option = COLOR_OPTIONS.find((entry) => entry.value === color);
   return option?.className ?? "border-teal-300/30 bg-teal-500/10 text-teal-100";
+};
+
+const deckCardSurfaceClass: Record<DeckColor, string> = {
+  teal:
+    "border-teal-400/45 bg-[radial-gradient(ellipse_at_0%_50%,rgba(45,212,191,0.38),transparent_65%),linear-gradient(180deg,rgba(24,46,48,0.88),rgba(14,26,32,0.94))]",
+  cyan:
+    "border-cyan-400/45 bg-[radial-gradient(ellipse_at_0%_50%,rgba(34,211,238,0.38),transparent_65%),linear-gradient(180deg,rgba(20,44,52,0.88),rgba(12,24,34,0.94))]",
+  amber:
+    "border-amber-400/45 bg-[radial-gradient(ellipse_at_0%_50%,rgba(245,158,11,0.38),transparent_65%),linear-gradient(180deg,rgba(44,38,20,0.88),rgba(28,22,12,0.94))]",
+  rose:
+    "border-rose-400/45 bg-[radial-gradient(ellipse_at_0%_50%,rgba(244,63,94,0.38),transparent_65%),linear-gradient(180deg,rgba(48,24,30,0.88),rgba(30,14,20,0.94))]",
+  indigo:
+    "border-violet-400/45 bg-[radial-gradient(ellipse_at_0%_50%,rgba(139,92,246,0.40),transparent_65%),linear-gradient(180deg,rgba(34,26,58,0.88),rgba(20,16,40,0.94))]",
+  emerald:
+    "border-emerald-400/45 bg-[radial-gradient(ellipse_at_0%_50%,rgba(16,185,129,0.38),transparent_65%),linear-gradient(180deg,rgba(18,46,36,0.88),rgba(10,28,22,0.94))]"
 };
 
 const toDeckCard = (deck: Deck): DeckCard => ({
@@ -137,6 +153,14 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const [editDeckXpPayout, setEditDeckXpPayout] = useState(0);
   const [isUpdatingDeck, setIsUpdatingDeck] = useState(false);
   const [isDeletingDeck, setIsDeletingDeck] = useState(false);
+
+  // Members tab state
+  const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [membersOwnerId, setMembersOwnerId] = useState<string | null>(null);
+  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+  const [membersError, setMembersError] = useState<string | null>(null);
+  const [inviteCode, setInviteCode] = useState("");
+  const [isInviting, setIsInviting] = useState(false);
   const [deckQuickTitle, setDeckQuickTitle] = useState("");
   const [deckQuickPriority, setDeckQuickPriority] = useState<CardPriority>("uncommon");
   const [deckQuickDifficulty, setDeckQuickDifficulty] = useState<CardDifficulty>("easy");
@@ -169,7 +193,43 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     setDeckQuickTitle("");
     setDeckQuickPriority("uncommon");
     setDeckQuickDifficulty("easy");
+    // Reset members when project changes
+    setMembers([]);
+    setMembersOwnerId(null);
+    setMembersError(null);
   }, [selectedProjectId]);
+
+  // Load members when the members tab is opened
+  useEffect(() => {
+    if (tab !== "members" || !token || !selectedProjectId) {
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoadingMembers(true);
+    setMembersError(null);
+
+    projectService
+      .listMembers(token, selectedProjectId)
+      .then((result) => {
+        if (!cancelled) {
+          setMembers(result.members);
+          setMembersOwnerId(result.ownerId);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setMembersError(err instanceof Error ? err.message : "Failed to load members");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingMembers(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, token, selectedProjectId]);
 
   const activeProject = projects.find((project) => project.id === selectedProjectId) ?? null;
 
@@ -447,6 +507,31 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     }
   };
 
+  const handleInviteMember = async () => {
+    if (!token || !selectedProjectId || !inviteCode.trim()) return;
+    setIsInviting(true);
+    setMembersError(null);
+    try {
+      const newMember = await projectService.addMember(token, selectedProjectId, inviteCode.trim());
+      setMembers((prev) => [...prev, newMember]);
+      setInviteCode("");
+    } catch (err: unknown) {
+      setMembersError(err instanceof Error ? err.message : "Failed to invite member");
+    } finally {
+      setIsInviting(false);
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    if (!token || !selectedProjectId) return;
+    try {
+      await projectService.removeMember(token, selectedProjectId, memberId);
+      setMembers((prev) => prev.filter((m) => m.id !== memberId));
+    } catch (err: unknown) {
+      setMembersError(err instanceof Error ? err.message : "Failed to remove member");
+    }
+  };
+
   const totalXp = cards.reduce((sum, c) => sum + (c.xpValue ?? 0), 0);
 
   const deckPayoutMap = useMemo(() => {
@@ -528,7 +613,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                 {!activeDeck ? (
                   <>
                     <div>
-                      <p className="text-xs uppercase tracking-[0.35em] text-sky-300">Decks</p>
+                      <p className="text-xs uppercase tracking-[0.35em] text-slate-300">Decks</p>
                       <h2 className="mt-2 font-display text-2xl font-semibold text-white">Choose a deck</h2>
                       <p className="mt-1 text-sm text-slate-400">
                         Pick a deck card to open it. Debug and Completed stay pinned at the end.
@@ -544,14 +629,14 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                       <button
                         type="button"
                         onClick={() => setIsCreateDeckModalOpen(true)}
-                        className="group relative flex aspect-[2/3] w-full flex-col rounded-[1.25rem] border border-dashed border-sky-300/30 bg-sky-500/10 p-4 text-left shadow-[2px_4px_0_1px_rgba(0,0,0,0.35),5px_8px_0_1px_rgba(0,0,0,0.22)] transition hover:-translate-y-1.5 hover:shadow-[2px_6px_0_1px_rgba(0,0,0,0.45),5px_11px_0_1px_rgba(0,0,0,0.28)]"
+                        className="group relative flex aspect-[2/3] w-full flex-col rounded-[1.25rem] border border-dashed border-sky-300/28 bg-[linear-gradient(180deg,rgba(29,40,58,0.92),rgba(17,24,38,0.95))] p-4 text-left shadow-[2px_4px_0_1px_rgba(0,0,0,0.35),5px_8px_0_1px_rgba(0,0,0,0.22)] transition hover:-translate-y-1.5 hover:shadow-[2px_6px_0_1px_rgba(0,0,0,0.45),5px_11px_0_1px_rgba(0,0,0,0.28)]"
                       >
                         <div className="text-sky-300">
                           <PlusCircle className="h-5 w-5" />
                         </div>
                         <div className="mt-auto">
                           <p className="text-sm font-bold leading-tight text-white">New Deck</p>
-                          <p className="mt-1 text-[11px] text-sky-200/70">Add a category</p>
+                          <p className="mt-1 text-[11px] text-slate-300/70">Add a category</p>
                         </div>
                         <div className="absolute right-2.5 top-3 text-[9px] font-semibold uppercase tracking-[0.14em] text-sky-300/50 [writing-mode:vertical-rl]">new</div>
                       </button>
@@ -609,7 +694,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                   </>
                 ) : (
                   <div className="space-y-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-900/50 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/12 bg-[linear-gradient(180deg,rgba(22,31,46,0.86),rgba(13,19,31,0.94))] p-4">
                       <div>
                         <button
                           type="button"
@@ -659,7 +744,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                     </div>
 
                     {isDeckQuickAddOpen ? (
-                      <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4">
+                      <div className="rounded-2xl border border-white/12 bg-[linear-gradient(180deg,rgba(22,31,46,0.9),rgba(13,19,31,0.96))] p-4">
                         <div className="grid gap-3 md:grid-cols-[1fr_190px_170px_auto]">
                           <input
                             ref={deckQuickTitleRef}
@@ -712,7 +797,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                       </div>
                     ) : null}
 
-                    <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-4">
+                    <div className="rounded-2xl border border-white/12 bg-[linear-gradient(180deg,rgba(20,29,43,0.86),rgba(12,17,28,0.94))] p-4">
                       <div className="mb-3 flex items-center justify-between">
                         <h4 className="text-lg font-semibold text-white">Cards In {activeDeck.label}</h4>
                         <span className="text-sm text-slate-400">{sortedActiveDeckCards.length} total</span>
@@ -723,42 +808,49 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                           No cards in this deck yet.
                         </p>
                       ) : (
-                        <div className="space-y-2">
+                        <div className="grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2">
                           {sortedActiveDeckCards.map((card) => (
                             <div
                               key={card.id}
-                              className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 md:flex-row md:items-center md:justify-between"
+                              className={`group relative flex aspect-[2/3] flex-col justify-between rounded-xl border p-2 ${deckCardSurfaceClass[activeDeck.color]}`}
                             >
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-white">{card.title}</p>
-                                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                                  <span className="rounded-md bg-slate-800 px-2 py-0.5">
-                                    {card.priority}
-                                  </span>
-                                  <span className="rounded-md bg-slate-800 px-2 py-0.5">
-                                    {card.xpValue} XP
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="flex flex-wrap items-center gap-2">
-                                <Button
-                                  variant="outline"
+                              {/* action buttons — appear on hover */}
+                              <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                                <button
+                                  type="button"
                                   onClick={() => {
                                     setEditingCard(card);
                                     setIsEditorOpen(true);
                                   }}
+                                  className="rounded-md border border-white/15 bg-black/40 p-1 text-slate-300 backdrop-blur-sm hover:bg-white/15 hover:text-white"
+                                  title="Edit card"
                                 >
-                                  Edit Details
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  className="text-rose-200 hover:bg-rose-500/15 hover:text-rose-100"
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() => void handleDeleteCard(card)}
                                   disabled={deletingCardId === card.id}
+                                  className="rounded-md border border-rose-400/25 bg-black/40 p-1 text-rose-300 backdrop-blur-sm hover:bg-rose-500/20 hover:text-rose-100 disabled:opacity-50"
+                                  title="Delete card"
                                 >
-                                  {deletingCardId === card.id ? "Deleting..." : "Delete"}
-                                </Button>
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                                </button>
+                              </div>
+
+                              {/* card title */}
+                              <p className="line-clamp-3 pr-5 text-sm font-semibold leading-snug text-white">
+                                {card.title}
+                              </p>
+
+                              {/* bottom badges */}
+                              <div className="flex flex-wrap gap-1">
+                                <span className="rounded border border-white/10 bg-black/30 px-1.5 py-0.5 text-[11px] text-slate-300">
+                                  {card.priority}
+                                </span>
+                                <span className="rounded border border-white/10 bg-black/30 px-1.5 py-0.5 text-[11px] text-slate-300">
+                                  {card.xpValue} XP
+                                </span>
                               </div>
                             </div>
                           ))}
@@ -767,6 +859,125 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                     </div>
                   </div>
                 )}
+              </div>
+            ) : null}
+
+            {tab === "members" ? (
+              <div className="space-y-5">
+                {/* Invite section — only visible to the project owner */}
+                {user?.id === membersOwnerId ? (
+                  <div className="rounded-[1.5rem] border border-white/10 bg-slate-900/60 p-4 md:p-5">
+                    <div className="flex items-center gap-2 text-sky-300">
+                      <UserPlus className="h-4 w-4" />
+                      <p className="text-xs uppercase tracking-[0.35em]">Invite</p>
+                    </div>
+                    <h2 className="mt-2 font-display text-2xl font-semibold text-white">Add a team member</h2>
+                    <p className="mt-1 text-sm text-slate-400">
+                      Enter a player's 4-character user code to grant them access.
+                    </p>
+
+                    {membersError ? (
+                      <div className="mt-3 rounded-xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                        {membersError}
+                        <button
+                          type="button"
+                          onClick={() => setMembersError(null)}
+                          className="ml-3 underline opacity-70 hover:opacity-100"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    ) : null}
+
+                    <div className="mt-4 flex flex-col gap-3 md:flex-row">
+                      <input
+                        value={inviteCode}
+                        onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            void handleInviteMember();
+                          }
+                        }}
+                        placeholder="e.g. AB3X"
+                        maxLength={10}
+                        className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-mono uppercase tracking-widest text-white outline-none"
+                      />
+                      <Button
+                        onClick={() => void handleInviteMember()}
+                        disabled={isInviting || !inviteCode.trim()}
+                        className="md:min-w-36"
+                      >
+                        {isInviting ? "Inviting..." : "Send Invite"}
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* Members list */}
+                <div className="rounded-[1.5rem] border border-white/10 bg-slate-900/50 p-4 md:p-5">
+                  <div className="mb-4 flex items-center gap-2">
+                    <Users className="h-4 w-4 text-slate-400" />
+                    <h3 className="text-lg font-semibold text-white">Team</h3>
+                    <span className="ml-auto text-sm text-slate-400">{members.length + 1} people</span>
+                  </div>
+
+                  {isLoadingMembers ? (
+                    <p className="text-sm text-slate-500">Loading members...</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {/* Owner row */}
+                      {activeProject ? (
+                        <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-300/30 bg-amber-400/10 text-sm font-bold text-amber-200">
+                            {activeProject.ownerId === user?.id
+                              ? (user.displayName?.[0] ?? "?").toUpperCase()
+                              : "?"}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-white">
+                              {activeProject.ownerId === user?.id ? (user.displayName ?? "You") : activeProject.ownerId}
+                            </p>
+                            <p className="text-xs text-amber-300">Owner</p>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {/* Member rows */}
+                      {members.map((member) => (
+                        <div
+                          key={member.id}
+                          className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3"
+                        >
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 bg-slate-800 text-sm font-bold text-white">
+                            {(member.displayName?.[0] ?? "?").toUpperCase()}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-white">{member.displayName}</p>
+                            <p className="text-xs text-slate-400">
+                              {member.userCode ? `#${member.userCode}` : "Member"}
+                            </p>
+                          </div>
+                          {user?.id === membersOwnerId ? (
+                            <button
+                              type="button"
+                              onClick={() => void handleRemoveMember(member.id)}
+                              className="ml-2 rounded-lg border border-rose-400/20 bg-transparent px-3 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/15 hover:text-rose-100"
+                            >
+                              <UserMinus className="h-3.5 w-3.5" />
+                            </button>
+                          ) : null}
+                        </div>
+                      ))}
+
+                      {members.length === 0 && !isLoadingMembers ? (
+                        <p className="rounded-xl border border-dashed border-white/10 bg-slate-950/40 px-4 py-6 text-center text-sm text-slate-500">
+                          No additional members yet. Invite someone using their user code.
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
               </div>
             ) : null}
 
