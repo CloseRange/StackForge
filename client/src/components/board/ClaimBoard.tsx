@@ -123,16 +123,18 @@ const getDeckPresentation = (card: Card, decks: Deck[]): DeckPresentation => {
   };
 };
 
-const cardSortWeight = (card: Card, currentUserId: string) => {
-  if (card.assigneeId === currentUserId) {
-    return 0;
-  }
+const priorityOrder: Record<CardPriority, number> = {
+  legendary: 0,
+  rare: 1,
+  uncommon: 2,
+  common: 3
+};
 
-  if (!card.assigneeId) {
-    return 1;
-  }
-
-  return 2;
+const difficultyOrder: Record<Card["difficulty"], number> = {
+  easy: 0,
+  medium: 1,
+  hard: 2,
+  epic: 3
 };
 
 const isValidBoardSlot = (value: number | null | undefined): value is number =>
@@ -243,6 +245,7 @@ const BoardCard = ({
   const ownerInitial = getInitial(ownerName);
   const ownerAvatarUrl = card.assignee?.avatarUrl ?? (card.assigneeId === currentUser.id ? currentUser.avatarUrl ?? null : null);
   const showOwnerBadge = Boolean(card.assigneeId);
+  const isClaimedInPool = dragSource === "pool" && Boolean(card.assigneeId);
   const transformStyle = transform ? CSS.Translate.toString(transform) : undefined;
 
   const handleCardHover = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -270,12 +273,21 @@ const BoardCard = ({
         <div
           className={`relative aspect-[2/3] rounded-[1.35rem] border p-2.5 shadow-[0_18px_45px_rgba(2,6,23,0.42)] transition-[transform,box-shadow,filter] duration-300 ${
             deckPresentation.toneClass
-          } ${isLocked ? "opacity-80" : ""} ${isDragging ? "scale-[1.03]" : "transform-gpu group-hover/card:[transform:perspective(960px)_translateY(-10px)_rotateX(4deg)_rotateY(-2deg)_rotateZ(1.2deg)] group-hover/card:shadow-[0_42px_96px_rgba(2,6,23,0.62)]"}`}
+          } ${isLocked ? "opacity-75 saturate-[0.55]" : ""} ${isClaimedInPool && !isDragging ? "brightness-[0.72] saturate-[0.62] shadow-[inset_0_6px_14px_rgba(2,6,23,0.68),inset_0_0_0_1px_rgba(15,23,42,0.75),0_3px_8px_rgba(2,6,23,0.4)]" : ""} ${isDragging ? "scale-[1.03]" : isClaimedInPool ? "transform-gpu" : "transform-gpu group-hover/card:[transform:perspective(960px)_translateY(-10px)_rotateX(4deg)_rotateY(-2deg)_rotateZ(1.2deg)] group-hover/card:shadow-[0_42px_96px_rgba(2,6,23,0.62)]"}`}
         >
           <div className="pointer-events-none absolute inset-[6px] rounded-[1rem] border border-white/18" />
+          {isClaimedInPool ? (
+            <div className="pointer-events-none absolute inset-0 rounded-[1.35rem] bg-black/36" />
+          ) : null}
           <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[1.35rem]">
             <div className="absolute inset-y-0 -left-[65%] w-[50%] -skew-x-12 bg-gradient-to-r from-transparent via-white/25 to-transparent opacity-0 transition-all duration-500 group-hover/card:left-[125%] group-hover/card:opacity-100" />
           </div>
+
+          {isClaimedInPool ? (
+            <div className="pointer-events-none absolute left-2.5 top-2.5 rounded-md border border-slate-200/25 bg-slate-900/55 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.2em] text-slate-200">
+              In Play
+            </div>
+          ) : null}
 
           <div className="absolute left-1/2 top-7 -translate-x-1/2 text-center text-white">
             <div className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-black/25 shadow-inner shadow-black/35">
@@ -412,15 +424,21 @@ export const ClaimBoard = ({
   const sortedPoolCards = useMemo(
     () =>
       [...cards].sort((left, right) => {
-        const weightDifference = cardSortWeight(left, currentUser.id) - cardSortWeight(right, currentUser.id);
+        const priorityDifference = priorityOrder[left.priority] - priorityOrder[right.priority];
 
-        if (weightDifference !== 0) {
-          return weightDifference;
+        if (priorityDifference !== 0) {
+          return priorityDifference;
+        }
+
+        const difficultyDifference = difficultyOrder[left.difficulty] - difficultyOrder[right.difficulty];
+
+        if (difficultyDifference !== 0) {
+          return difficultyDifference;
         }
 
         return new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime();
       }),
-    [cards, currentUser.id]
+    [cards]
   );
 
   const mutateCard = async (cardId: string, payload: UpdateCardInput, nextNotice?: string) => {

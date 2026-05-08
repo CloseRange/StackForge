@@ -13,8 +13,37 @@ type BoardColumnProps = {
   onSelectCard: (card: Card) => void;
 };
 
+const priorityOrder: Record<Card["priority"], number> = {
+  legendary: 0,
+  rare: 1,
+  uncommon: 2,
+  common: 3
+};
+
+const difficultyOrder: Record<Card["difficulty"], number> = {
+  easy: 0,
+  medium: 1,
+  hard: 2,
+  epic: 3
+};
+
 export const BoardColumn = ({ columnId, cards, onCreateCard, onSelectCard }: BoardColumnProps) => {
   const { isOver, setNodeRef } = useDroppable({ id: columnId });
+  const sortedCards = [...cards].sort((a, b) => {
+    const priorityDelta = priorityOrder[a.priority] - priorityOrder[b.priority];
+
+    if (priorityDelta !== 0) {
+      return priorityDelta;
+    }
+
+    const difficultyDelta = difficultyOrder[a.difficulty] - difficultyOrder[b.difficulty];
+
+    if (difficultyDelta !== 0) {
+      return difficultyDelta;
+    }
+
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
 
   return (
     <section
@@ -33,7 +62,7 @@ export const BoardColumn = ({ columnId, cards, onCreateCard, onSelectCard }: Boa
         Add Card
       </Button>
       <div className="flex flex-1 flex-col gap-4">
-        {cards.map((card) => (
+        {sortedCards.map((card) => (
           <TaskCard key={card.id} card={card} onSelect={onSelectCard} />
         ))}
         {cards.length === 0 ? (
