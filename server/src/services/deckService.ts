@@ -1,12 +1,24 @@
 import { supabaseAdmin } from "../config/db.js";
 import { AppError } from "../middleware/errorHandler.js";
 import type { SFDeckRow } from "../models/deckModel.js";
+import { activityService, buildActivityChanges } from "./activityService.js";
 import { serializeDeck } from "../utils/cardTransforms.js";
 import { canCreateDeck, canReadDeck, canWriteDeck, getProjectMemberPolicy } from "../utils/memberPermissions.js";
 import { ensureProjectAccess } from "../utils/projectAccess.js";
 import { createDeckSchema, updateDeckSchema } from "../utils/validators.js";
 
 const RESERVED_DECK_SLUGS = new Set(["debug", "completed"]);
+
+const DECK_ACTIVITY_FIELD_LABELS: Record<string, string> = {
+  name: "Name",
+  description: "Description",
+  icon: "Icon",
+  color: "Color",
+  isAccessible: "Visible",
+  allowAssignment: "Assignable",
+  xpPayout: "XP Payout",
+  completionTargetDeckName: "Completion Target"
+};
 
 const toSlug = (name: string) =>
   name
@@ -60,6 +72,34 @@ const resolveCompletionTargetDeckId = async (projectId: string, requestedDeckId?
 
   return completedDeck.id as string;
 };
+
+const getDeckName = async (deckId: string | null | undefined) => {
+  if (!deckId) {
+    return null;
+  }
+
+  const { data } = await supabaseAdmin
+    .from("sf_decks")
+    .select("name")
+    .eq("id", deckId)
+    .maybeSingle();
+
+  return (data as { name: string } | null)?.name ?? null;
+};
+
+const toDeckActivityState = async (deck: SFDeckRow) => ({
+  name: deck.name,
+  description: deck.description,
+  icon: deck.icon,
+  color: deck.color,
+  isAccessible: deck.is_accessible,
+  allowAssignment: deck.allow_assignment,
+  xpPayout: deck.xp_payout,
+  completionTargetDeckId: deck.completion_target_deck_id,
+  completionTargetDeckName: await getDeckName(deck.completion_target_deck_id),
+  slug: deck.slug,
+  isSystem: deck.is_system
+});
 
 export const deckService = {
   async listByProject(projectId: string, userId: string) {
@@ -147,12 +187,30 @@ export const deckService = {
       throw new AppError(error?.message ?? "Failed to create deck", 500);
     }
 
-    return serializeDeck(deck as SFDeckRow);
+    const createdDeck = deck as SFDeckRow;
+    const afterState = await toDeckActivityState(createdDeck);
+
+    await activityService.log({
+      projectId: createdDeck.project_id,
+      actorUserId: userId,
+      action: "created",
+      entityType: "deck",
+      entityId: createdDeck.id,
+      entityLabel: createdDeck.name,
+      summary: `Created deck \"${createdDeck.name}\"`,
+      afterState,
+      metadata: {
+        isSystem: createdDeck.is_system
+      }
+    });
+
+    return serializeDeck(createdDeck);
   },
 
   async update(deckId: string, userId: string, payload: unknown) {
     const input = updateDeckSchema.parse(payload);
     const existingDeck = await fetchDeckForUser(deckId, userId);
+    const beforeState = await toDeckActivityState(existingDeck);
     const policy = await getProjectMemberPolicy(existingDeck.project_id, userId);
 
     if (!canWriteDeck(policy, existingDeck.id)) {
@@ -248,11 +306,37 @@ export const deckService = {
       }
     }
 
-    return serializeDeck(deck as SFDeckRow);
+    const updatedDeck = deck as SFDeckRow;
+    const afterState = await toDeckActivityState(updatedDeck);
+    const changes = buildActivityChanges(beforeState, afterState, DECK_ACTIVITY_FIELD_LABELS);
+
+    if (changes.length > 0) {
+      await activityService.log({
+        projectId: updatedDeck.project_id,
+        actorUserId: userId,
+        action: "updated",
+        entityType: "deck",
+        entityId: updatedDeck.id,
+        entityLabel: updatedDeck.name,
+        summary:
+          beforeState.name !== afterState.name
+            ? `Renamed deck \"${String(beforeState.name)}\" to \"${updatedDeck.name}\"`
+            : `Updated deck \"${updatedDeck.name}\"`,
+        beforeState,
+        afterState,
+        changes,
+        metadata: {
+          changeCount: changes.length
+        }
+      });
+    }
+
+    return serializeDeck(updatedDeck);
   },
 
   async remove(deckId: string, userId: string) {
     const existingDeck = await fetchDeckForUser(deckId, userId);
+    const beforeState = await toDeckActivityState(existingDeck);
     const policy = await getProjectMemberPolicy(existingDeck.project_id, userId);
 
     if (!canWriteDeck(policy, existingDeck.id)) {
@@ -298,5 +382,19 @@ export const deckService = {
     if (error) {
       throw new AppError(error.message, 500);
     }
+
+    await activityService.log({
+      projectId: existingDeck.project_id,
+      actorUserId: userId,
+      action: "deleted",
+      entityType: "deck",
+      entityId: existingDeck.id,
+      entityLabel: existingDeck.name,
+      summary: `Deleted deck \"${existingDeck.name}\"`,
+      beforeState,
+      metadata: {
+        isSystem: existingDeck.is_system
+      }
+    });
   }
 };

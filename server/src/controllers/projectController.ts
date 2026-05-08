@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 
 import { AppError } from "../middleware/errorHandler.js";
+import { activityService } from "../services/activityService.js";
 import { projectService } from "../services/projectService.js";
 
 export const projectController = {
@@ -60,5 +61,31 @@ export const projectController = {
 
     const stats = await projectService.getStats(projectId, request.user!.userId);
     return response.status(200).json({ data: stats });
+  },
+
+  async getActivity(request: Request, response: Response) {
+    const projectId =
+      typeof request.params.projectId === "string" ? request.params.projectId : undefined;
+
+    if (!projectId) {
+      throw new AppError("Project id is required", 400);
+    }
+
+    const limit =
+      typeof request.query.limit === "string" ? Number.parseInt(request.query.limit, 10) : undefined;
+    const entityType =
+      typeof request.query.entityType === "string" && request.query.entityType.length > 0
+        ? request.query.entityType
+        : undefined;
+
+    const activity = await activityService.listByProject(projectId, request.user!.userId, {
+      limit,
+      entityType:
+        entityType === "project" || entityType === "deck" || entityType === "card" || entityType === "member"
+          ? entityType
+          : undefined
+    });
+
+    return response.status(200).json({ data: activity });
   }
 };

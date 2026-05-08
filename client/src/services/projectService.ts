@@ -1,4 +1,11 @@
-import type { CreateProjectInput, Project, ProjectMember, ProjectMembersResponse, UpdateProjectInput } from "../types/api";
+import type {
+  CreateProjectInput,
+  Project,
+  ProjectActivityResponse,
+  ProjectMember,
+  ProjectMembersResponse,
+  UpdateProjectInput
+} from "../types/api";
 import { request } from "./api";
 
 type UpdateMemberPermissionsInput = {
@@ -38,6 +45,25 @@ export const projectService = {
 
   getStats(token: string, projectId: string) {
     return request<ProjectStats>(`/projects/${projectId}/stats`, { token });
+  },
+
+  getActivity(
+    token: string,
+    projectId: string,
+    options?: { limit?: number; entityType?: "project" | "deck" | "card" | "member" }
+  ) {
+    const params = new URLSearchParams();
+
+    if (options?.limit) {
+      params.set("limit", String(options.limit));
+    }
+
+    if (options?.entityType) {
+      params.set("entityType", options.entityType);
+    }
+
+    const suffix = params.size > 0 ? `?${params.toString()}` : "";
+    return request<ProjectActivityResponse>(`/projects/${projectId}/activity${suffix}`, { token });
   },
 
   listMembers(token: string, projectId: string) {

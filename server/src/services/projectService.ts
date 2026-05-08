@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "../config/db.js";
 import { AppError } from "../middleware/errorHandler.js";
 import type { SFProjectWithCount } from "../models/projectModel.js";
+import { activityService, buildActivityChanges } from "./activityService.js";
 import { serializeProject } from "../utils/cardTransforms.js";
 import { ensureProjectAccess, ensureProjectOwner } from "../utils/projectAccess.js";
 import { createProjectSchema, updateProjectSchema } from "../utils/validators.js";
@@ -13,6 +14,13 @@ const toProjectSlug = (name: string) =>
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
+
+const PROJECT_ACTIVITY_FIELD_LABELS: Record<string, string> = {
+  name: "Name",
+  description: "Description",
+  isPublic: "Public Visibility",
+  slug: "Slug"
+};
 
 const generateProjectSlug = async (name: string, ownerId: string, excludeId?: string) => {
   const base = toProjectSlug(name) || "project";
@@ -55,6 +63,14 @@ const fetchProject = async (projectId: string, userId: string) => {
 
   return data as SFProjectWithCount;
 };
+
+const toProjectActivityState = (project: SFProjectWithCount) => ({
+  name: project.name,
+  description: project.description,
+  isPublic: project.is_public ?? false,
+  slug: project.slug ?? "",
+  cardCount: Number(project.sf_cards?.[0]?.count ?? 0)
+});
 
 export const projectService = {
   async list(userId: string) {
@@ -154,6 +170,17 @@ export const projectService = {
       throw new AppError(completionTargetError.message, 500);
     }
 
+    await activityService.log({
+      projectId,
+      actorUserId: userId,
+      action: "created",
+      entityType: "project",
+      entityId: projectId,
+      entityLabel: (data as SFProjectWithCount).name,
+      summary: `Created project \"${(data as SFProjectWithCount).name}\"`,
+      afterState: toProjectActivityState(data as SFProjectWithCount)
+    });
+
     return serializeProject(data as SFProjectWithCount);
   },
 
@@ -164,6 +191,8 @@ export const projectService = {
   async update(projectId: string, userId: string, payload: unknown) {
     const input = updateProjectSchema.parse(payload);
     await ensureProjectOwner(projectId, userId);
+    const existingProject = await fetchProject(projectId, userId);
+    const beforeState = toProjectActivityState(existingProject);
 
     const { data, error } = await supabaseAdmin
       .from("sf_projects")
@@ -180,7 +209,32 @@ export const projectService = {
       throw new AppError(error?.message ?? "Failed to update project", 500);
     }
 
-    return serializeProject(data as SFProjectWithCount);
+    const updatedProject = data as SFProjectWithCount;
+    const afterState = toProjectActivityState(updatedProject);
+    const changes = buildActivityChanges(beforeState, afterState, PROJECT_ACTIVITY_FIELD_LABELS);
+
+    if (changes.length > 0) {
+      await activityService.log({
+        projectId,
+        actorUserId: userId,
+        action: "updated",
+        entityType: "project",
+        entityId: projectId,
+        entityLabel: updatedProject.name,
+        summary:
+          beforeState.name !== afterState.name
+            ? `Renamed project \"${String(beforeState.name)}\" to \"${updatedProject.name}\"`
+            : `Updated project \"${updatedProject.name}\"`,
+        beforeState,
+        afterState,
+        changes,
+        metadata: {
+          changeCount: changes.length
+        }
+      });
+    }
+
+    return serializeProject(updatedProject);
   },
 
   async remove(projectId: string, userId: string) {

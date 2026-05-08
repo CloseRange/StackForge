@@ -1,5 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Bug, ChevronDown, ChevronUp, Layers3, PlusCircle, Sparkles, Trophy, UserMinus, UserPlus, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  Bug,
+  ChevronDown,
+  ChevronUp,
+  Clock3,
+  Layers3,
+  PencilLine,
+  PlusCircle,
+  Sparkles,
+  Trophy,
+  UserMinus,
+  UserPlus,
+  Users
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { ClaimBoard } from "../components/board/ClaimBoard";
@@ -11,7 +25,16 @@ import { useAuth } from "../hooks/useAuth";
 import { useBoardStore } from "../hooks/useBoardStore";
 import { DashboardLayout } from "../layouts/DashboardLayout";
 import { projectService } from "../services/projectService";
-import type { Card, CardDifficulty, CardPriority, Deck, DeckColor, ProjectMember } from "../types/api";
+import type {
+  Card,
+  CardDifficulty,
+  CardPriority,
+  Deck,
+  DeckColor,
+  ProjectActivityEvent,
+  ProjectActivityResponse,
+  ProjectMember
+} from "../types/api";
 
 type ProjectTab = "board" | "decks" | "members" | "activity";
 
@@ -124,6 +147,50 @@ const cardBelongsToDeck = (card: Card, deck: DeckCard) => {
   return card.deckId === deck.id;
 };
 
+type ActivityFilter = "all" | "project" | "card" | "deck" | "member";
+
+const ACTIVITY_FILTERS: Array<{ value: ActivityFilter; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "project", label: "Project" },
+  { value: "card", label: "Cards" },
+  { value: "deck", label: "Decks" },
+  { value: "member", label: "Members" }
+];
+
+const formatActivityTime = (value: string) => {
+  return new Date(value).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short"
+  });
+};
+
+const formatActivityAge = (value: string) => {
+  const timestamp = new Date(value).getTime();
+  const delta = Date.now() - timestamp;
+
+  if (delta < 60_000) {
+    return "just now";
+  }
+
+  if (delta < 3_600_000) {
+    const minutes = Math.floor(delta / 60_000);
+    return `${minutes}m ago`;
+  }
+
+  if (delta < 86_400_000) {
+    const hours = Math.floor(delta / 3_600_000);
+    return `${hours}h ago`;
+  }
+
+  if (delta < 604_800_000) {
+    const days = Math.floor(delta / 86_400_000);
+    return `${days}d ago`;
+  }
+
+  const weeks = Math.floor(delta / 604_800_000);
+  return `${weeks}w ago`;
+};
+
 export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const navigate = useNavigate();
   const { token, user } = useAuth();
@@ -193,6 +260,12 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const [projectTotalXp, setProjectTotalXp] = useState(0);
   const [projectEarnedXp, setProjectEarnedXp] = useState(0);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
+  const [activityLimit, setActivityLimit] = useState(30);
+  const [activityData, setActivityData] = useState<ProjectActivityResponse | null>(null);
+  const [isLoadingActivity, setIsLoadingActivity] = useState(false);
+  const [activityError, setActivityError] = useState<string | null>(null);
+  const [selectedActivityEvent, setSelectedActivityEvent] = useState<ProjectActivityEvent | null>(null);
 
   const deckQuickTitleRef = useRef<HTMLInputElement>(null);
   const isDeckQuickAddInFlightRef = useRef(false);
@@ -227,6 +300,9 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     setExpandedMemberId(null);
     setMemberPermissionDrafts({});
     setSavingMemberId(null);
+    setActivityFilter("all");
+    setActivityLimit(30);
+    setSelectedActivityEvent(null);
   }, [selectedProjectId]);
 
   // Load project-wide stats (not filtered by member permissions)
@@ -259,7 +335,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     };
   }, [token, selectedProjectId]);
 
-  // Load members when the members tab is opened
+  // Load members when the members tab is opened.
   useEffect(() => {
     if (tab !== "members" || !token || !selectedProjectId) {
       return;
@@ -291,6 +367,41 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
       cancelled = true;
     };
   }, [tab, token, selectedProjectId]);
+
+  useEffect(() => {
+    if (tab !== "activity" || !token || !selectedProjectId) {
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoadingActivity(true);
+    setActivityError(null);
+
+    projectService
+      .getActivity(token, selectedProjectId, {
+        limit: activityLimit,
+        entityType: activityFilter === "all" ? undefined : activityFilter
+      })
+      .then((result) => {
+        if (!cancelled) {
+          setActivityData(result);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setActivityError(err instanceof Error ? err.message : "Failed to load activity");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoadingActivity(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activityFilter, activityLimit, selectedProjectId, tab, token]);
 
   const activeProject = projects.find((project) => project.id === selectedProjectId) ?? null;
   const viewerRole =
@@ -709,6 +820,55 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     }
 
     return date.toLocaleDateString();
+  };
+
+  const filteredActivity = activityData?.events ?? [];
+  const filteredActivityTotal = activityData?.filteredTotal ?? 0;
+  const activityWeekCount = activityData?.last7Days ?? 0;
+  const activityTotal = activityData?.total ?? 0;
+
+  const getActivityAccentClass = (entityType: ProjectActivityEvent["entityType"]) => {
+    if (entityType === "card") {
+      return "border-sky-300/35 bg-sky-500/10 text-sky-100";
+    }
+
+    if (entityType === "deck") {
+      return "border-amber-300/35 bg-amber-500/10 text-amber-100";
+    }
+
+    if (entityType === "member") {
+      return "border-fuchsia-300/35 bg-fuchsia-500/10 text-fuchsia-100";
+    }
+
+    return "border-emerald-300/35 bg-emerald-500/10 text-emerald-100";
+  };
+
+  const getActivityActionLabel = (entry: ProjectActivityEvent) => {
+    return `${entry.entityType} ${entry.action}`.replace(/_/g, " ");
+  };
+
+  const formatActivityValue = (value: unknown): string => {
+    if (value === null || value === undefined || value === "") {
+      return "empty";
+    }
+
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      return String(value);
+    }
+
+    if (Array.isArray(value)) {
+      if (value.length === 0) {
+        return "none";
+      }
+
+      if (typeof value[0] === "string" || typeof value[0] === "number") {
+        return value.join(", ");
+      }
+
+      return `${value.length} items`;
+    }
+
+    return "updated";
   };
 
   const totalXp = cards.reduce((sum, c) => sum + (c.xpValue ?? 0), 0);
@@ -1339,13 +1499,137 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
             ) : null}
 
             {tab === "activity" ? (
-              <div className="flex min-h-[22rem] items-center justify-center rounded-[1.5rem] border border-dashed border-white/15 bg-slate-800/20 text-center">
-                <div>
-                  <h2 className="font-display text-2xl font-semibold text-white">Activity stream coming next</h2>
-                  <p className="mt-2 text-sm text-slate-400">
-                    Use the Decks tab to organize work and quickly add cards where they belong.
-                  </p>
+              <div className="space-y-5">
+                <div className="rounded-[1.5rem] border border-white/15 bg-gradient-to-br from-slate-900/90 via-slate-900/80 to-slate-800/70 p-5 md:p-6">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.35em] text-cyan-300">Activity</p>
+                      <h2 className="mt-2 font-display text-2xl font-semibold text-white">Project timeline</h2>
+                      <p className="mt-1 text-sm text-slate-400">
+                        Persistent audit events with actor snapshots and field-level changes.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 p-1">
+                      {ACTIVITY_FILTERS.map((filter) => (
+                        <button
+                          key={filter.value}
+                          type="button"
+                          onClick={() => {
+                            setActivityFilter(filter.value);
+                            setActivityLimit(30);
+                          }}
+                          className={`rounded-lg px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition ${
+                            activityFilter === filter.value
+                              ? "bg-sky-500/20 text-sky-100"
+                              : "text-slate-300 hover:bg-white/10 hover:text-white"
+                          }`}
+                        >
+                          {filter.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                      <p className="text-[11px] uppercase tracking-[0.15em] text-slate-400">Total events</p>
+                      <p className="mt-1 text-2xl font-semibold text-white">{activityTotal}</p>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                      <p className="text-[11px] uppercase tracking-[0.15em] text-slate-400">Last 7 days</p>
+                      <p className="mt-1 text-2xl font-semibold text-white">{activityWeekCount}</p>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                      <p className="text-[11px] uppercase tracking-[0.15em] text-slate-400">Visible events</p>
+                      <p className="mt-1 text-2xl font-semibold text-white">{filteredActivity.length}</p>
+                    </div>
+                  </div>
                 </div>
+
+                {activityError ? (
+                  <div className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                    {activityError}
+                  </div>
+                ) : null}
+
+                {isLoadingActivity && filteredActivity.length === 0 ? (
+                  <div className="rounded-[1.5rem] border border-dashed border-white/15 bg-slate-800/20 px-4 py-10 text-center">
+                    <h3 className="text-lg font-semibold text-white">Loading activity</h3>
+                    <p className="mt-2 text-sm text-slate-400">
+                      Pulling durable audit events for this project.
+                    </p>
+                  </div>
+                ) : null}
+
+                {filteredActivity.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(10.5rem,1fr))] sm:[grid-template-columns:repeat(auto-fill,minmax(11.5rem,1fr))]">
+                      {filteredActivity.map((entry) => (
+                        <button
+                          key={entry.id}
+                          type="button"
+                          onClick={() => setSelectedActivityEvent(entry)}
+                          className="group relative flex aspect-square flex-col overflow-hidden rounded-[1.2rem] border border-white/15 bg-[linear-gradient(180deg,rgba(20,28,45,0.94),rgba(12,18,32,0.97))] p-3.5 text-left shadow-[2px_4px_0_1px_rgba(0,0,0,0.34),5px_8px_0_1px_rgba(0,0,0,0.2)] transition hover:-translate-y-1 hover:shadow-[2px_6px_0_1px_rgba(0,0,0,0.45),5px_10px_0_1px_rgba(0,0,0,0.28)]"
+                        >
+                          <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/5 blur-2xl" />
+
+                          <div className="mb-1.5 flex items-start justify-between gap-2">
+                            <div className="rounded-lg border border-white/20 bg-white/10 p-1.5">
+                              {entry.entityType === "card" ? (
+                                <Sparkles className="h-4 w-4 text-sky-200" />
+                              ) : entry.entityType === "deck" ? (
+                                <Layers3 className="h-4 w-4 text-amber-200" />
+                              ) : entry.entityType === "member" ? (
+                                <Users className="h-4 w-4 text-fuchsia-200" />
+                              ) : (
+                                <Trophy className="h-4 w-4 text-emerald-200" />
+                              )}
+                            </div>
+
+                            <span className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${getActivityAccentClass(entry.entityType)}`}>
+                              {entry.entityType}
+                            </span>
+                          </div>
+
+                          <p className="line-clamp-3 text-sm font-semibold leading-snug text-white">{entry.summary}</p>
+                          <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">
+                            By {entry.actor.displayName}
+                          </p>
+
+                          <div className="mt-2 text-xs text-slate-300/90">
+                            <p className="truncate">{getActivityActionLabel(entry)}</p>
+                            <p className="truncate">{entry.changes.length} field changes</p>
+                          </div>
+
+                          <div className="mt-auto pt-2.5 space-y-1">
+                            <div className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-300">
+                              <Clock3 className="h-3.5 w-3.5" />
+                              {formatActivityAge(entry.createdAt)}
+                            </div>
+                            <p className="truncate text-[11px] text-slate-500">{formatActivityTime(entry.createdAt)}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+
+                    {filteredActivityTotal > filteredActivity.length ? (
+                      <div className="flex justify-center pt-1">
+                        <Button variant="outline" onClick={() => setActivityLimit((current) => current + 20)}>
+                          <PencilLine className="mr-1 h-4 w-4" />
+                          Load More
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="rounded-[1.5rem] border border-dashed border-white/15 bg-slate-800/20 px-4 py-10 text-center">
+                    <h3 className="text-lg font-semibold text-white">No matching activity yet</h3>
+                    <p className="mt-2 text-sm text-slate-400">
+                      Audit rows will appear here as cards, decks, projects, and member settings change.
+                    </p>
+                  </div>
+                )}
               </div>
             ) : null}
 
@@ -1373,6 +1657,57 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                 await updateCard(token, cardId, payload);
               }}
             />
+
+            <Modal
+              isOpen={selectedActivityEvent !== null}
+              title={selectedActivityEvent?.summary ?? "Activity Event"}
+              description={
+                selectedActivityEvent
+                  ? `${formatActivityTime(selectedActivityEvent.createdAt)} • by ${selectedActivityEvent.actor.displayName}`
+                  : undefined
+              }
+              onClose={() => setSelectedActivityEvent(null)}
+            >
+              {selectedActivityEvent ? (
+                <div className="space-y-4">
+                  <div className="grid gap-3 rounded-xl border border-white/10 bg-white/5 p-4 sm:grid-cols-2">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Entity</p>
+                      <p className="mt-1 text-sm font-semibold text-white">{selectedActivityEvent.entityType}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Action</p>
+                      <p className="mt-1 text-sm font-semibold text-white">{selectedActivityEvent.action.replace(/_/g, " ")}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Actor</p>
+                      <p className="mt-1 text-sm font-semibold text-white">{selectedActivityEvent.actor.displayName}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">When</p>
+                      <p className="mt-1 text-sm font-semibold text-white">{formatActivityAge(selectedActivityEvent.createdAt)}</p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                    <h4 className="text-sm font-semibold text-white">Change Details</h4>
+                    {selectedActivityEvent.changes.length === 0 ? (
+                      <p className="mt-2 text-sm text-slate-400">No field-level changes were recorded for this event.</p>
+                    ) : (
+                      <div className="mt-3 space-y-2">
+                        {selectedActivityEvent.changes.map((change) => (
+                          <div key={`${selectedActivityEvent.id}-${change.field}`} className="rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2">
+                            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-300">{change.label}</p>
+                            <p className="mt-1 text-xs text-slate-400">Before: {formatActivityValue(change.before)}</p>
+                            <p className="mt-0.5 text-xs text-slate-200">After: {formatActivityValue(change.after)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </Modal>
           </>
         ) : (
           <div className="flex min-h-[28rem] items-center justify-center rounded-[2rem] border border-dashed border-white/15 bg-slate-800/20 text-center">

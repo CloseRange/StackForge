@@ -11,6 +11,7 @@ projectRouter.use(requireAuth);
 projectRouter.get("/", asyncHandler(projectController.list));
 projectRouter.post("/", asyncHandler(projectController.create));
 projectRouter.get("/:projectId", asyncHandler(projectController.getById));
+projectRouter.get("/:projectId/activity", asyncHandler(projectController.getActivity));
 projectRouter.get("/:projectId/stats", asyncHandler(projectController.getStats));
 projectRouter.patch("/:projectId", asyncHandler(projectController.update));
 projectRouter.delete("/:projectId", asyncHandler(projectController.remove));

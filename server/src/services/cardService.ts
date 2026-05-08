@@ -2,6 +2,7 @@ import { supabaseAdmin } from "../config/db.js";
 import { env } from "../config/env.js";
 import { AppError } from "../middleware/errorHandler.js";
 import type { SFCardWithChecklist } from "../models/cardModel.js";
+import { activityService, buildActivityChanges } from "./activityService.js";
 import {
   difficultyToXp,
   serializeCard,
@@ -17,6 +18,19 @@ import {
 } from "../utils/validators.js";
 
 const CARD_SELECT = "*, checklist:sf_checklist_items(*)" as const;
+
+const CARD_ACTIVITY_FIELD_LABELS: Record<string, string> = {
+  title: "Title",
+  description: "Description",
+  priority: "Priority",
+  difficulty: "Difficulty",
+  xpValue: "XP Value",
+  deckName: "Deck",
+  assigneeName: "Assignee",
+  boardSlot: "Board Slot",
+  tags: "Tags",
+  checklist: "Checklist"
+};
 
 type AssigneeMetadata = {
   displayName?: string;
@@ -220,6 +234,16 @@ const fetchCardById = async (cardId: string) => {
   return data as SFCardWithChecklist;
 };
 
+const getDeckName = async (deckId: string) => {
+  const { data } = await supabaseAdmin
+    .from("sf_decks")
+    .select("name")
+    .eq("id", deckId)
+    .maybeSingle();
+
+  return (data as { name: string } | null)?.name ?? null;
+};
+
 const ensureCardClaimIsMutable = (
   card: SFCardWithChecklist,
   userId: string,
@@ -250,6 +274,33 @@ const replaceChecklist = async (
       }))
     );
   }
+};
+
+const toCardActivityState = async (card: SFCardWithChecklist) => {
+  const serialized = await serializeCardWithAssignee(card);
+
+  if (!serialized) {
+    throw new AppError("Card not found", 404);
+  }
+
+  return {
+    title: serialized.title,
+    description: serialized.description,
+    priority: serialized.priority,
+    difficulty: serialized.difficulty,
+    xpValue: serialized.xpValue,
+    deckId: serialized.deckId,
+    deckName: await getDeckName(serialized.deckId),
+    assigneeId: serialized.assigneeId ?? null,
+    assigneeName: serialized.assignee?.displayName ?? null,
+    boardSlot: serialized.boardSlot ?? null,
+    tags: serialized.tags,
+    checklist: serialized.checklist.map((item) => ({
+      label: item.label,
+      completed: item.completed,
+      sortOrder: item.sortOrder ?? 0
+    }))
+  };
 };
 
 export const cardService = {
@@ -310,12 +361,31 @@ export const cardService = {
       await replaceChecklist(card.id, input.checklist);
     }
 
-    return serializeCardWithAssignee(await fetchCardById(card.id));
+    const createdCard = await fetchCardById(card.id);
+    const afterState = await toCardActivityState(createdCard);
+
+    await activityService.log({
+      projectId: createdCard.project_id,
+      actorUserId: userId,
+      action: "created",
+      entityType: "card",
+      entityId: createdCard.id,
+      entityLabel: createdCard.title,
+      summary: `Created card \"${createdCard.title}\"`,
+      afterState,
+      metadata: {
+        deckId: createdCard.deck_id,
+        deckName: afterState.deckName
+      }
+    });
+
+    return serializeCardWithAssignee(createdCard);
   },
 
   async update(cardId: string, userId: string, payload: unknown) {
     const input = updateCardSchema.parse(payload);
     const existingCard = await fetchCardForUser(cardId, userId);
+    const beforeState = await toCardActivityState(existingCard);
     const policy = await getProjectMemberPolicy(existingCard.project_id, userId);
 
     if (!canWriteDeck(policy, existingCard.deck_id)) {
@@ -376,12 +446,38 @@ export const cardService = {
       await replaceChecklist(cardId, input.checklist);
     }
 
-    return serializeCardWithAssignee(await fetchCardById(cardId));
+    const updatedCard = await fetchCardById(cardId);
+    const afterState = await toCardActivityState(updatedCard);
+    const changes = buildActivityChanges(beforeState, afterState, CARD_ACTIVITY_FIELD_LABELS);
+
+    if (changes.length > 0) {
+      await activityService.log({
+        projectId: updatedCard.project_id,
+        actorUserId: userId,
+        action: "updated",
+        entityType: "card",
+        entityId: updatedCard.id,
+        entityLabel: updatedCard.title,
+        summary:
+          beforeState.title !== afterState.title
+            ? `Renamed card \"${String(beforeState.title)}\" to \"${updatedCard.title}\"`
+            : `Updated card \"${updatedCard.title}\"`,
+        beforeState,
+        afterState,
+        changes,
+        metadata: {
+          changeCount: changes.length
+        }
+      });
+    }
+
+    return serializeCardWithAssignee(updatedCard);
   },
 
   async assign(cardId: string, userId: string, payload: unknown) {
     const input = assignCardSchema.parse(payload);
     const existingCard = await fetchCardForUser(cardId, userId);
+    const beforeState = await toCardActivityState(existingCard);
     const policy = await getProjectMemberPolicy(existingCard.project_id, userId);
 
     if (!canWriteDeck(policy, existingCard.deck_id)) {
@@ -404,11 +500,35 @@ export const cardService = {
       throw new AppError(error.message, 500);
     }
 
-    return serializeCardWithAssignee(await fetchCardById(cardId));
+    const updatedCard = await fetchCardById(cardId);
+    const afterState = await toCardActivityState(updatedCard);
+    const changes = buildActivityChanges(beforeState, afterState, CARD_ACTIVITY_FIELD_LABELS);
+
+    await activityService.log({
+      projectId: updatedCard.project_id,
+      actorUserId: userId,
+      action: "assigned",
+      entityType: "card",
+      entityId: updatedCard.id,
+      entityLabel: updatedCard.title,
+      summary: afterState.assigneeName
+        ? `Assigned card \"${updatedCard.title}\" to ${String(afterState.assigneeName)}`
+        : `Unassigned card \"${updatedCard.title}\"`,
+      beforeState,
+      afterState,
+      changes,
+      metadata: {
+        assigneeId: afterState.assigneeId,
+        assigneeName: afterState.assigneeName
+      }
+    });
+
+    return serializeCardWithAssignee(updatedCard);
   },
 
   async remove(cardId: string, userId: string) {
     const card = await fetchCardForUser(cardId, userId);
+    const beforeState = await toCardActivityState(card);
     const policy = await getProjectMemberPolicy(card.project_id, userId);
 
     if (!canWriteDeck(policy, card.deck_id)) {
@@ -423,5 +543,20 @@ export const cardService = {
     if (error) {
       throw new AppError(error.message, 500);
     }
+
+    await activityService.log({
+      projectId: card.project_id,
+      actorUserId: userId,
+      action: "deleted",
+      entityType: "card",
+      entityId: card.id,
+      entityLabel: card.title,
+      summary: `Deleted card \"${card.title}\"`,
+      beforeState,
+      metadata: {
+        deckId: card.deck_id,
+        deckName: beforeState.deckName
+      }
+    });
   }
 };

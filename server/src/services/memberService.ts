@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../config/db.js";
 import { AppError } from "../middleware/errorHandler.js";
+import { activityService, buildActivityChanges } from "./activityService.js";
 import { ensureProjectAccess, ensureProjectAdmin } from "../utils/projectAccess.js";
 import { setMemberPermissionsSchema } from "../utils/validators.js";
 import { z } from "zod";
@@ -28,6 +29,16 @@ const resolveDisplayName = (email: string | null | undefined, meta: UserMetadata
 const addMemberSchema = z.object({
   userCode: z.string().min(1).max(10).transform((v) => v.toUpperCase())
 });
+
+const MEMBER_ACTIVITY_FIELD_LABELS: Record<string, string> = {
+  displayName: "Member",
+  role: "Role",
+  userCode: "User Code",
+  deckReadMode: "Read Access Mode",
+  deckReadDeckIds: "Readable Decks",
+  deckWriteMode: "Write Access Mode",
+  deckWriteDeckIds: "Writable Decks"
+};
 
 type MemberRow = {
   id: string;
@@ -143,6 +154,16 @@ const enrichMember = async (member: MemberRow) => {
   });
 };
 
+const toMemberActivityState = (member: MemberSummary) => ({
+  displayName: member.displayName,
+  role: member.role,
+  userCode: member.userCode,
+  deckReadMode: member.deckReadMode,
+  deckReadDeckIds: member.deckReadDeckIds,
+  deckWriteMode: member.deckWriteMode,
+  deckWriteDeckIds: member.deckWriteDeckIds
+});
+
 export const memberService = {
   async list(projectId: string, requesterId: string) {
     await ensureProjectAccess(projectId, requesterId);
@@ -234,7 +255,38 @@ export const memberService = {
       throw new AppError(error.message, 500);
     }
 
-    return toMemberSummary(targetUser, "MEMBER");
+    const { data: insertedRow, error: insertedError } = await supabaseAdmin
+      .from("sf_project_members")
+      .select("*")
+      .eq("project_id", projectId)
+      .eq("user_id", targetUser.id)
+      .single();
+
+    if (insertedError || !insertedRow) {
+      throw new AppError(insertedError?.message ?? "Failed to load invited member", 500);
+    }
+
+    const member = await enrichMember(insertedRow as MemberRow);
+
+    if (!member) {
+      throw new AppError("Failed to load invited member", 500);
+    }
+
+    await activityService.log({
+      projectId,
+      actorUserId,
+      action: "member_added",
+      entityType: "member",
+      entityId: member.id,
+      entityLabel: member.displayName,
+      summary: `Added ${member.displayName} to the project`,
+      afterState: toMemberActivityState(member),
+      metadata: {
+        invitedBy: actorUserId
+      }
+    });
+
+    return member;
   },
 
   async remove(projectId: string, actorUserId: string, targetUserId: string) {
@@ -268,7 +320,7 @@ export const memberService = {
 
     const { data: targetMember } = await supabaseAdmin
       .from("sf_project_members")
-      .select("role")
+      .select("*")
       .eq("project_id", projectId)
       .eq("user_id", targetUserId)
       .maybeSingle();
@@ -281,6 +333,8 @@ export const memberService = {
       throw new AppError("Only the owner can remove an admin", 403);
     }
 
+    const targetMemberSummary = await enrichMember(targetMember as MemberRow);
+
     const { error } = await supabaseAdmin
       .from("sf_project_members")
       .delete()
@@ -289,6 +343,19 @@ export const memberService = {
 
     if (error) {
       throw new AppError(error.message, 500);
+    }
+
+    if (targetMemberSummary) {
+      await activityService.log({
+        projectId,
+        actorUserId,
+        action: "member_removed",
+        entityType: "member",
+        entityId: targetMemberSummary.id,
+        entityLabel: targetMemberSummary.displayName,
+        summary: `Removed ${targetMemberSummary.displayName} from the project`,
+        beforeState: toMemberActivityState(targetMemberSummary)
+      });
     }
   },
 
@@ -330,7 +397,7 @@ export const memberService = {
 
     const { data: targetMember } = await supabaseAdmin
       .from("sf_project_members")
-      .select("role")
+      .select("*")
       .eq("project_id", projectId)
       .eq("user_id", targetUserId)
       .maybeSingle();
@@ -338,6 +405,8 @@ export const memberService = {
     if (!targetMember) {
       throw new AppError("Member not found", 404);
     }
+
+    const beforeMember = await enrichMember(targetMember as MemberRow);
 
     if (!actorIsOwner && actorIsAdmin) {
       if (input.role === "ADMIN" || targetMember.role === "ADMIN") {
@@ -403,6 +472,36 @@ export const memberService = {
       .eq("user_id", targetUserId)
       .single();
 
-    return await enrichMember(updatedMember as MemberRow);
+    const member = await enrichMember(updatedMember as MemberRow);
+
+    if (!member) {
+      throw new AppError("Failed to load updated member", 500);
+    }
+
+    if (beforeMember) {
+      const beforeState = toMemberActivityState(beforeMember);
+      const afterState = toMemberActivityState(member);
+      const changes = buildActivityChanges(beforeState, afterState, MEMBER_ACTIVITY_FIELD_LABELS);
+
+      if (changes.length > 0) {
+        await activityService.log({
+          projectId,
+          actorUserId,
+          action: "permissions_updated",
+          entityType: "member",
+          entityId: member.id,
+          entityLabel: member.displayName,
+          summary: `Updated permissions for ${member.displayName}`,
+          beforeState,
+          afterState,
+          changes,
+          metadata: {
+            changeCount: changes.length
+          }
+        });
+      }
+    }
+
+    return member;
   }
 };

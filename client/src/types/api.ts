@@ -112,6 +112,41 @@ export type ProjectMembersResponse = {
   members: ProjectMember[];
 };
 
+export type ProjectActivityChange = {
+  field: string;
+  label: string;
+  before: unknown;
+  after: unknown;
+};
+
+export type ProjectActivityEvent = {
+  id: string;
+  projectId: string;
+  action: string;
+  entityType: "project" | "deck" | "card" | "member";
+  entityId: string | null;
+  entityLabel: string | null;
+  summary: string;
+  actor: {
+    id: string | null;
+    displayName: string;
+    userCode: string | null;
+    avatarUrl: string | null;
+  };
+  changes: ProjectActivityChange[];
+  beforeState: Record<string, unknown> | null;
+  afterState: Record<string, unknown> | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+};
+
+export type ProjectActivityResponse = {
+  events: ProjectActivityEvent[];
+  total: number;
+  filteredTotal: number;
+  last7Days: number;
+};
+
 export type CreateCardInput = {
   title: string;
   description?: string;
