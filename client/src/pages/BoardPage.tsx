@@ -873,7 +873,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                   </>
                 ) : (
                   <div className="space-y-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/12 bg-[linear-gradient(180deg,rgba(22,31,46,0.86),rgba(13,19,31,0.94))] p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/20 bg-white/12 p-4">
                       <div>
                         <button
                           type="button"
@@ -882,13 +882,13 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                             setIsDeckQuickAddOpen(false);
                             setDeckQuickTitle("");
                           }}
-                          className="mb-2 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-400 hover:text-white"
+                          className="mb-2 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-300 hover:text-white"
                         >
                           <ArrowLeft className="h-3.5 w-3.5" />
                           Back To Decks
                         </button>
                         <h3 className="font-display text-2xl font-semibold text-white">{activeDeck.label}</h3>
-                        <p className="mt-1 text-sm text-slate-400">{activeDeck.description}</p>
+                        <p className="mt-1 text-sm text-slate-300">{activeDeck.description}</p>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
@@ -923,7 +923,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                     </div>
 
                     {isDeckQuickAddOpen ? (
-                      <div className="rounded-2xl border border-white/12 bg-[linear-gradient(180deg,rgba(22,31,46,0.9),rgba(13,19,31,0.96))] p-4">
+                      <div className="rounded-2xl border border-white/20 bg-white/12 p-4">
                         <div className="grid gap-3 md:grid-cols-[1fr_190px_170px_auto]">
                           <input
                             ref={deckQuickTitleRef}
@@ -936,7 +936,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                               }
                             }}
                             placeholder="Card title"
-                            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none"
+                            className="rounded-xl border border-white/20 bg-white/15 px-4 py-2.5 text-sm text-white outline-none"
                           />
 
                           <select
@@ -944,7 +944,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                             onChange={(event) =>
                               setDeckQuickPriority(event.target.value as CardPriority)
                             }
-                            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none"
+                            className="rounded-xl border border-white/20 bg-white/15 px-3 py-2.5 text-sm text-white outline-none"
                           >
                             <option value="common">Common</option>
                             <option value="uncommon">Uncommon</option>
@@ -957,7 +957,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                             onChange={(event) =>
                               setDeckQuickDifficulty(event.target.value as CardDifficulty)
                             }
-                            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none"
+                            className="rounded-xl border border-white/20 bg-white/15 px-3 py-2.5 text-sm text-white outline-none"
                           >
                             <option value="easy">Easy</option>
                             <option value="medium">Medium</option>
@@ -976,14 +976,14 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                       </div>
                     ) : null}
 
-                    <div className="rounded-2xl border border-white/12 bg-[linear-gradient(180deg,rgba(20,29,43,0.86),rgba(12,17,28,0.94))] p-4">
+                    <div className="rounded-2xl border border-white/20 bg-white/10 p-4">
                       <div className="mb-3 flex items-center justify-between">
                         <h4 className="text-lg font-semibold text-white">Cards In {activeDeck.label}</h4>
-                        <span className="text-sm text-slate-400">{sortedActiveDeckCards.length} total</span>
+                        <span className="text-sm text-slate-300">{sortedActiveDeckCards.length} total</span>
                       </div>
 
                       {sortedActiveDeckCards.length === 0 ? (
-                        <p className="rounded-xl border border-dashed border-white/15 bg-slate-800/30 px-4 py-6 text-sm text-slate-500">
+                        <p className="rounded-xl border border-dashed border-white/20 bg-slate-700/50 px-4 py-6 text-sm text-slate-300">
                           No cards in this deck yet.
                         </p>
                       ) : (
@@ -1045,7 +1045,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
               <div className="space-y-5">
                 {/* Invite section — visible to owner/admin */}
                 {canManageMembers ? (
-                  <div className="rounded-[1.5rem] border border-white/10 bg-slate-900/60 p-4 md:p-5">
+                  <div className="rounded-[1.5rem] border border-white/20 bg-slate-800/70 p-4 md:p-5">
                     <div className="flex items-center gap-2 text-sky-300">
                       <UserPlus className="h-4 w-4" />
                       <p className="text-xs uppercase tracking-[0.35em]">Invite</p>
@@ -1094,7 +1094,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                 ) : null}
 
                 {/* Members list */}
-                <div className="rounded-[1.5rem] border border-white/10 bg-slate-900/50 p-4 md:p-5">
+                <div className="rounded-[1.5rem] border border-white/20 bg-slate-800/60 p-4 md:p-5">
                   <div className="mb-4 flex items-center gap-2">
                     <Users className="h-4 w-4 text-slate-400" />
                     <h3 className="text-lg font-semibold text-white">Team</h3>
@@ -1147,7 +1147,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                       {members.map((member) => (
                         <div
                           key={member.id}
-                          className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3"
+                          className="rounded-xl border border-white/20 bg-white/10 px-4 py-3"
                         >
                           <div className="flex items-center gap-3">
                             <button
@@ -1270,7 +1270,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                                           const selected = getMemberDraft(member).deckReadDeckIds.includes(deck.id);
 
                                           return (
-                                            <label key={`read-${member.id}-${deck.id}`} className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-2 py-1.5">
+                                            <label key={`read-${member.id}-${deck.id}`} className="flex items-center gap-2 rounded-md border border-white/20 bg-white/10 px-2 py-1.5">
                                               <input
                                                 type="checkbox"
                                                 checked={selected}
@@ -1296,7 +1296,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                                           const selected = getMemberDraft(member).deckWriteDeckIds.includes(deck.id);
 
                                           return (
-                                            <label key={`write-${member.id}-${deck.id}`} className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-2 py-1.5">
+                                            <label key={`write-${member.id}-${deck.id}`} className="flex items-center gap-2 rounded-md border border-white/20 bg-white/10 px-2 py-1.5">
                                               <input
                                                 type="checkbox"
                                                 checked={selected}
@@ -1328,7 +1328,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                       ))}
 
                       {members.length === 0 && !isLoadingMembers ? (
-                        <p className="rounded-xl border border-dashed border-white/10 bg-slate-950/40 px-4 py-6 text-center text-sm text-slate-500">
+                        <p className="rounded-xl border border-dashed border-white/20 bg-slate-800/50 px-4 py-6 text-center text-sm text-slate-300">
                           No additional members yet. Invite someone using their user code.
                         </p>
                       ) : null}

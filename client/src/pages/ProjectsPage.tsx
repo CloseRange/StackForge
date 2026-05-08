@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Layers3, Plus } from "lucide-react";
+import { Globe, Layers3, Link2, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { Header } from "../components/header/Header";
@@ -10,7 +10,7 @@ import { DashboardLayout } from "../layouts/DashboardLayout";
 
 export const ProjectsPage = () => {
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const {
     projects,
     selectedProjectId,
@@ -20,6 +20,7 @@ export const ProjectsPage = () => {
     clearError,
     loadProjects,
     createProject,
+    updateProject,
     loadCards,
     loadDecks
   } = useBoardStore();
@@ -27,6 +28,26 @@ export const ProjectsPage = () => {
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [isCreatingProject, setIsCreatingProject] = useState(false);
+
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const copyPublicLink = (project: { id: string; slug: string }) => {
+    const code = user?.userCode;
+    const url = code
+      ? `${window.location.origin}/${code}/${project.slug}`
+      : `${window.location.origin}/p/${project.id}`;
+    void navigator.clipboard.writeText(url);
+    setCopiedId(project.id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleTogglePublic = async (projectId: string, currentValue: boolean) => {
+    if (!token) {
+      return;
+    }
+
+    await updateProject(token, projectId, { isPublic: !currentValue });
+  };
 
   const createFormRef = useRef<HTMLDivElement>(null);
 
@@ -153,6 +174,32 @@ export const ProjectsPage = () => {
                 <Button onClick={() => void openProjectRoute(project.id, "/board")}>Board</Button>
                 <Button variant="outline" onClick={() => void openProjectRoute(project.id, "/decks")}>Decks</Button>
                 <Button variant="ghost" onClick={() => void openProjectRoute(project.id, "/activity")}>Activity</Button>
+              </div>
+
+              <div className="mt-3 flex items-center justify-between border-t border-white/5 pt-3">
+                <button
+                  type="button"
+                  onClick={() => void handleTogglePublic(project.id, project.isPublic)}
+                  className={`flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium transition ${
+                    project.isPublic
+                      ? "bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
+                      : "bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200"
+                  }`}
+                >
+                  <Globe className="h-3.5 w-3.5" />
+                  {project.isPublic ? "Public" : "Private"}
+                </button>
+
+                {project.isPublic ? (
+                  <button
+                    type="button"
+                    onClick={() => copyPublicLink(project)}
+                    className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs text-slate-400 transition hover:bg-white/5 hover:text-sky-300"
+                  >
+                    <Link2 className="h-3.5 w-3.5" />
+                    {copiedId === project.id ? "Copied!" : "Copy Link"}
+                  </button>
+                ) : null}
               </div>
             </div>
           ))}

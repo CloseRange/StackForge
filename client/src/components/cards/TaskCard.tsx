@@ -23,7 +23,7 @@ export const TaskCard = ({ card, onSelect }: TaskCardProps) => {
       ref={setNodeRef}
       type="button"
       onClick={() => onSelect(card)}
-      className={`group w-full rounded-3xl border bg-slate-900/60 p-4 text-left shadow-xl transition hover:-translate-y-0.5 ${rarityClasses[card.priority]} ${isDragging ? "opacity-70" : "opacity-100"}`}
+      className={`group w-full rounded-3xl border bg-slate-800/70 p-4 text-left shadow-xl transition hover:-translate-y-0.5 ${rarityClasses[card.priority]} ${isDragging ? "opacity-70" : "opacity-100"}`}
       style={{
         transform: CSS.Translate.toString(transform)
       }}
@@ -46,7 +46,7 @@ export const TaskCard = ({ card, onSelect }: TaskCardProps) => {
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         {card.tags.map((tag) => (
-          <span key={tag} className="rounded-full bg-white/5 px-2 py-1 text-xs text-slate-300">
+          <span key={tag} className="rounded-full bg-white/12 px-2 py-1 text-xs text-slate-200">
             #{tag}
           </span>
         ))}
@@ -54,7 +54,7 @@ export const TaskCard = ({ card, onSelect }: TaskCardProps) => {
       <div className="mt-5 flex items-center justify-between">
         <div className="text-xs text-slate-400">Difficulty {formatDifficulty(card.difficulty)}</div>
         <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm font-semibold text-white">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/12 text-sm font-semibold text-white">
             {assigneeInitial}
           </div>
           <div className="text-right text-xs text-slate-400">

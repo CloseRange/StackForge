@@ -5,6 +5,41 @@ import { serializeProject } from "../utils/cardTransforms.js";
 import { ensureProjectAccess, ensureProjectOwner } from "../utils/projectAccess.js";
 import { createProjectSchema, updateProjectSchema } from "../utils/validators.js";
 
+const toProjectSlug = (name: string) =>
+  name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+const generateProjectSlug = async (name: string, ownerId: string, excludeId?: string) => {
+  const base = toProjectSlug(name) || "project";
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const candidate = attempt === 0 ? base : `${base}-${attempt + 1}`;
+
+    let query = supabaseAdmin
+      .from("sf_projects")
+      .select("id")
+      .eq("owner_id", ownerId)
+      .eq("slug", candidate);
+
+    if (excludeId) {
+      query = query.neq("id", excludeId);
+    }
+
+    const { data } = await query.maybeSingle();
+
+    if (!data) {
+      return candidate;
+    }
+  }
+
+  throw new AppError("Could not generate a unique project slug", 500);
+};
+
 const fetchProject = async (projectId: string, userId: string) => {
   await ensureProjectAccess(projectId, userId);
 
@@ -76,12 +111,14 @@ export const projectService = {
 
   async create(userId: string, payload: unknown) {
     const input = createProjectSchema.parse(payload);
+    const slug = await generateProjectSlug(input.name, userId);
 
     const { data, error } = await supabaseAdmin
       .from("sf_projects")
       .insert({
         name: input.name,
         description: input.description || null,
+        slug,
         owner_id: userId
       })
       .select("*, sf_cards(count)")
@@ -132,7 +169,8 @@ export const projectService = {
       .from("sf_projects")
       .update({
         name: input.name,
-        description: input.description === undefined ? undefined : input.description || null
+        description: input.description === undefined ? undefined : input.description || null,
+        is_public: input.isPublic
       })
       .eq("id", projectId)
       .select("*, sf_cards(count)")

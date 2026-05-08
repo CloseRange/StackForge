@@ -33,7 +33,9 @@ export const createProjectSchema = z.object({
   description: z.string().max(240).optional().or(z.literal(""))
 });
 
-export const updateProjectSchema = createProjectSchema.partial().refine(
+export const updateProjectSchema = createProjectSchema.extend({
+  isPublic: z.boolean().optional()
+}).partial().refine(
   (data) => Object.keys(data).length > 0,
   "At least one project field must be provided"
 );

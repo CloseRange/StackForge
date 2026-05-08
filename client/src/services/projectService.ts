@@ -1,4 +1,4 @@
-import type { CreateProjectInput, Project, ProjectMember, ProjectMembersResponse } from "../types/api";
+import type { CreateProjectInput, Project, ProjectMember, ProjectMembersResponse, UpdateProjectInput } from "../types/api";
 import { request } from "./api";
 
 type UpdateMemberPermissionsInput = {
@@ -23,6 +23,14 @@ export const projectService = {
   create(token: string, payload: CreateProjectInput) {
     return request<Project>("/projects", {
       method: "POST",
+      token,
+      body: payload
+    });
+  },
+
+  update(token: string, projectId: string, payload: UpdateProjectInput) {
+    return request<Project>(`/projects/${projectId}`, {
+      method: "PATCH",
       token,
       body: payload
     });

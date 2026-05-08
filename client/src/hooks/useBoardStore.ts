@@ -11,7 +11,8 @@ import type {
   Deck,
   Project,
   UpdateCardInput,
-  UpdateDeckInput
+  UpdateDeckInput,
+  UpdateProjectInput
 } from "../types/api";
 
 type BoardState = {
@@ -27,6 +28,7 @@ type BoardState = {
   clearError: () => void;
   loadProjects: (token: string) => Promise<void>;
   createProject: (token: string, payload: CreateProjectInput) => Promise<Project>;
+  updateProject: (token: string, projectId: string, payload: UpdateProjectInput) => Promise<Project>;
   loadCards: (token: string, projectId: string) => Promise<void>;
   loadDecks: (token: string, projectId: string) => Promise<void>;
   createCard: (token: string, payload: CreateCardInput) => Promise<Card>;
@@ -70,6 +72,14 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     set((state) => ({
       projects: [project, ...state.projects],
       selectedProjectId: project.id,
+      error: null
+    }));
+    return project;
+  },
+  async updateProject(token, projectId, payload) {
+    const project = await projectService.update(token, projectId, payload);
+    set((state) => ({
+      projects: state.projects.map((p) => (p.id === project.id ? project : p)),
       error: null
     }));
     return project;

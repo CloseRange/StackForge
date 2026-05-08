@@ -19,7 +19,7 @@ export const BoardColumn = ({ columnId, cards, onCreateCard, onSelectCard }: Boa
   return (
     <section
       ref={setNodeRef}
-      className={`flex min-h-[32rem] min-w-[18rem] flex-1 flex-col rounded-[2rem] border border-white/[0.12] bg-slate-800/50 p-4 transition ${isOver ? "border-sky-300/50 bg-slate-800/70" : ""}`}
+      className={`flex min-h-[32rem] min-w-[18rem] flex-1 flex-col rounded-[2rem] border border-white/[0.22] bg-slate-700/50 p-4 transition ${isOver ? "border-sky-300/60 bg-slate-700/70" : ""}`}
     >
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
@@ -37,7 +37,7 @@ export const BoardColumn = ({ columnId, cards, onCreateCard, onSelectCard }: Boa
           <TaskCard key={card.id} card={card} onSelect={onSelectCard} />
         ))}
         {cards.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center rounded-3xl border border-dashed border-white/15 bg-slate-800/30 px-4 text-center text-sm text-slate-400">
+          <div className="flex flex-1 items-center justify-center rounded-3xl border border-dashed border-white/25 bg-slate-700/40 px-4 text-center text-sm text-slate-300">
             Drop a card here or create a new one.
           </div>
         ) : null}

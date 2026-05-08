@@ -5,6 +5,7 @@ import { BoardPage } from "./pages/BoardPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { ProjectsPage } from "./pages/ProjectsPage";
+import { PublicProjectPage } from "./pages/PublicProjectPage";
 import { RegisterPage } from "./pages/RegisterPage";
 
 const ProtectedProjectsPage = () => {
@@ -55,6 +56,7 @@ export const App = () => {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/:userCode/:projectSlug" element={<PublicProjectPage />} />
         <Route path="/" element={<ProtectedProjectsPage />} />
         <Route path="/board" element={<ProtectedWorkspacePage tab="board" />} />
         <Route path="/decks" element={<ProtectedWorkspacePage tab="decks" />} />

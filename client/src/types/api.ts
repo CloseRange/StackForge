@@ -13,9 +13,11 @@ export type Project = {
   id: string;
   name: string;
   description?: string | null;
+  slug: string;
   createdAt: string;
   updatedAt: string;
   ownerId: string;
+  isPublic: boolean;
   cardCount: number;
 };
 
@@ -80,6 +82,12 @@ export type AuthPayload = {
 export type CreateProjectInput = {
   name: string;
   description?: string;
+};
+
+export type UpdateProjectInput = {
+  name?: string;
+  description?: string;
+  isPublic?: boolean;
 };
 
 export type ProjectMember = {

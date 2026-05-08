@@ -9,6 +9,7 @@ import { authRouter } from "./routes/authRoutes.js";
 import { cardRouter } from "./routes/cardRoutes.js";
 import { deckRouter } from "./routes/deckRoutes.js";
 import { projectRouter } from "./routes/projectRoutes.js";
+import { publicRouter } from "./routes/publicRoutes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -39,6 +40,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/projects", projectRouter);
 app.use("/api/cards", cardRouter);
 app.use("/api/decks", deckRouter);
+app.use("/api/public", publicRouter);
 
 // Serve static files (React build)
 app.use(express.static(path.join(__dirname, "../public")));

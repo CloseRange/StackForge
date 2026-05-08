@@ -124,7 +124,7 @@ export const CardEditorModal = ({
           <input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition focus:border-sky-300/40"
+            className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3 text-white outline-none transition focus:border-sky-300/50"
             placeholder="Polish drag handle states"
           />
         </label>
@@ -134,7 +134,7 @@ export const CardEditorModal = ({
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             rows={4}
-            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition focus:border-sky-300/40"
+            className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3 text-white outline-none transition focus:border-sky-300/50"
             placeholder="What needs to happen to get this card to victory?"
           />
         </label>
@@ -143,7 +143,7 @@ export const CardEditorModal = ({
           <select
             value={priority}
             onChange={(event) => setPriority(event.target.value as CardPriority)}
-            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none"
+            className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3 text-white outline-none"
           >
             {cardPriorities.map((item) => (
               <option key={item} value={item}>
@@ -157,7 +157,7 @@ export const CardEditorModal = ({
           <select
             value={difficulty}
             onChange={(event) => setDifficulty(event.target.value as CardDifficulty)}
-            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none"
+            className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3 text-white outline-none"
           >
             {difficultyOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -171,7 +171,7 @@ export const CardEditorModal = ({
           <select
             value={deckId}
             onChange={(event) => setDeckId(event.target.value)}
-            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none"
+            className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3 text-white outline-none"
           >
             {decks.map((deck) => (
               <option key={deck.id} value={deck.id}>
@@ -185,13 +185,13 @@ export const CardEditorModal = ({
           <input
             value={tags}
             onChange={(event) => setTags(event.target.value)}
-            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none"
+            className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3 text-white outline-none"
             placeholder="frontend, polish, sprint-3"
           />
         </label>
         <div className="md:col-span-2">
           <div className="mb-2 text-sm text-slate-300">Checklist</div>
-          <div className="space-y-2 rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+          <div className="space-y-2 rounded-3xl border border-white/20 bg-white/10 p-4">
             {checklist.map((item, index) => (
               <div key={`${item.label}-${index}`} className="flex items-center gap-3">
                 <input
@@ -206,7 +206,7 @@ export const CardEditorModal = ({
                       )
                     )
                   }
-                  className="h-4 w-4 rounded border-white/20 bg-white/5"
+                  className="h-4 w-4 rounded border-white/30 bg-white/12"
                 />
                 <input
                   value={item.label}
@@ -217,7 +217,7 @@ export const CardEditorModal = ({
                       )
                     )
                   }
-                  className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-white outline-none"
+                  className="flex-1 rounded-2xl border border-white/20 bg-white/15 px-4 py-2 text-white outline-none"
                 />
                 <Button
                   variant="ghost"
@@ -234,7 +234,7 @@ export const CardEditorModal = ({
               <input
                 value={newChecklistItem}
                 onChange={(event) => setNewChecklistItem(event.target.value)}
-                className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-white outline-none"
+                className="flex-1 rounded-2xl border border-white/20 bg-white/15 px-4 py-2 text-white outline-none"
                 placeholder="Add checklist item"
               />
               <Button type="button" variant="outline" onClick={addChecklistItem}>
@@ -249,12 +249,12 @@ export const CardEditorModal = ({
             checked={assignToMe}
             onChange={(event) => setAssignToMe(event.target.checked)}
             disabled={isAssignmentBlocked}
-            className="h-4 w-4 rounded border-white/20 bg-white/5"
+            className="h-4 w-4 rounded border-white/30 bg-white/12"
           />
           {isAssignmentBlocked ? "Assignment disabled for this deck" : "Assign this card to me"}
         </label>
       </div>
-      <div className="sticky bottom-0 -mx-1 border-t border-white/10 bg-slate-900/95 px-1 pt-4 pb-1 backdrop-blur-sm">
+      <div className="sticky bottom-0 -mx-1 border-t border-white/20 bg-slate-800/95 px-1 pt-4 pb-1 backdrop-blur-sm">
         <div className="flex justify-end gap-3">
           <Button variant="ghost" onClick={onClose}>
             Cancel
