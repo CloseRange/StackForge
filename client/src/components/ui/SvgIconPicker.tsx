@@ -22,6 +22,7 @@ export const SvgIconPicker = ({
   size = "default"
 }: SvgIconPickerProps) => {
   const isCompact = size === "compact";
+  const tileSize = isCompact ? 36 : 44;
 
   return (
     <div className="space-y-2">
@@ -42,10 +43,9 @@ export const SvgIconPicker = ({
 
       <div
         className={`grid overflow-y-auto rounded-xl border border-white/10 bg-white/[0.03] ${
-          isCompact
-            ? "max-h-52 grid-cols-8 gap-1 p-1"
-            : "max-h-56 grid-cols-6 gap-2 p-2"
+          isCompact ? "max-h-52 gap-1.5 p-1.5" : "max-h-56 gap-1.5 p-1.5"
         }`}
+        style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${tileSize}px, 1fr))` }}
       >
         {PROJECT_ICON_OPTIONS.map((icon) => {
           const isSelected = icon === selectedIcon;
@@ -61,15 +61,15 @@ export const SvgIconPicker = ({
                 isSelected
                   ? "border-sky-300/55 bg-sky-500/15 ring-2 ring-sky-300/35"
                   : "border-white/10 bg-slate-950/55 hover:border-white/20 hover:bg-white/[0.08]"
-              } ${isCompact ? "p-0.5" : "p-2"}`}
+              } p-0.5`}
             >
               <ProjectIcon
                 icon={icon}
                 alt={getProjectIconLabel(icon)}
-                className={isCompact ? "h-[1.35rem] w-[1.35rem]" : "h-5 w-5"}
+                className={isCompact ? "h-[1.5rem] w-[1.5rem]" : "h-[1.65rem] w-[1.65rem]"}
                 tone={isSelected ? "picker-selected" : "picker"}
                 fallbackClassName={
-                  isCompact ? "h-[1.35rem] w-[1.35rem] text-slate-300" : "h-5 w-5 text-slate-300"
+                  isCompact ? "h-[1.5rem] w-[1.5rem] text-slate-300" : "h-[1.65rem] w-[1.65rem] text-slate-300"
                 }
               />
             </button>

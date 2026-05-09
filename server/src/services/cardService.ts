@@ -185,6 +185,31 @@ const ensureDeckCanAssign = (
   }
 };
 
+const getProjectBoardSlotLimit = async (projectId: string) => {
+  const { data, error } = await supabaseAdmin
+    .from("sf_projects")
+    .select("max_cards_on_board")
+    .eq("id", projectId)
+    .maybeSingle();
+
+  if (error) {
+    // Pre-migration fallback keeps existing 5-slot behavior.
+    if (error.message.includes("max_cards_on_board")) {
+      return 5;
+    }
+
+    throw new AppError(error.message, 500);
+  }
+
+  const raw = (data as { max_cards_on_board?: number } | null)?.max_cards_on_board;
+
+  if (typeof raw !== "number" || !Number.isInteger(raw)) {
+    return 5;
+  }
+
+  return Math.min(10, Math.max(1, raw));
+};
+
 const fetchCardForUser = async (cardId: string, userId: string) => {
   const { data: card } = await supabaseAdmin
     .from("sf_cards")
@@ -336,6 +361,14 @@ export const cardService = {
     const deck = await ensureDeckForProject(input.deckId, input.projectId);
     ensureDeckCanAssign(deck, Boolean(assigneeId));
 
+    if (assigneeId && input.boardSlot !== undefined && input.boardSlot !== null) {
+      const maxCardsOnBoard = await getProjectBoardSlotLimit(input.projectId);
+
+      if (input.boardSlot >= maxCardsOnBoard) {
+        throw new AppError(`Board slot must be between 0 and ${maxCardsOnBoard - 1}`, 400);
+      }
+    }
+
     const { data: card, error } = await supabaseAdmin
       .from("sf_cards")
       .insert({
@@ -419,6 +452,14 @@ export const cardService = {
     }
 
     if (input.boardSlot !== undefined) {
+      if (input.boardSlot !== null && nextAssigneeId) {
+        const maxCardsOnBoard = await getProjectBoardSlotLimit(existingCard.project_id);
+
+        if (input.boardSlot >= maxCardsOnBoard) {
+          throw new AppError(`Board slot must be between 0 and ${maxCardsOnBoard - 1}`, 400);
+        }
+      }
+
       updateFields["board_slot"] = nextAssigneeId ? input.boardSlot : null;
     }
 

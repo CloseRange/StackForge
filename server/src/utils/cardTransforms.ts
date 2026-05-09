@@ -62,6 +62,8 @@ export const serializeProject = (project: SFProjectWithCount) => ({
   id: project.id,
   name: project.name,
   description: project.description,
+  icon: project.icon,
+  maxCardsOnBoard: project.max_cards_on_board ?? 5,
   slug: project.slug ?? "",
   ownerId: project.owner_id,
   isPublic: project.is_public ?? false,

@@ -13,6 +13,8 @@ export type Project = {
   id: string;
   name: string;
   description?: string | null;
+  icon?: string | null;
+  maxCardsOnBoard: number;
   slug: string;
   createdAt: string;
   updatedAt: string;
@@ -91,11 +93,15 @@ export type AuthPayload = {
 export type CreateProjectInput = {
   name: string;
   description?: string;
+  icon?: string;
+  maxCardsOnBoard?: number;
 };
 
 export type UpdateProjectInput = {
   name?: string;
   description?: string;
+  icon?: string;
+  maxCardsOnBoard?: number;
   isPublic?: boolean;
 };
 

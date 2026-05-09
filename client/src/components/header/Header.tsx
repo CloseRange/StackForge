@@ -8,11 +8,13 @@ type HeaderProps =
   | {
       variant: "project";
       projectName: string;
+      projectIcon?: string | null;
       xp?: number;
       xpMax?: number;
       activeTab?: "board" | "decks" | "members" | "timeline" | "activity" | "settings";
       onTabChange?: (tab: "board" | "decks" | "members" | "timeline" | "activity" | "settings") => void;
       onSettings?: () => void;
+      showSettings?: boolean;
     };
 
 export const Header = (props: HeaderProps) => {
@@ -27,11 +29,13 @@ export const Header = (props: HeaderProps) => {
   return (
     <ProjectHeader
       projectName={props.projectName}
+      projectIcon={props.projectIcon}
       xp={props.xp}
       xpMax={props.xpMax}
       activeTab={props.activeTab}
       onTabChange={props.onTabChange}
       onSettings={props.onSettings}
+      showSettings={props.showSettings}
     />
   );
 };

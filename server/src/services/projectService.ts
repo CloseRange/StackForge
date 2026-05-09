@@ -18,9 +18,15 @@ const toProjectSlug = (name: string) =>
 const PROJECT_ACTIVITY_FIELD_LABELS: Record<string, string> = {
   name: "Name",
   description: "Description",
+  icon: "Project Icon",
+  maxCardsOnBoard: "Board Card Limit",
   isPublic: "Public Visibility",
   slug: "Slug"
 };
+
+const isMissingProjectSettingsColumnsError = (message: string | null | undefined) =>
+  (message ?? "").includes("sf_projects.icon") ||
+  (message ?? "").includes("sf_projects.max_cards_on_board");
 
 const generateProjectSlug = async (name: string, ownerId: string, excludeId?: string) => {
   const base = toProjectSlug(name) || "project";
@@ -67,6 +73,8 @@ const fetchProject = async (projectId: string, userId: string) => {
 const toProjectActivityState = (project: SFProjectWithCount) => ({
   name: project.name,
   description: project.description,
+  icon: project.icon ?? "",
+  maxCardsOnBoard: project.max_cards_on_board ?? 5,
   isPublic: project.is_public ?? false,
   slug: project.slug ?? "",
   cardCount: Number(project.sf_cards?.[0]?.count ?? 0)
@@ -134,17 +142,44 @@ export const projectService = {
       .insert({
         name: input.name,
         description: input.description || null,
+        icon: input.icon || null,
+        max_cards_on_board: input.maxCardsOnBoard ?? 5,
         slug,
         owner_id: userId
       })
       .select("*, sf_cards(count)")
       .single();
 
-    if (error || !data) {
-      throw new AppError(error?.message ?? "Failed to create project", 500);
+    if (error && !isMissingProjectSettingsColumnsError(error.message)) {
+      throw new AppError(error.message, 500);
     }
 
-    const projectId = (data as SFProjectWithCount).id;
+    let projectData = data as SFProjectWithCount | null;
+
+    if (error && isMissingProjectSettingsColumnsError(error.message)) {
+      const { data: fallbackData, error: fallbackError } = await supabaseAdmin
+        .from("sf_projects")
+        .insert({
+          name: input.name,
+          description: input.description || null,
+          slug,
+          owner_id: userId
+        })
+        .select("*, sf_cards(count)")
+        .single();
+
+      if (fallbackError || !fallbackData) {
+        throw new AppError(fallbackError?.message ?? "Failed to create project", 500);
+      }
+
+      projectData = fallbackData as SFProjectWithCount;
+    }
+
+    if (!projectData) {
+      throw new AppError("Failed to create project", 500);
+    }
+
+    const projectId = projectData.id;
 
     // Seed default project roles.
     const { error: adminRoleError } = await supabaseAdmin.from("sf_project_roles").insert({
@@ -197,12 +232,12 @@ export const projectService = {
       action: "created",
       entityType: "project",
       entityId: projectId,
-      entityLabel: (data as SFProjectWithCount).name,
-      summary: `Created project \"${(data as SFProjectWithCount).name}\"`,
-      afterState: toProjectActivityState(data as SFProjectWithCount)
+        entityLabel: projectData.name,
+        summary: `Created project "${projectData.name}"`,
+        afterState: toProjectActivityState(projectData)
     });
 
-    return serializeProject(data as SFProjectWithCount);
+    return serializeProject(projectData);
   },
 
   async getById(projectId: string, userId: string) {
@@ -215,22 +250,50 @@ export const projectService = {
     const existingProject = await fetchProject(projectId, userId);
     const beforeState = toProjectActivityState(existingProject);
 
+    const updatePayload: Record<string, unknown> = {
+      name: input.name,
+      description: input.description === undefined ? undefined : input.description || null,
+      icon: input.icon === undefined ? undefined : input.icon || null,
+      max_cards_on_board: input.maxCardsOnBoard,
+      is_public: input.isPublic
+    };
+
     const { data, error } = await supabaseAdmin
       .from("sf_projects")
-      .update({
-        name: input.name,
-        description: input.description === undefined ? undefined : input.description || null,
-        is_public: input.isPublic
-      })
+      .update(updatePayload)
       .eq("id", projectId)
       .select("*, sf_cards(count)")
       .single();
 
-    if (error || !data) {
-      throw new AppError(error?.message ?? "Failed to update project", 500);
+    if (error && !isMissingProjectSettingsColumnsError(error.message)) {
+      throw new AppError(error.message, 500);
     }
 
-    const updatedProject = data as SFProjectWithCount;
+    let updatedProject = data as SFProjectWithCount | null;
+
+    if (error && isMissingProjectSettingsColumnsError(error.message)) {
+      const legacyUpdatePayload = { ...updatePayload };
+      delete legacyUpdatePayload.icon;
+      delete legacyUpdatePayload.max_cards_on_board;
+
+      const { data: fallbackData, error: fallbackError } = await supabaseAdmin
+        .from("sf_projects")
+        .update(legacyUpdatePayload)
+        .eq("id", projectId)
+        .select("*, sf_cards(count)")
+        .single();
+
+      if (fallbackError || !fallbackData) {
+        throw new AppError(fallbackError?.message ?? "Failed to update project", 500);
+      }
+
+      updatedProject = fallbackData as SFProjectWithCount;
+    }
+
+    if (!updatedProject) {
+      throw new AppError("Failed to update project", 500);
+    }
+
     const afterState = toProjectActivityState(updatedProject);
     const changes = buildActivityChanges(beforeState, afterState, PROJECT_ACTIVITY_FIELD_LABELS);
 

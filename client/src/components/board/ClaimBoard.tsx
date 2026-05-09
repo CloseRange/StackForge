@@ -7,8 +7,6 @@ import { Button } from "../ui/Button";
 import type { Card, CardPriority, Deck, DeckColor, UpdateCardInput, User } from "../../types/api";
 import { ProjectIcon } from "../ui/ProjectIcon";
 
-const BOARD_SLOT_COUNT = 5;
-
 const priorityLabels: Record<CardPriority, string> = {
   common: "Common",
   uncommon: "Uncommon",
@@ -39,6 +37,7 @@ type ClaimBoardProps = {
   cards: Card[];
   decks: Deck[];
   currentUser: User;
+  maxCardsOnBoard: number;
   onCreateCard: () => void;
   onSelectCard: (card: Card) => void;
   onUpdateCard: (cardId: string, payload: UpdateCardInput) => Promise<void>;
@@ -145,8 +144,8 @@ const difficultyOrder: Record<Card["difficulty"], number> = {
   epic: 3
 };
 
-const isValidBoardSlot = (value: number | null | undefined): value is number =>
-  typeof value === "number" && Number.isInteger(value) && value >= 0 && value < BOARD_SLOT_COUNT;
+const isValidBoardSlot = (value: number | null | undefined, boardSlotCount: number): value is number =>
+  typeof value === "number" && Number.isInteger(value) && value >= 0 && value < boardSlotCount;
 
 const BoardSlot = ({ id, index, children }: { id: string; index: number; children?: ReactNode }) => {
   const { isOver, setNodeRef } = useDroppable({ id });
@@ -387,10 +386,12 @@ export const ClaimBoard = ({
   cards,
   decks,
   currentUser,
+  maxCardsOnBoard,
   onCreateCard,
   onSelectCard,
   onUpdateCard
 }: ClaimBoardProps) => {
+  const boardSlotCount = Math.min(10, Math.max(1, Math.floor(maxCardsOnBoard || 5)));
   const [notice, setNotice] = useState<string | null>(null);
   const [busyCardId, setBusyCardId] = useState<string | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -402,11 +403,11 @@ export const ClaimBoard = ({
   );
 
   const visibleBoardCards = useMemo<(Card | null)[]>(() => {
-    const slots: (Card | null)[] = Array.from({ length: BOARD_SLOT_COUNT }, () => null);
+    const slots: (Card | null)[] = Array.from({ length: boardSlotCount }, () => null);
     const unplacedCards: Card[] = [];
 
     for (const card of activeBoardCards) {
-      if (isValidBoardSlot(card.boardSlot) && !slots[card.boardSlot]) {
+      if (isValidBoardSlot(card.boardSlot, boardSlotCount) && !slots[card.boardSlot]) {
         slots[card.boardSlot] = card;
       } else {
         unplacedCards.push(card);
@@ -417,14 +418,14 @@ export const ClaimBoard = ({
       (left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
     );
 
-    for (let index = 0; index < BOARD_SLOT_COUNT && unplacedCards.length > 0; index += 1) {
+    for (let index = 0; index < boardSlotCount && unplacedCards.length > 0; index += 1) {
       if (!slots[index]) {
         slots[index] = unplacedCards.shift() ?? null;
       }
     }
 
     return slots;
-  }, [activeBoardCards]);
+  }, [activeBoardCards, boardSlotCount]);
 
   const occupiedBoardSlots = visibleBoardCards.filter(Boolean).length;
   const overflowBoardCount = Math.max(activeBoardCards.length - occupiedBoardSlots, 0);
@@ -489,11 +490,11 @@ export const ClaimBoard = ({
     if (overId.startsWith("board-slot-")) {
       const slotIndex = Number(overId.replace("board-slot-", ""));
 
-      if (!Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex >= BOARD_SLOT_COUNT) {
+      if (!Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex >= boardSlotCount) {
         return;
       }
 
-      if (!isAlreadyOnBoard && occupiedBoardSlots >= BOARD_SLOT_COUNT) {
+      if (!isAlreadyOnBoard && occupiedBoardSlots >= boardSlotCount) {
         setNotice("Your board is full. Release a card before claiming another one.");
         return;
       }
@@ -560,7 +561,7 @@ export const ClaimBoard = ({
           <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.4em] text-slate-300">Your Playmat</p>
-              <h2 className="mt-1.5 font-display text-2xl font-semibold text-white">{BOARD_SLOT_COUNT} active slots</h2>
+              <h2 className="mt-1.5 font-display text-2xl font-semibold text-white">{boardSlotCount} active slots</h2>
               <p className="mt-1.5 max-w-2xl text-sm leading-5 text-slate-300">
                 Drag a card from the collection below onto an empty slot to claim it to your board. Once claimed,
                 that card stays locked to its current owner until it is released back to the pool.
@@ -570,7 +571,7 @@ export const ClaimBoard = ({
             <div className="flex flex-wrap gap-2.5">
               <div className="rounded-xl border border-white/[0.14] bg-white/[0.03] px-3 py-2.5">
                 <div className="text-[10px] uppercase tracking-[0.35em] text-slate-400">Active</div>
-                <div className="mt-1 text-xl font-semibold text-white">{occupiedBoardSlots}/{BOARD_SLOT_COUNT}</div>
+                <div className="mt-1 text-xl font-semibold text-white">{occupiedBoardSlots}/{boardSlotCount}</div>
               </div>
               <Button onClick={onCreateCard} className="gap-2 self-start">
                 <Plus className="h-4 w-4" />
@@ -588,13 +589,13 @@ export const ClaimBoard = ({
           {overflowBoardCount > 0 ? (
             <div className="mt-4 rounded-xl border border-amber-300/18 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-100">
               {overflowBoardCount} extra claimed card{overflowBoardCount === 1 ? " is" : "s are"} off the visible board.
-              Release cards to get back under the {BOARD_SLOT_COUNT}-slot limit.
+              Release cards to get back under the {boardSlotCount}-slot limit.
             </div>
           ) : null}
 
           <div className="mt-4">
             <div className="grid justify-center gap-1.5 [grid-template-columns:repeat(auto-fit,minmax(9rem,9rem))] sm:gap-2 sm:[grid-template-columns:repeat(auto-fit,minmax(9.5rem,9.5rem))] lg:[grid-template-columns:repeat(auto-fit,minmax(10rem,10rem))]">
-              {Array.from({ length: BOARD_SLOT_COUNT }, (_, index) => {
+              {Array.from({ length: boardSlotCount }, (_, index) => {
                 const card = visibleBoardCards[index];
 
                 return (

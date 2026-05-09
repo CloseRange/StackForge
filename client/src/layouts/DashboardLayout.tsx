@@ -1,11 +1,14 @@
 import type { ReactNode } from "react";
 
+import { ProjectIcon } from "../components/ui/ProjectIcon";
+
 type DashboardLayoutProps = {
   sidebar?: ReactNode;
   children: ReactNode;
+  backgroundIcon?: string | null;
 };
 
-export const DashboardLayout = ({ sidebar, children }: DashboardLayoutProps) => {
+export const DashboardLayout = ({ sidebar, children, backgroundIcon }: DashboardLayoutProps) => {
   return (
     <div className="min-h-screen px-4 py-4 md:px-6 md:py-6">
       <div
@@ -18,7 +21,20 @@ export const DashboardLayout = ({ sidebar, children }: DashboardLayoutProps) => 
             {sidebar}
           </aside>
         ) : null}
-        <div className="rounded-[2rem] border border-white/[0.22] bg-[linear-gradient(180deg,rgba(60,90,120,0.25),rgba(40,60,90,0.22))] p-5 shadow-glow">
+        <div className="relative overflow-hidden rounded-[2rem] border border-white/[0.22] bg-[linear-gradient(180deg,rgba(60,90,120,0.25),rgba(40,60,90,0.22))] p-5 shadow-glow">
+          {backgroundIcon ? (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -bottom-6 -right-6 opacity-[0.055]"
+            >
+              <ProjectIcon
+                icon={backgroundIcon}
+                className="h-64 w-64"
+                tone="neutral"
+                fallbackClassName="h-64 w-64 text-slate-200"
+              />
+            </div>
+          ) : null}
           {children}
         </div>
       </div>

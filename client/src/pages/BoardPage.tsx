@@ -325,6 +325,8 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const [settingsName, setSettingsName] = useState("");
   const [settingsDescription, setSettingsDescription] = useState("");
   const [settingsIsPublic, setSettingsIsPublic] = useState(false);
+  const [settingsIcon, setSettingsIcon] = useState("");
+  const [settingsMaxCardsOnBoard, setSettingsMaxCardsOnBoard] = useState(5);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsSuccess, setSettingsSuccess] = useState<string | null>(null);
   const [settingsError, setSettingsError] = useState<string | null>(null);
@@ -566,21 +568,32 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
 
   const activeProject = projects.find((project) => project.id === selectedProjectId) ?? null;
   const canManageMembers = user?.id === membersOwnerId;
+  const canManageProjectSettings = user?.id === activeProject?.ownerId;
 
   useEffect(() => {
     if (!activeProject) {
       setSettingsName("");
       setSettingsDescription("");
       setSettingsIsPublic(false);
+      setSettingsIcon("");
+      setSettingsMaxCardsOnBoard(5);
       return;
     }
 
     setSettingsName(activeProject.name);
     setSettingsDescription(activeProject.description ?? "");
     setSettingsIsPublic(activeProject.isPublic);
+    setSettingsIcon(normalizeProjectIcon(activeProject.icon));
+    setSettingsMaxCardsOnBoard(Math.min(10, Math.max(1, activeProject.maxCardsOnBoard ?? 5)));
     setSettingsSuccess(null);
     setSettingsError(null);
   }, [activeProject]);
+
+  useEffect(() => {
+    if (tab === "settings" && activeProject && !canManageProjectSettings) {
+      navigate("/board", { replace: true });
+    }
+  }, [activeProject, canManageProjectSettings, navigate, tab]);
 
   const openNewCard = () => {
     setEditingCard(null);
@@ -1302,6 +1315,10 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   );
 
   const handleTabChange = (nextTab: ProjectTab) => {
+    if (nextTab === "settings" && !canManageProjectSettings) {
+      return;
+    }
+
     if (nextTab === "board") {
       navigate("/board");
       return;
@@ -1320,11 +1337,23 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     setSettingsError(null);
 
     try {
-      await updateProject(token, activeProject.id, {
+      const updatedProject = await updateProject(token, activeProject.id, {
         name: settingsName.trim(),
         description: settingsDescription.trim(),
-        isPublic: settingsIsPublic
+        isPublic: settingsIsPublic,
+        icon: normalizeProjectIcon(settingsIcon),
+        maxCardsOnBoard: settingsMaxCardsOnBoard
       });
+
+      // Keep local form aligned with authoritative saved values from API response.
+      setSettingsName(updatedProject.name);
+      setSettingsDescription(updatedProject.description ?? "");
+      setSettingsIsPublic(updatedProject.isPublic);
+      setSettingsIcon(normalizeProjectIcon(updatedProject.icon));
+      setSettingsMaxCardsOnBoard(Math.min(10, Math.max(1, updatedProject.maxCardsOnBoard ?? 5)));
+
+      // Refresh projects to avoid stale state if other parts of the app still hold previous project data.
+      await loadProjects(token);
       setSettingsSuccess("Project settings saved.");
     } catch (err) {
       setSettingsError(err instanceof Error ? err.message : "Failed to save project settings");
@@ -1459,10 +1488,12 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
         <Header
           variant="project"
           projectName={activeProject.name}
+          projectIcon={activeProject.icon}
           xp={projectEarnedXp}
           xpMax={projectTotalXp || 1}
           activeTab={tab}
           onTabChange={handleTabChange}
+          showSettings={canManageProjectSettings}
           onSettings={() => navigate("/settings")}
         />
       ) : (
@@ -1472,7 +1503,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
         />
       )}
 
-      <DashboardLayout>
+      <DashboardLayout backgroundIcon={activeProject?.icon}>
         {error ? (
           <div className="mb-4 flex items-center justify-between rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
             <span>{error}</span>
@@ -1489,6 +1520,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                 cards={boardVisibleCards}
                 decks={decks}
                 currentUser={user!}
+                maxCardsOnBoard={activeProject.maxCardsOnBoard ?? 5}
                 onCreateCard={openNewCard}
                 onSelectCard={(card) => {
                   setEditingCard(card);
@@ -2513,7 +2545,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
               </div>
             ) : null}
 
-            {tab === "settings" ? (
+            {tab === "settings" && canManageProjectSettings ? (
               <div className="space-y-5">
                 <div className="rounded-[1.5rem] border border-white/15 bg-gradient-to-br from-slate-900/90 via-slate-900/80 to-slate-800/70 p-5 md:p-6">
                   <p className="text-xs uppercase tracking-[0.35em] text-cyan-300">Project Settings</p>
@@ -2567,6 +2599,40 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                         className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 text-sm text-white outline-none"
                       />
                     </label>
+
+                    <div className="text-xs uppercase tracking-[0.1em] text-slate-300 lg:col-span-2">
+                      Project Icon
+                      <div className="mt-1">
+                        <SvgIconPicker
+                          selectedIcon={settingsIcon}
+                          onSelectIcon={setSettingsIcon}
+                          allowNone
+                          noneLabel="No project icon"
+                        />
+                      </div>
+                    </div>
+
+                    <label className="text-xs uppercase tracking-[0.1em] text-slate-300">
+                      Max Cards On Board
+                      <select
+                        value={settingsMaxCardsOnBoard}
+                        onChange={(event) =>
+                          setSettingsMaxCardsOnBoard(
+                            Math.min(10, Math.max(1, Number(event.target.value) || 5))
+                          )
+                        }
+                        className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 text-sm text-white outline-none"
+                      >
+                        {Array.from({ length: 10 }, (_, index) => {
+                          const value = index + 1;
+                          return (
+                            <option key={value} value={value}>
+                              {value}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </label>
                   </div>
 
                   <div className="mt-5 flex flex-wrap gap-2">
@@ -2582,6 +2648,10 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                         setSettingsName(activeProject.name);
                         setSettingsDescription(activeProject.description ?? "");
                         setSettingsIsPublic(activeProject.isPublic);
+                        setSettingsIcon(normalizeProjectIcon(activeProject.icon));
+                        setSettingsMaxCardsOnBoard(
+                          Math.min(10, Math.max(1, activeProject.maxCardsOnBoard ?? 5))
+                        );
                         setSettingsSuccess(null);
                         setSettingsError(null);
                       }}
