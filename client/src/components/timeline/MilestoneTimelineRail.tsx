@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Flag } from "lucide-react";
 
 import type { MilestoneColor, MilestoneType, ProjectMilestone } from "../../types/api";
+import { ProjectIcon } from "../ui/ProjectIcon";
 
 const DAY_MS = 86_400_000;
 
@@ -254,7 +255,13 @@ export const MilestoneTimelineRail = ({
                       onBlur={closeTooltip}
                       className={`flex h-10 w-10 items-center justify-center border shadow-[0_10px_26px_rgba(2,6,23,0.32)] transition hover:-translate-y-0.5 hover:scale-[1.03] focus:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-white/60 [transform:rotate(45deg)] ${milestoneColorClass[milestone.color]}`}
                     >
-                      <Flag className="h-4 w-4 [transform:rotate(-45deg)]" />
+                      <ProjectIcon
+                        icon={milestone.icon}
+                        alt={`${milestone.title} icon`}
+                        className="h-4 w-4 [transform:rotate(-45deg)]"
+                        tone="timeline"
+                        fallbackClassName="h-4 w-4 [transform:rotate(-45deg)]"
+                      />
                     </button>
                   </div>
                 </div>
@@ -271,6 +278,13 @@ export const MilestoneTimelineRail = ({
               style={{ left: tooltipPosition.left, top: tooltipPosition.top }}
             >
               <div className="flex flex-wrap items-center gap-2">
+                <ProjectIcon
+                  icon={activeTooltip.milestone.icon}
+                  alt={`${activeTooltip.milestone.title} icon`}
+                  className="h-4 w-4"
+                  tone="tooltip"
+                  fallbackClassName="h-4 w-4 text-slate-300"
+                />
                 <span
                   className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${milestoneColorClass[activeTooltip.milestone.color]}`}
                 >

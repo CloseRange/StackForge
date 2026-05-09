@@ -9,7 +9,6 @@ import {
   Layers3,
   PencilLine,
   PlusCircle,
-  Sparkles,
   Trophy,
   UserMinus,
   UserPlus,
@@ -23,10 +22,16 @@ import { Header } from "../components/header/Header";
 import { MilestoneTimelineRail } from "../components/timeline/MilestoneTimelineRail";
 import { Button } from "../components/ui/Button";
 import { Modal } from "../components/ui/Modal";
+import { ProjectIcon } from "../components/ui/ProjectIcon";
+import { SvgIconPicker } from "../components/ui/SvgIconPicker";
 import { useAuth } from "../hooks/useAuth";
 import { useBoardStore } from "../hooks/useBoardStore";
 import { DashboardLayout } from "../layouts/DashboardLayout";
 import { projectService } from "../services/projectService";
+import {
+  DEFAULT_MILESTONE_ICON,
+  normalizeProjectIcon
+} from "../utils/projectIcons";
 import type {
   Card,
   CardDifficulty,
@@ -290,7 +295,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const [deletingMilestoneId, setDeletingMilestoneId] = useState<string | null>(null);
   const [milestoneType, setMilestoneType] = useState<MilestoneType>("project");
   const [milestoneColor, setMilestoneColor] = useState<MilestoneColor>("sky");
-  const [milestoneIcon, setMilestoneIcon] = useState("flag");
+  const [milestoneIcon, setMilestoneIcon] = useState(DEFAULT_MILESTONE_ICON);
   const [milestoneTitle, setMilestoneTitle] = useState("");
   const [milestoneDueDate, setMilestoneDueDate] = useState("");
   const [milestoneCardId, setMilestoneCardId] = useState("");
@@ -341,7 +346,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     setDeletingMilestoneId(null);
     setMilestoneType("project");
     setMilestoneColor("sky");
-    setMilestoneIcon("flag");
+    setMilestoneIcon(DEFAULT_MILESTONE_ICON);
     setMilestoneTitle("");
     setMilestoneDueDate("");
     setMilestoneCardId("");
@@ -1027,7 +1032,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     setEditingMilestoneId(null);
     setMilestoneType("project");
     setMilestoneColor("sky");
-    setMilestoneIcon("flag");
+    setMilestoneIcon(DEFAULT_MILESTONE_ICON);
     setMilestoneTitle("");
     setMilestoneDueDate("");
     setMilestoneCardId("");
@@ -1050,7 +1055,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
       const milestone = await projectService.createMilestone(token, selectedProjectId, {
         type: milestoneType,
         color: milestoneColor,
-        icon: milestoneIcon,
+        icon: normalizeProjectIcon(milestoneIcon) || DEFAULT_MILESTONE_ICON,
         title: milestoneTitle,
         dueAt,
         targetCardId: milestoneType === "card" ? milestoneCardId : undefined,
@@ -1073,7 +1078,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     setEditingMilestoneId(milestone.id);
     setMilestoneType(milestone.type);
     setMilestoneColor(milestone.color);
-    setMilestoneIcon(milestone.icon || "flag");
+    setMilestoneIcon(normalizeProjectIcon(milestone.icon) || DEFAULT_MILESTONE_ICON);
     setMilestoneTitle(milestone.title);
     setMilestoneDueDate(toDueDateInputValue(milestone.dueAt));
     setMilestoneCardId(milestone.targetCardId ?? "");
@@ -1095,7 +1100,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
 
       const milestone = await projectService.updateMilestone(token, selectedProjectId, editingMilestoneId, {
         color: milestoneColor,
-        icon: milestoneIcon,
+        icon: normalizeProjectIcon(milestoneIcon) || DEFAULT_MILESTONE_ICON,
         title: milestoneTitle,
         dueAt,
         targetCardId: milestoneType === "card" ? milestoneCardId : undefined,
@@ -1304,11 +1309,17 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                       {allDecks.map((deck) => {
                         const icon =
                           deck.icon === "debug" ? (
-                            <Bug className="h-5 w-5" />
+                            <Bug className="h-6 w-6 text-white drop-shadow-[0_2px_8px_rgba(2,6,23,0.65)]" />
                           ) : deck.icon === "completed" ? (
-                            <Trophy className="h-5 w-5" />
+                            <Trophy className="h-6 w-6 text-white drop-shadow-[0_2px_8px_rgba(2,6,23,0.65)]" />
                           ) : (
-                            <Layers3 className="h-5 w-5" />
+                            <ProjectIcon
+                              icon={deck.iconValue}
+                              alt={`${deck.label} icon`}
+                              className="h-6 w-6"
+                              tone="deck-card"
+                              fallbackClassName="h-6 w-6"
+                            />
                           );
 
                         const count = deckCounts.get(deck.id) ?? 0;
@@ -1325,13 +1336,15 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                             className={`group relative flex aspect-[2/3] w-full flex-col rounded-[1.25rem] border p-4 text-left shadow-[2px_4px_0_1px_rgba(0,0,0,0.45),5px_8px_0_1px_rgba(0,0,0,0.28)] transition hover:-translate-y-1.5 hover:shadow-[2px_6px_0_1px_rgba(0,0,0,0.55),5px_11px_0_1px_rgba(0,0,0,0.38)] ${deck.colorClass}`}
                           >
                             {/* Suit pip + count */}
-                            <div className="flex items-center gap-1.5 opacity-90">
-                              {icon}
-                              <span className="text-xs font-bold leading-none text-white/70">{count}</span>
+                            <div className="flex items-center gap-2">
+                              <div className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-black/28 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_5px_12px_rgba(2,6,23,0.42)]">
+                                {icon}
+                              </div>
+                              <span className="rounded-md border border-white/20 bg-black/35 px-1.5 py-0.5 text-xs font-bold leading-none text-white/85">{count}</span>
                             </div>
 
                             {/* Faint centre watermark */}
-                            <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 scale-[3] opacity-[0.06] transition group-hover:opacity-[0.10]">
+                            <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 scale-[3.2] opacity-[0.12] transition group-hover:opacity-[0.18]">
                               {icon}
                             </div>
 
@@ -1952,121 +1965,125 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                         </div>
                       ) : null}
 
-                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    <label className="text-xs uppercase tracking-[0.1em] text-slate-300">
-                      Milestone Type
-                      <select
-                        value={milestoneType}
-                        onChange={(event) => setMilestoneType(event.target.value as MilestoneType)}
-                        disabled={Boolean(editingMilestoneId)}
-                        className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
-                      >
-                        <option value="project">Project Complete</option>
-                        <option value="xp">XP Target</option>
-                        <option value="deck">Deck Target</option>
-                        <option value="card">Card Target</option>
-                      </select>
-                    </label>
+                      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_16rem]">
+                        <div className="space-y-3">
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <label className="text-xs uppercase tracking-[0.1em] text-slate-300">
+                              Milestone Type
+                              <select
+                                value={milestoneType}
+                                onChange={(event) => setMilestoneType(event.target.value as MilestoneType)}
+                                disabled={Boolean(editingMilestoneId)}
+                                className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
+                              >
+                                <option value="project">Project Complete</option>
+                                <option value="xp">XP Target</option>
+                                <option value="deck">Deck Target</option>
+                                <option value="card">Card Target</option>
+                              </select>
+                            </label>
 
-                    <label className="text-xs uppercase tracking-[0.1em] text-slate-300">
-                      Marker Color
-                      <select
-                        value={milestoneColor}
-                        onChange={(event) => setMilestoneColor(event.target.value as MilestoneColor)}
-                        className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
-                      >
-                        {MILESTONE_COLOR_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>{option.label}</option>
-                        ))}
-                      </select>
-                    </label>
+                            <label className="text-xs uppercase tracking-[0.1em] text-slate-300">
+                              Marker Color
+                              <select
+                                value={milestoneColor}
+                                onChange={(event) => setMilestoneColor(event.target.value as MilestoneColor)}
+                                className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
+                              >
+                                {MILESTONE_COLOR_OPTIONS.map((option) => (
+                                  <option key={option.value} value={option.value}>{option.label}</option>
+                                ))}
+                              </select>
+                            </label>
 
-                    <label className="text-xs uppercase tracking-[0.1em] text-slate-300">
-                      Icon
-                      <select
-                        value={milestoneIcon}
-                        onChange={(event) => setMilestoneIcon(event.target.value)}
-                        className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
-                      >
-                        <option value="flag">Flag (more icons coming)</option>
-                      </select>
-                    </label>
+                            <label className="text-xs uppercase tracking-[0.1em] text-slate-300">
+                              Due Date
+                              <input
+                                type="date"
+                                value={milestoneDueDate}
+                                onChange={(event) => setMilestoneDueDate(event.target.value)}
+                                className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
+                              />
+                            </label>
 
-                    <label className="text-xs uppercase tracking-[0.1em] text-slate-300">
-                      Due Date
-                      <input
-                        type="date"
-                        value={milestoneDueDate}
-                        onChange={(event) => setMilestoneDueDate(event.target.value)}
-                        className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
-                      />
-                    </label>
+                            <label className="text-xs uppercase tracking-[0.1em] text-slate-300">
+                              Custom Title
+                              <input
+                                value={milestoneTitle}
+                                onChange={(event) => setMilestoneTitle(event.target.value)}
+                                placeholder="Optional title"
+                                className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
+                              />
+                            </label>
+                          </div>
 
-                    <label className="text-xs uppercase tracking-[0.1em] text-slate-300 md:col-span-2 xl:col-span-1">
-                      Custom Title
-                      <input
-                        value={milestoneTitle}
-                        onChange={(event) => setMilestoneTitle(event.target.value)}
-                        placeholder="Optional title"
-                        className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
-                      />
-                    </label>
+                          {milestoneType === "card" ? (
+                            <label className="text-xs uppercase tracking-[0.1em] text-slate-300">
+                              Target Card
+                              <select
+                                value={milestoneCardId}
+                                onChange={(event) => setMilestoneCardId(event.target.value)}
+                                className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
+                              >
+                                <option value="">Select a card</option>
+                                {cards.map((card) => (
+                                  <option key={card.id} value={card.id}>{card.title}</option>
+                                ))}
+                              </select>
+                            </label>
+                          ) : null}
 
-                    {milestoneType === "card" ? (
-                      <label className="text-xs uppercase tracking-[0.1em] text-slate-300 md:col-span-2 xl:col-span-3">
-                        Target Card
-                        <select
-                          value={milestoneCardId}
-                          onChange={(event) => setMilestoneCardId(event.target.value)}
-                          className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
-                        >
-                          <option value="">Select a card</option>
-                          {cards.map((card) => (
-                            <option key={card.id} value={card.id}>{card.title}</option>
-                          ))}
-                        </select>
-                      </label>
-                    ) : null}
+                          {milestoneType === "deck" ? (
+                            <label className="text-xs uppercase tracking-[0.1em] text-slate-300">
+                              Target Deck
+                              <select
+                                value={milestoneDeckId}
+                                onChange={(event) => setMilestoneDeckId(event.target.value)}
+                                className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
+                              >
+                                <option value="">Select a deck</option>
+                                {decks.map((deck) => (
+                                  <option key={deck.id} value={deck.id}>{deck.name}</option>
+                                ))}
+                              </select>
+                            </label>
+                          ) : null}
 
-                    {milestoneType === "deck" ? (
-                      <label className="text-xs uppercase tracking-[0.1em] text-slate-300 md:col-span-2 xl:col-span-3">
-                        Target Deck
-                        <select
-                          value={milestoneDeckId}
-                          onChange={(event) => setMilestoneDeckId(event.target.value)}
-                          className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
-                        >
-                          <option value="">Select a deck</option>
-                          {decks.map((deck) => (
-                            <option key={deck.id} value={deck.id}>{deck.name}</option>
-                          ))}
-                        </select>
-                      </label>
-                    ) : null}
+                          {milestoneType === "xp" ? (
+                            <label className="text-xs uppercase tracking-[0.1em] text-slate-300">
+                              XP Target
+                              <input
+                                type="number"
+                                min={1}
+                                value={milestoneTargetXp}
+                                onChange={(event) => setMilestoneTargetXp(Number(event.target.value) || 1)}
+                                className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
+                              />
+                            </label>
+                          ) : null}
 
-                    {milestoneType === "xp" ? (
-                      <label className="text-xs uppercase tracking-[0.1em] text-slate-300">
-                        XP Target
-                        <input
-                          type="number"
-                          min={1}
-                          value={milestoneTargetXp}
-                          onChange={(event) => setMilestoneTargetXp(Number(event.target.value) || 1)}
-                          className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
-                        />
-                      </label>
-                    ) : null}
+                          <label className="text-xs uppercase tracking-[0.1em] text-slate-300">
+                            Notes
+                            <textarea
+                              value={milestoneNotes}
+                              onChange={(event) => setMilestoneNotes(event.target.value)}
+                              rows={2}
+                              placeholder="Optional context for this target"
+                              className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
+                            />
+                          </label>
+                        </div>
 
-                    <label className="text-xs uppercase tracking-[0.1em] text-slate-300 md:col-span-2 xl:col-span-3">
-                      Notes
-                      <textarea
-                        value={milestoneNotes}
-                        onChange={(event) => setMilestoneNotes(event.target.value)}
-                        rows={2}
-                        placeholder="Optional context for this target"
-                        className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
-                      />
-                    </label>
+                        <div className="rounded-xl border border-white/12 bg-white/[0.04] p-3 xl:self-start">
+                          <p className="text-xs uppercase tracking-[0.1em] text-slate-300">Icon</p>
+                          <div className="mt-2">
+                            <SvgIconPicker
+                              selectedIcon={milestoneIcon}
+                              onSelectIcon={setMilestoneIcon}
+                              size="compact"
+                            />
+                          </div>
+                        </div>
                       </div>
 
                       <div className="flex flex-wrap gap-2">
@@ -2268,7 +2285,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                           <div className="mb-1.5 flex items-start justify-between gap-2">
                             <div className="rounded-lg border border-white/20 bg-white/10 p-1.5">
                               {entry.entityType === "card" ? (
-                                <Sparkles className="h-4 w-4 text-sky-200" />
+                                <Bug className="h-4 w-4 text-sky-200" />
                               ) : entry.entityType === "deck" ? (
                                 <Layers3 className="h-4 w-4 text-amber-200" />
                               ) : entry.entityType === "member" ? (
@@ -2473,20 +2490,18 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
             />
           </label>
 
-          <label className="block text-sm text-slate-300">
-            Icon (Placeholder)
-            <div className="mt-2 flex items-center gap-3">
-              <input
-                value={newDeckIcon}
-                onChange={(event) => setNewDeckIcon(event.target.value)}
-                placeholder="sparkles"
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-white outline-none"
+          <div className="block text-sm text-slate-300">
+            Icon
+            <div className="mt-2">
+              <SvgIconPicker
+                selectedIcon={newDeckIcon}
+                onSelectIcon={setNewDeckIcon}
+                allowNone
+                noneLabel="No deck icon"
+                size="compact"
               />
-              <div className="rounded-xl border border-white/10 bg-white/5 p-2 text-slate-300">
-                <Sparkles className="h-5 w-5" />
-              </div>
             </div>
-          </label>
+          </div>
 
           <div>
             <p className="text-sm text-slate-300">Color</p>
@@ -2605,20 +2620,18 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
             />
           </label>
 
-          <label className="block text-sm text-slate-300">
-            Icon (Placeholder)
-            <div className="mt-2 flex items-center gap-3">
-              <input
-                value={editDeckIcon}
-                onChange={(event) => setEditDeckIcon(event.target.value)}
-                placeholder="sparkles"
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-white outline-none"
+          <div className="block text-sm text-slate-300">
+            Icon
+            <div className="mt-2">
+              <SvgIconPicker
+                selectedIcon={editDeckIcon}
+                onSelectIcon={setEditDeckIcon}
+                allowNone
+                noneLabel="No deck icon"
+                size="compact"
               />
-              <div className="rounded-xl border border-white/10 bg-white/5 p-2 text-slate-300">
-                <Sparkles className="h-5 w-5" />
-              </div>
             </div>
-          </label>
+          </div>
 
           <div>
             <p className="text-sm text-slate-300">Color</p>

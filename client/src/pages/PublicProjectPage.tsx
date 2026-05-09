@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { Flag, Globe, Layers3, Zap } from "lucide-react";
 
 import { MilestoneTimelineRail } from "../components/timeline/MilestoneTimelineRail";
+import { ProjectIcon } from "../components/ui/ProjectIcon";
 import type { PublicProjectData } from "../services/publicApiService";
 import { publicApiService } from "../services/publicApiService";
 import type { Card, Deck } from "../types/api";
@@ -120,11 +121,13 @@ function DeckColumn({ deck, cards }: { deck: Deck; cards: Card[] }) {
     <section className="flex min-w-[17rem] flex-1 flex-col rounded-[2rem] border border-white/10 bg-slate-900/50 p-4">
       <div className="mb-4 flex items-center justify-between gap-2">
         <div>
-          {deck.icon ? (
-            <span className="text-xl leading-none">{deck.icon}</span>
-          ) : (
-            <Layers3 className="h-4 w-4 text-slate-400" />
-          )}
+          <ProjectIcon
+            icon={deck.icon}
+            alt={`${deck.name} icon`}
+            className="h-5 w-5"
+            tone="public"
+            fallbackClassName="h-4 w-4 text-slate-400"
+          />
           <h2 className="mt-1 font-semibold text-white">{deck.name}</h2>
         </div>
         <span className="rounded-full border border-white/10 px-2.5 py-1 text-xs text-slate-400">

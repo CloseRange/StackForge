@@ -5,6 +5,7 @@ import { useMemo, useState, type ReactNode } from "react";
 
 import { Button } from "../ui/Button";
 import type { Card, CardPriority, Deck, UpdateCardInput, User } from "../../types/api";
+import { ProjectIcon } from "../ui/ProjectIcon";
 
 const BOARD_SLOT_COUNT = 5;
 
@@ -105,10 +106,14 @@ const getDeckPresentation = (card: Card, decks: Deck[]): DeckPresentation => {
     return {
       label: deck.name,
       detail: deck.description || "Custom deck",
-      mark: deck.icon ? (
-        <span className="text-lg font-semibold uppercase tracking-[0.18em]">{deck.icon.slice(0, 2)}</span>
-      ) : (
-        <Layers3 className="h-8 w-8" />
+      mark: (
+        <ProjectIcon
+          icon={deck.icon}
+          alt={`${deck.name} icon`}
+          className="h-8 w-8"
+          tone="deck-card"
+          fallbackClassName="h-8 w-8"
+        />
       ),
       toneClass: deckToneClasses[deck.color]
     };
