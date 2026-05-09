@@ -7,6 +7,7 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { PublicProjectPage } from "./pages/PublicProjectPage";
 import { RegisterPage } from "./pages/RegisterPage";
+import { SettingsPage } from "./pages/SettingsPage";
 
 const ProtectedProjectsPage = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -54,6 +55,20 @@ const ProtectedProfilePage = () => {
   return <ProfilePage />;
 };
 
+const ProtectedSettingsPage = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div className="flex min-h-screen items-center justify-center text-slate-300">Loading StackForge...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <SettingsPage />;
+};
+
 export const App = () => {
   return (
     <BrowserRouter>
@@ -69,6 +84,7 @@ export const App = () => {
         <Route path="/activity" element={<ProtectedWorkspacePage tab="activity" />} />
         <Route path="/settings" element={<ProtectedWorkspacePage tab="settings" />} />
         <Route path="/profile" element={<ProtectedProfilePage />} />
+        <Route path="/account/settings" element={<ProtectedSettingsPage />} />
       </Routes>
     </BrowserRouter>
   );

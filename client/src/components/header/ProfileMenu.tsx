@@ -62,6 +62,10 @@ export const ProfileMenu = () => {
             </button>
             <button
               type="button"
+              onClick={() => {
+                navigate("/account/settings");
+                setIsOpen(false);
+              }}
               className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
             >
               <Settings className="h-4 w-4" />

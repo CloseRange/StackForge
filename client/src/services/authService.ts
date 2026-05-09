@@ -1,4 +1,4 @@
-import type { AuthPayload, User } from "../types/api";
+import type { AccountSettings, AuthPayload, UpdateAccountSettingsInput, User } from "../types/api";
 import { AUTH_EXPIRED_EVENT, ApiError } from "./api";
 import { request } from "./api";
 
@@ -23,6 +23,21 @@ export const authService = {
     return request<User>("/auth/profile", {
       method: "GET",
       token
+    });
+  },
+
+  getSettings(token: string) {
+    return request<AccountSettings>("/auth/settings", {
+      method: "GET",
+      token
+    });
+  },
+
+  updateSettings(token: string, payload: UpdateAccountSettingsInput) {
+    return request<AccountSettings>("/auth/settings", {
+      method: "PUT",
+      token,
+      body: payload
     });
   },
 

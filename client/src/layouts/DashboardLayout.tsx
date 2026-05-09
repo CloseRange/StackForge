@@ -9,6 +9,13 @@ type DashboardLayoutProps = {
 };
 
 export const DashboardLayout = ({ sidebar, children, backgroundIcon }: DashboardLayoutProps) => {
+  const isDarkMode = !document.documentElement.hasAttribute("data-theme") || 
+                     document.documentElement.getAttribute("data-theme") === "dark";
+
+  const panelClasses = isDarkMode
+    ? "rounded-[2rem] border border-white/[0.22] bg-[linear-gradient(180deg,rgba(70,100,130,0.25),rgba(50,70,100,0.22))] p-5 shadow-glow"
+    : "rounded-[2rem] border border-slate-200 bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]";
+
   return (
     <div className="min-h-screen px-4 py-4 md:px-6 md:py-6">
       <div
@@ -17,21 +24,23 @@ export const DashboardLayout = ({ sidebar, children, backgroundIcon }: Dashboard
         }`}
       >
         {sidebar ? (
-          <aside className="rounded-[2rem] border border-white/[0.22] bg-[linear-gradient(180deg,rgba(70,100,130,0.25),rgba(50,70,100,0.22))] p-5 shadow-glow">
+          <aside className={panelClasses}>
             {sidebar}
           </aside>
         ) : null}
-        <div className="relative overflow-hidden rounded-[2rem] border border-white/[0.22] bg-[linear-gradient(180deg,rgba(60,90,120,0.25),rgba(40,60,90,0.22))] p-5 shadow-glow">
+        <div className={`relative overflow-hidden ${panelClasses}`}>
           {backgroundIcon ? (
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute -bottom-6 -right-6 opacity-[0.055]"
+              className={`pointer-events-none absolute -bottom-6 -right-6 ${
+                isDarkMode ? "opacity-[0.055]" : "opacity-[0.035]"
+              }`}
             >
               <ProjectIcon
                 icon={backgroundIcon}
                 className="h-64 w-64"
                 tone="neutral"
-                fallbackClassName="h-64 w-64 text-slate-200"
+                fallbackClassName={`h-64 w-64 ${isDarkMode ? "text-slate-200" : "text-slate-300"}`}
               />
             </div>
           ) : null}

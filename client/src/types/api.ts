@@ -90,6 +90,19 @@ export type AuthPayload = {
   user: User;
 };
 
+export type ThemePreference = "system" | "light" | "dark";
+
+export type AccountSettings = {
+  theme: ThemePreference;
+  emailMentions: boolean;
+  weeklyDigest: boolean;
+  desktopAlerts: boolean;
+  compactBoardCards: boolean;
+  cardGlowIntensity: number;
+};
+
+export type UpdateAccountSettingsInput = Partial<AccountSettings>;
+
 export type CreateProjectInput = {
   name: string;
   description?: string;

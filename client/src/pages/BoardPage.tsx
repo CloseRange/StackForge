@@ -163,6 +163,27 @@ const deckCardSurfaceClass: Record<DeckColor, string> = {
     "border-emerald-400/45 bg-[radial-gradient(ellipse_at_0%_50%,rgba(16,185,129,0.38),transparent_65%),linear-gradient(180deg,rgba(18,46,36,0.88),rgba(10,28,22,0.94))]"
 };
 
+const deckCardSurfaceClassLight: Record<DeckColor, string> = {
+  teal:
+    "border-teal-200 bg-[radial-gradient(ellipse_at_0%_50%,rgba(45,212,191,0.28),transparent_68%),linear-gradient(180deg,rgba(153,246,228,0.35),rgba(20,184,166,0.82))]",
+  cyan:
+    "border-cyan-200 bg-[radial-gradient(ellipse_at_0%_50%,rgba(34,211,238,0.28),transparent_68%),linear-gradient(180deg,rgba(165,243,252,0.35),rgba(6,182,212,0.82))]",
+  amber:
+    "border-amber-200 bg-[radial-gradient(ellipse_at_0%_50%,rgba(245,158,11,0.28),transparent_68%),linear-gradient(180deg,rgba(253,230,138,0.35),rgba(217,119,6,0.82))]",
+  rose:
+    "border-rose-200 bg-[radial-gradient(ellipse_at_0%_50%,rgba(244,63,94,0.28),transparent_68%),linear-gradient(180deg,rgba(254,205,211,0.35),rgba(225,29,72,0.82))]",
+  indigo:
+    "border-violet-200 bg-[radial-gradient(ellipse_at_0%_50%,rgba(139,92,246,0.28),transparent_68%),linear-gradient(180deg,rgba(221,214,254,0.35),rgba(124,58,237,0.82))]",
+  sky:
+    "border-sky-200 bg-[radial-gradient(ellipse_at_0%_50%,rgba(56,189,248,0.28),transparent_68%),linear-gradient(180deg,rgba(186,230,253,0.35),rgba(2,132,199,0.82))]",
+  orange:
+    "border-orange-200 bg-[radial-gradient(ellipse_at_0%_50%,rgba(249,115,22,0.28),transparent_68%),linear-gradient(180deg,rgba(254,215,170,0.35),rgba(234,88,12,0.82))]",
+  lime:
+    "border-lime-200 bg-[radial-gradient(ellipse_at_0%_50%,rgba(132,204,22,0.28),transparent_68%),linear-gradient(180deg,rgba(217,249,157,0.35),rgba(101,163,13,0.82))]",
+  emerald:
+    "border-emerald-200 bg-[radial-gradient(ellipse_at_0%_50%,rgba(16,185,129,0.28),transparent_68%),linear-gradient(180deg,rgba(167,243,208,0.35),rgba(5,150,105,0.82))]"
+};
+
 const toDeckCard = (deck: Deck): DeckCard => ({
   id: deck.id,
   completionTargetDeckId: deck.completionTargetDeckId,
@@ -238,7 +259,7 @@ const formatActivityAge = (value: string) => {
 
 export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const navigate = useNavigate();
-  const { token, user } = useAuth();
+  const { token, user, accountSettings } = useAuth();
   const {
     projects,
     cards,
@@ -567,6 +588,9 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   }, [selectedProjectId, tab, token]);
 
   const activeProject = projects.find((project) => project.id === selectedProjectId) ?? null;
+  const isDarkMode =
+    !document.documentElement.hasAttribute("data-theme") ||
+    document.documentElement.getAttribute("data-theme") === "dark";
   const canManageMembers = user?.id === membersOwnerId;
   const canManageProjectSettings = user?.id === activeProject?.ownerId;
 
@@ -1521,6 +1545,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                 decks={decks}
                 currentUser={user!}
                 maxCardsOnBoard={activeProject.maxCardsOnBoard ?? 5}
+                cardGlowIntensity={accountSettings?.cardGlowIntensity ?? 100}
                 onCreateCard={openNewCard}
                 onSelectCard={(card) => {
                   setEditingCard(card);
@@ -1541,9 +1566,9 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                 {!activeDeck ? (
                   <>
                     <div>
-                      <p className="text-xs uppercase tracking-[0.35em] text-slate-300">Decks</p>
-                      <h2 className="mt-2 font-display text-2xl font-semibold text-white">Choose a deck</h2>
-                      <p className="mt-1 text-sm text-slate-400">
+                      <p className={`text-xs uppercase tracking-[0.35em] ${isDarkMode ? "text-slate-300" : "text-slate-500"}`}>Decks</p>
+                      <h2 className={`mt-2 font-display text-2xl font-semibold ${isDarkMode ? "text-white" : "text-slate-900"}`}>Choose a deck</h2>
+                      <p className={`mt-1 text-sm ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>
                         Pick a deck card to open it. Debug and Completed stay pinned at the end.
                       </p>
                     </div>
@@ -1557,16 +1582,20 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                       <button
                         type="button"
                         onClick={() => setIsCreateDeckModalOpen(true)}
-                        className="group relative flex aspect-[2/3] w-full flex-col rounded-[1.25rem] border border-dashed border-sky-300/28 bg-[linear-gradient(180deg,rgba(29,40,58,0.92),rgba(17,24,38,0.95))] p-4 text-left shadow-[2px_4px_0_1px_rgba(0,0,0,0.35),5px_8px_0_1px_rgba(0,0,0,0.22)] transition hover:-translate-y-1.5 hover:shadow-[2px_6px_0_1px_rgba(0,0,0,0.45),5px_11px_0_1px_rgba(0,0,0,0.28)]"
+                        className={`group relative flex aspect-[2/3] w-full flex-col rounded-[1.25rem] border border-dashed p-4 text-left transition hover:-translate-y-1.5 ${
+                          isDarkMode
+                            ? "border-sky-300/28 bg-[linear-gradient(180deg,rgba(29,40,58,0.92),rgba(17,24,38,0.95))] shadow-[2px_4px_0_1px_rgba(0,0,0,0.35),5px_8px_0_1px_rgba(0,0,0,0.22)] hover:shadow-[2px_6px_0_1px_rgba(0,0,0,0.45),5px_11px_0_1px_rgba(0,0,0,0.28)]"
+                            : "border-sky-200 bg-[linear-gradient(180deg,#ffffff,#eff6ff)] shadow-[0_8px_24px_rgba(15,23,42,0.08)] hover:shadow-[0_12px_28px_rgba(15,23,42,0.12)]"
+                        }`}
                       >
-                        <div className="text-sky-300">
+                        <div className={isDarkMode ? "text-sky-300" : "text-sky-600"}>
                           <PlusCircle className="h-5 w-5" />
                         </div>
                         <div className="mt-auto">
-                          <p className="text-sm font-bold leading-tight text-white">New Deck</p>
-                          <p className="mt-1 text-[11px] text-slate-300/70">Add a category</p>
+                          <p className={`text-sm font-bold leading-tight ${isDarkMode ? "text-white" : "text-slate-900"}`}>New Deck</p>
+                          <p className={`mt-1 text-[11px] ${isDarkMode ? "text-slate-300/70" : "text-slate-500"}`}>Add a category</p>
                         </div>
-                        <div className="absolute right-2.5 top-3 text-[9px] font-semibold uppercase tracking-[0.14em] text-sky-300/50 [writing-mode:vertical-rl]">new</div>
+                        <div className={`absolute right-2.5 top-3 text-[9px] font-semibold uppercase tracking-[0.14em] [writing-mode:vertical-rl] ${isDarkMode ? "text-sky-300/50" : "text-sky-500/70"}`}>new</div>
                       </button>
 
                       {allDecks.map((deck) => {
@@ -1766,14 +1795,16 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-white/20 bg-white/10 p-4">
+                    <div className={`rounded-2xl border p-4 ${isDarkMode ? "border-white/20 bg-white/10" : "border-slate-200 bg-white"}`}>
                       <div className="mb-3 flex items-center justify-between">
-                        <h4 className="text-lg font-semibold text-white">Cards In {activeDeck.label}</h4>
-                        <span className="text-sm text-slate-300">{sortedActiveDeckCards.length} total</span>
+                        <h4 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-slate-900"}`}>Cards In {activeDeck.label}</h4>
+                        <span className={`text-sm ${isDarkMode ? "text-slate-300" : "text-slate-600"}`}>{sortedActiveDeckCards.length} total</span>
                       </div>
 
                       {sortedActiveDeckCards.length === 0 ? (
-                        <p className="rounded-xl border border-dashed border-white/20 bg-slate-700/50 px-4 py-6 text-sm text-slate-300">
+                        <p className={`rounded-xl border border-dashed px-4 py-6 text-sm ${
+                          isDarkMode ? "border-white/20 bg-slate-700/50 text-slate-300" : "border-slate-300 bg-slate-50 text-slate-600"
+                        }`}>
                           No cards in this deck yet.
                         </p>
                       ) : (
@@ -1781,7 +1812,11 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                           {sortedActiveDeckCards.map((card) => (
                             <div
                               key={card.id}
-                              className={`group relative flex aspect-[2/3] flex-col justify-between rounded-xl border p-2 ${deckCardSurfaceClass[activeDeck.color]}`}
+                              className={`group relative flex aspect-[2/3] flex-col justify-between rounded-xl border p-2 ${
+                                isDarkMode
+                                  ? deckCardSurfaceClass[activeDeck.color]
+                                  : deckCardSurfaceClassLight[activeDeck.color]
+                              }`}
                             >
                               {/* action buttons — appear on hover */}
                               <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
@@ -1791,7 +1826,11 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                                     setEditingCard(card);
                                     setIsEditorOpen(true);
                                   }}
-                                  className="rounded-md border border-white/15 bg-black/40 p-1 text-slate-300 backdrop-blur-sm hover:bg-white/15 hover:text-white"
+                                  className={`rounded-md border p-1 backdrop-blur-sm ${
+                                    isDarkMode
+                                      ? "border-white/15 bg-black/40 text-slate-300 hover:bg-white/15 hover:text-white"
+                                      : "border-slate-300 bg-white/75 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                                  }`}
                                   title="Edit card"
                                 >
                                   <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
@@ -1800,7 +1839,11 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                                   type="button"
                                   onClick={() => void handleDeleteCard(card)}
                                   disabled={deletingCardId === card.id}
-                                  className="rounded-md border border-rose-400/25 bg-black/40 p-1 text-rose-300 backdrop-blur-sm hover:bg-rose-500/20 hover:text-rose-100 disabled:opacity-50"
+                                  className={`rounded-md border p-1 backdrop-blur-sm disabled:opacity-50 ${
+                                    isDarkMode
+                                      ? "border-rose-400/25 bg-black/40 text-rose-300 hover:bg-rose-500/20 hover:text-rose-100"
+                                      : "border-rose-300 bg-white/75 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                                  }`}
                                   title="Delete card"
                                 >
                                   <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
@@ -1808,16 +1851,24 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                               </div>
 
                               {/* card title */}
-                              <p className="line-clamp-3 pr-5 text-sm font-semibold leading-snug text-white">
+                              <p className={`line-clamp-3 pr-5 text-sm font-semibold leading-snug ${isDarkMode ? "text-white" : "text-white"}`}>
                                 {card.title}
                               </p>
 
                               {/* bottom badges */}
                               <div className="flex flex-wrap gap-1">
-                                <span className="rounded border border-white/10 bg-black/30 px-1.5 py-0.5 text-[11px] text-slate-300">
+                                <span className={`rounded border px-1.5 py-0.5 text-[11px] ${
+                                  isDarkMode
+                                    ? "border-white/10 bg-black/30 text-slate-300"
+                                    : "border-white/30 bg-black/20 text-white"
+                                }`}>
                                   {card.priority}
                                 </span>
-                                <span className="rounded border border-white/10 bg-black/30 px-1.5 py-0.5 text-[11px] text-slate-300">
+                                <span className={`rounded border px-1.5 py-0.5 text-[11px] ${
+                                  isDarkMode
+                                    ? "border-white/10 bg-black/30 text-slate-300"
+                                    : "border-white/30 bg-black/20 text-white"
+                                }`}>
                                   {card.xpValue} XP
                                 </span>
                               </div>

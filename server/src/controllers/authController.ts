@@ -55,5 +55,23 @@ export const authController = {
     });
 
     return response.status(200).json({ data: result });
+  },
+
+  async getSettings(request: Request, response: Response) {
+    if (!request.user) {
+      throw new AppError("Authentication required", 401);
+    }
+
+    const result = await authService.getSettings(request.user.userId);
+    return response.status(200).json({ data: result });
+  },
+
+  async updateSettings(request: Request, response: Response) {
+    if (!request.user) {
+      throw new AppError("Authentication required", 401);
+    }
+
+    const result = await authService.updateSettings(request.user.userId, request.body);
+    return response.status(200).json({ data: result });
   }
 };

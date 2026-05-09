@@ -11,6 +11,8 @@ authRouter.post("/register", asyncHandler(authController.register));
 authRouter.post("/login", asyncHandler(authController.login));
 authRouter.get("/profile", requireAuth, asyncHandler(authController.getProfile));
 authRouter.put("/profile", requireAuth, asyncHandler(authController.updateProfile));
+authRouter.get("/settings", requireAuth, asyncHandler(authController.getSettings));
+authRouter.put("/settings", requireAuth, asyncHandler(authController.updateSettings));
 authRouter.post(
 	"/profile/avatar",
 	requireAuth,

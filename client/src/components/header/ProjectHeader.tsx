@@ -34,65 +34,96 @@ export const ProjectHeader = ({
   onTabChange,
   onSettings,
   showSettings = true,
-}: ProjectHeaderProps) => (
-  <header className="sticky top-0 z-40 border-b border-white/[0.12] bg-[linear-gradient(180deg,rgba(12,18,30,0.95),rgba(9,14,24,0.92))] backdrop-blur-md">
-    <div className="mx-auto flex h-14 max-w-[1600px] items-center justify-between px-6">
-      {/* Left — logo + project name */}
-      <div className="flex items-center gap-3">
-        <Logo href="/" />
-        <span className="hidden text-slate-600 sm:block">/</span>
-        <ProjectIcon
-          icon={projectIcon}
-          alt={`${projectName} icon`}
-          className="hidden h-5 w-5 sm:block"
-          tone="neutral"
-          fallbackClassName="hidden h-5 w-5 text-slate-300 sm:block"
-        />
-        <span className="hidden max-w-48 truncate text-sm font-semibold text-white sm:block">
-          {projectName}
-        </span>
-      </div>
+}: ProjectHeaderProps) => {
+  const isDarkMode = !document.documentElement.hasAttribute("data-theme") || 
+                     document.documentElement.getAttribute("data-theme") === "dark";
 
-      {/* Center — tabs */}
-      <nav className="flex items-center gap-2">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => onTabChange?.(tab.id)}
-            className={`rounded-xl border px-4 py-1.5 text-sm font-semibold transition ${
-              activeTab === tab.id
-                ? "border-sky-300/40 bg-sky-500/12 text-sky-100 shadow-[0_0_0_1px_rgba(125,211,252,0.16)]"
-                : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+  return (
+    <header className={`sticky top-0 z-40 border-b backdrop-blur-md ${
+      isDarkMode
+        ? "border-white/[0.12] bg-[linear-gradient(180deg,rgba(12,18,30,0.95),rgba(9,14,24,0.92))]"
+        : "border-slate-200 bg-white"
+    }`}>
+      <div className="mx-auto flex h-14 max-w-[1600px] items-center justify-between px-6">
+        {/* Left — logo + project name */}
+        <div className="flex items-center gap-3">
+          <Logo href="/" />
+          <span className={`hidden sm:block ${
+            isDarkMode ? "text-slate-600" : "text-slate-300"
+          }`}>/</span>
+          <ProjectIcon
+            icon={projectIcon}
+            alt={`${projectName} icon`}
+            className="hidden h-5 w-5 sm:block"
+            tone="neutral"
+            fallbackClassName={`hidden h-5 w-5 sm:block ${
+              isDarkMode ? "text-slate-300" : "text-slate-400"
             }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </nav>
-
-      {/* Right — XP + settings + avatar */}
-      <div className="flex items-center gap-3">
-        <div className="hidden items-center gap-1.5 rounded-xl border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 md:flex">
-          <Zap className="h-3.5 w-3.5 text-amber-300" />
-          <span className="text-xs font-semibold text-amber-200">
-            {xp.toLocaleString()} / {xpMax.toLocaleString()} XP
+          />
+          <span className={`hidden max-w-48 truncate text-sm font-semibold sm:block ${
+            isDarkMode ? "text-white" : "text-slate-900"
+          }`}>
+            {projectName}
           </span>
         </div>
 
-        {showSettings ? (
-          <button
-            type="button"
-            onClick={onSettings}
-            className="hidden items-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.04] px-3.5 py-1.5 text-sm font-medium text-slate-300 transition hover:bg-white/[0.09] hover:text-white sm:flex"
-          >
-            <Settings className="h-4 w-4" />
-            Project Settings
-          </button>
-        ) : null}
+        {/* Center — tabs */}
+        <nav className="flex items-center gap-2">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => onTabChange?.(tab.id)}
+              className={`rounded-xl border px-4 py-1.5 text-sm font-semibold transition ${
+                activeTab === tab.id
+                  ? isDarkMode
+                    ? "border-sky-300/40 bg-sky-500/12 text-sky-100 shadow-[0_0_0_1px_rgba(125,211,252,0.16)]"
+                    : "border-blue-300 bg-blue-50 text-blue-700 shadow-[0_0_0_1px_rgba(37,99,235,0.16)]"
+                  : isDarkMode
+                    ? "border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+                    : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
 
-        <ProfileMenu />
+        {/* Right — XP + settings + avatar */}
+        <div className="flex items-center gap-3">
+          <div className={`hidden items-center gap-1.5 rounded-xl border px-3 py-1.5 md:flex ${
+            isDarkMode
+              ? "border-amber-300/30 bg-amber-400/10"
+              : "border-amber-200 bg-amber-50"
+          }`}>
+            <Zap className={`h-3.5 w-3.5 ${
+              isDarkMode ? "text-amber-300" : "text-amber-600"
+            }`} />
+            <span className={`text-xs font-semibold ${
+              isDarkMode ? "text-amber-200" : "text-amber-700"
+            }`}>
+              {xp.toLocaleString()} / {xpMax.toLocaleString()} XP
+            </span>
+          </div>
+
+          {showSettings ? (
+            <button
+              type="button"
+              onClick={onSettings}
+              className={`hidden items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-sm font-medium transition sm:flex ${
+                isDarkMode
+                  ? "border-white/12 bg-white/[0.04] text-slate-300 hover:bg-white/[0.09] hover:text-white"
+                  : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+              }`}
+            >
+              <Settings className="h-4 w-4" />
+              Project Settings
+            </button>
+          ) : null}
+
+          <ProfileMenu />
+        </div>
       </div>
-    </div>
-  </header>
-);
+    </header>
+  );
+};

@@ -1,7 +1,7 @@
 import { supabaseAdmin, supabaseAnon } from "../config/db.js";
 import { env } from "../config/env.js";
 import { AppError } from "../middleware/errorHandler.js";
-import { loginSchema, registerSchema, updateProfileSchema } from "../utils/validators.js";
+import { loginSchema, registerSchema, updateAccountSettingsSchema, updateProfileSchema } from "../utils/validators.js";
 
 type AuthMetadata = {
   displayName?: string;
@@ -16,6 +16,50 @@ type AuthMetadata = {
 type UploadAvatarInput = {
   file: Buffer;
   contentType: string;
+};
+
+type ThemePreference = "system" | "light" | "dark";
+
+type AccountSettings = {
+  theme: ThemePreference;
+  emailMentions: boolean;
+  weeklyDigest: boolean;
+  desktopAlerts: boolean;
+  compactBoardCards: boolean;
+  cardGlowIntensity: number;
+};
+
+type UserSettingsRow = {
+  user_id: string;
+  theme_preference: ThemePreference;
+  email_mentions: boolean;
+  weekly_digest: boolean;
+  desktop_alerts: boolean;
+  compact_board_cards: boolean;
+  card_glow_intensity?: number;
+};
+
+const isMissingCardGlowIntensityColumnError = (message: string | null | undefined) =>
+  (message ?? "").includes("sf_user_settings.card_glow_intensity");
+
+const defaultAccountSettings = (): AccountSettings => ({
+  theme: "system",
+  emailMentions: true,
+  weeklyDigest: false,
+  desktopAlerts: true,
+  compactBoardCards: false,
+  cardGlowIntensity: 100
+});
+
+const mapUserSettingsRow = (row: UserSettingsRow): AccountSettings => {
+  return {
+    theme: row.theme_preference,
+    emailMentions: row.email_mentions,
+    weeklyDigest: row.weekly_digest,
+    desktopAlerts: row.desktop_alerts,
+    compactBoardCards: row.compact_board_cards,
+    cardGlowIntensity: row.card_glow_intensity ?? 100
+  };
 };
 
 const USER_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -415,5 +459,153 @@ export const authService = {
     }
 
     return toAuthPayloadUser(data.user, mergedMetadata);
+  },
+
+  async getSettings(userId: string) {
+    const { data, error } = await supabaseAdmin
+      .from("sf_user_settings")
+      .select("user_id, theme_preference, email_mentions, weekly_digest, desktop_alerts, compact_board_cards, card_glow_intensity")
+      .eq("user_id", userId)
+      .maybeSingle<UserSettingsRow>();
+
+    if (error && !isMissingCardGlowIntensityColumnError(error.message)) {
+      throw new AppError(error.message, 500);
+    }
+
+    let resolvedData = data;
+
+    if (error && isMissingCardGlowIntensityColumnError(error.message)) {
+      const { data: fallbackData, error: fallbackError } = await supabaseAdmin
+        .from("sf_user_settings")
+        .select("user_id, theme_preference, email_mentions, weekly_digest, desktop_alerts, compact_board_cards")
+        .eq("user_id", userId)
+        .maybeSingle<UserSettingsRow>();
+
+      if (fallbackError) {
+        throw new AppError(fallbackError.message, 500);
+      }
+
+      resolvedData = fallbackData;
+    }
+
+    if (resolvedData) {
+      return mapUserSettingsRow(resolvedData);
+    }
+
+    const defaults = defaultAccountSettings();
+    const { data: inserted, error: insertError } = await supabaseAdmin
+      .from("sf_user_settings")
+      .insert({
+        user_id: userId,
+        theme_preference: defaults.theme,
+        email_mentions: defaults.emailMentions,
+        weekly_digest: defaults.weeklyDigest,
+        desktop_alerts: defaults.desktopAlerts,
+        compact_board_cards: defaults.compactBoardCards,
+        card_glow_intensity: defaults.cardGlowIntensity
+      })
+      .select("user_id, theme_preference, email_mentions, weekly_digest, desktop_alerts, compact_board_cards, card_glow_intensity")
+      .single<UserSettingsRow>();
+
+    if (insertError && isMissingCardGlowIntensityColumnError(insertError.message)) {
+      const { data: fallbackInserted, error: fallbackInsertError } = await supabaseAdmin
+        .from("sf_user_settings")
+        .insert({
+          user_id: userId,
+          theme_preference: defaults.theme,
+          email_mentions: defaults.emailMentions,
+          weekly_digest: defaults.weeklyDigest,
+          desktop_alerts: defaults.desktopAlerts,
+          compact_board_cards: defaults.compactBoardCards
+        })
+        .select("user_id, theme_preference, email_mentions, weekly_digest, desktop_alerts, compact_board_cards")
+        .single<UserSettingsRow>();
+
+      if (fallbackInsertError || !fallbackInserted) {
+        throw new AppError(fallbackInsertError?.message ?? "Failed to initialize user settings", 500);
+      }
+
+      return mapUserSettingsRow(fallbackInserted);
+    }
+
+    if (insertError || !inserted) {
+      throw new AppError(insertError?.message ?? "Failed to initialize user settings", 500);
+    }
+
+    return mapUserSettingsRow(inserted);
+  },
+
+  async updateSettings(userId: string, payload: unknown) {
+    const input = updateAccountSettingsSchema.parse(payload);
+    const upsertPayload: {
+      user_id: string;
+      theme_preference?: ThemePreference;
+      email_mentions?: boolean;
+      weekly_digest?: boolean;
+      desktop_alerts?: boolean;
+      compact_board_cards?: boolean;
+      card_glow_intensity?: number;
+    } = {
+      user_id: userId
+    };
+
+    if (input.theme !== undefined) {
+      upsertPayload.theme_preference = input.theme;
+    }
+
+    if (input.emailMentions !== undefined) {
+      upsertPayload.email_mentions = input.emailMentions;
+    }
+
+    if (input.weeklyDigest !== undefined) {
+      upsertPayload.weekly_digest = input.weeklyDigest;
+    }
+
+    if (input.desktopAlerts !== undefined) {
+      upsertPayload.desktop_alerts = input.desktopAlerts;
+    }
+
+    if (input.compactBoardCards !== undefined) {
+      upsertPayload.compact_board_cards = input.compactBoardCards;
+    }
+
+    if (input.cardGlowIntensity !== undefined) {
+      upsertPayload.card_glow_intensity = input.cardGlowIntensity;
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("sf_user_settings")
+      .upsert(upsertPayload, { onConflict: "user_id" })
+      .select("user_id, theme_preference, email_mentions, weekly_digest, desktop_alerts, compact_board_cards, card_glow_intensity")
+      .single<UserSettingsRow>();
+
+    if (error && isMissingCardGlowIntensityColumnError(error.message)) {
+      const fallbackPayload = {
+        user_id: userId,
+        theme_preference: upsertPayload.theme_preference,
+        email_mentions: upsertPayload.email_mentions,
+        weekly_digest: upsertPayload.weekly_digest,
+        desktop_alerts: upsertPayload.desktop_alerts,
+        compact_board_cards: upsertPayload.compact_board_cards
+      };
+
+      const { data: fallbackData, error: fallbackError } = await supabaseAdmin
+        .from("sf_user_settings")
+        .upsert(fallbackPayload, { onConflict: "user_id" })
+        .select("user_id, theme_preference, email_mentions, weekly_digest, desktop_alerts, compact_board_cards")
+        .single<UserSettingsRow>();
+
+      if (fallbackError || !fallbackData) {
+        throw new AppError(fallbackError?.message ?? "Failed to update settings", 500);
+      }
+
+      return mapUserSettingsRow(fallbackData);
+    }
+
+    if (error || !data) {
+      throw new AppError(error?.message ?? "Failed to update settings", 500);
+    }
+
+    return mapUserSettingsRow(data);
   }
 };

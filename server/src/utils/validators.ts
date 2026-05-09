@@ -28,6 +28,19 @@ export const updateProfileSchema = z
   })
   .refine((data) => Object.keys(data).length > 0, "At least one profile field must be provided");
 
+const themePreferenceSchema = z.enum(["system", "light", "dark"]);
+
+export const updateAccountSettingsSchema = z
+  .object({
+    theme: themePreferenceSchema.optional(),
+    emailMentions: z.boolean().optional(),
+    weeklyDigest: z.boolean().optional(),
+    desktopAlerts: z.boolean().optional(),
+    compactBoardCards: z.boolean().optional(),
+    cardGlowIntensity: z.number().int().min(0).max(100).optional()
+  })
+  .refine((data) => Object.keys(data).length > 0, "At least one settings field must be provided");
+
 export const createProjectSchema = z.object({
   name: z.string().min(2).max(80),
   description: z.string().max(240).optional().or(z.literal("")),
