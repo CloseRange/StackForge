@@ -110,17 +110,19 @@ export type ProjectMember = {
   userCode: string | null;
   avatarUrl: string | null;
   joinedAt?: string;
-  deckReadMode: "FULL_ACCESS" | "NO_ACCESS" | "WHITELIST" | "BLACKLIST";
-  deckReadDeckIds: string[];
-  deckWriteMode: "FULL_ACCESS" | "NO_ACCESS" | "WHITELIST" | "BLACKLIST";
-  deckWriteDeckIds: string[];
 };
 
 export type ProjectRole = {
   id: string;
   name: string;
+  displayName?: string;
   isSystem: boolean;
   memberCount: number;
+  deckReadMode?: "FULL_ACCESS" | "NO_ACCESS" | "WHITELIST" | "BLACKLIST";
+  deckReadDeckIds?: string[];
+  deckWriteMode?: "FULL_ACCESS" | "NO_ACCESS" | "WHITELIST" | "BLACKLIST";
+  deckWriteDeckIds?: string[];
+  canManageDecks?: boolean;
 };
 
 export type ProjectMembersResponse = {

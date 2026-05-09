@@ -14,10 +14,14 @@ import { request } from "./api";
 
 type UpdateMemberPermissionsInput = {
   roleId: string;
+};
+
+type UpdateRolePermissionsInput = {
   deckReadMode: "FULL_ACCESS" | "NO_ACCESS" | "WHITELIST" | "BLACKLIST";
   deckReadDeckIds: string[];
   deckWriteMode: "FULL_ACCESS" | "NO_ACCESS" | "WHITELIST" | "BLACKLIST";
   deckWriteDeckIds: string[];
+  canManageDecks: boolean;
 };
 
 type ProjectStats = {
@@ -150,6 +154,19 @@ export const projectService = {
     return request<void>(`/projects/${projectId}/members/${userId}`, {
       method: "DELETE",
       token
+    });
+  },
+
+  updateRolePermissions(
+    token: string,
+    projectId: string,
+    roleId: string,
+    payload: UpdateRolePermissionsInput
+  ) {
+    return request<ProjectRole>(`/projects/${projectId}/roles/${roleId}/permissions`, {
+      method: "PATCH",
+      token,
+      body: payload
     });
   }
 };

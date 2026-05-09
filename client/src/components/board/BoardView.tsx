@@ -1,4 +1,4 @@
-import { DndContext } from "@dnd-kit/core";
+import { DndContext, PointerSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
 
 import { BoardColumn } from "./BoardColumn";
 import type { Card, User } from "../../types/api";
@@ -12,8 +12,14 @@ type BoardViewProps = {
 };
 
 export const BoardView = ({ cards, currentUser, onCreateCard, onSelectCard }: BoardViewProps) => {
+  const sensors = useSensors(
+    // Require slight movement before drag starts so click-to-open remains reliable.
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } })
+  );
+
   return (
-    <DndContext>
+    <DndContext sensors={sensors}>
       <div className="flex gap-4 overflow-x-auto pb-4">
         {columnOrder.map((columnId) => (
           <BoardColumn

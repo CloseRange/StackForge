@@ -71,7 +71,7 @@ export const ProjectHeader = ({
         <button
           type="button"
           onClick={onSettings}
-          className="hidden items-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.04] px-3.5 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/[0.09] hover:text-white sm:flex"
+          className="hidden items-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.04] px-3.5 py-1.5 text-sm font-medium text-slate-300 transition hover:bg-white/[0.09] hover:text-white sm:flex"
         >
           <Settings className="h-4 w-4" />
           Project Settings

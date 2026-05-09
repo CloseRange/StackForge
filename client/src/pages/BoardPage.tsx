@@ -49,14 +49,18 @@ import type {
 
 type ProjectTab = "board" | "decks" | "members" | "timeline" | "activity" | "settings";
 
+type MemberRoleDraft = {
+  roleId: string;
+};
+
 type DeckPermissionMode = "FULL_ACCESS" | "NO_ACCESS" | "WHITELIST" | "BLACKLIST";
 
-type MemberPermissionDraft = {
-  roleId: string;
+type RolePermissionDraft = {
   deckReadMode: DeckPermissionMode;
   deckReadDeckIds: string[];
   deckWriteMode: DeckPermissionMode;
   deckWriteDeckIds: string[];
+  canManageDecks: boolean;
 };
 
 const DECK_PERMISSION_MODE_OPTIONS: Array<{ value: DeckPermissionMode; label: string }> = [
@@ -289,12 +293,16 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const [inviteCode, setInviteCode] = useState("");
   const [isInviting, setIsInviting] = useState(false);
   const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
-  const [memberPermissionDrafts, setMemberPermissionDrafts] = useState<Record<string, MemberPermissionDraft>>({});
+  const [memberPermissionDrafts, setMemberPermissionDrafts] = useState<Record<string, MemberRoleDraft>>({});
   const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
   const [projectRoles, setProjectRoles] = useState<ProjectRole[]>([]);
   const [newRoleName, setNewRoleName] = useState("");
   const [isCreatingRole, setIsCreatingRole] = useState(false);
   const [deletingRoleId, setDeletingRoleId] = useState<string | null>(null);
+  const [expandedRoleId, setExpandedRoleId] = useState<string | null>(null);
+  const [rolePermissionDrafts, setRolePermissionDrafts] = useState<Record<string, RolePermissionDraft>>({});
+  const [savingRolePermissionsId, setSavingRolePermissionsId] = useState<string | null>(null);
+  const [rolesPermissionsError, setRolesPermissionsError] = useState<string | null>(null);
   const [deckQuickTitle, setDeckQuickTitle] = useState("");
   const [deckQuickPriority, setDeckQuickPriority] = useState<CardPriority>("uncommon");
   const [deckQuickDifficulty, setDeckQuickDifficulty] = useState<CardDifficulty>("easy");
@@ -370,6 +378,10 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     setNewRoleName("");
     setIsCreatingRole(false);
     setDeletingRoleId(null);
+    setExpandedRoleId(null);
+    setRolePermissionDrafts({});
+    setSavingRolePermissionsId(null);
+    setRolesPermissionsError(null);
     setMembersError(null);
     setExpandedMemberId(null);
     setMemberPermissionDrafts({});
@@ -901,19 +913,15 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     }
   };
 
-  const getMemberDraft = (member: ProjectMember): MemberPermissionDraft => {
+  const getMemberDraft = (member: ProjectMember): MemberRoleDraft => {
     return (
       memberPermissionDrafts[member.id] ?? {
-        roleId: member.roleId ?? defaultAssignableRoleId,
-        deckReadMode: member.deckReadMode,
-        deckReadDeckIds: [...member.deckReadDeckIds],
-        deckWriteMode: member.deckWriteMode,
-        deckWriteDeckIds: [...member.deckWriteDeckIds]
+        roleId: member.roleId ?? defaultAssignableRoleId
       }
     );
   };
 
-  const updateMemberDraft = (memberId: string, partial: Partial<MemberPermissionDraft>) => {
+  const updateMemberDraft = (memberId: string, partial: Partial<MemberRoleDraft>) => {
     setMemberPermissionDrafts((previous) => {
       const base = previous[memberId];
 
@@ -928,10 +936,6 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
           ...previous,
           [memberId]: {
             roleId: member.roleId ?? defaultAssignableRoleId,
-            deckReadMode: member.deckReadMode,
-            deckReadDeckIds: [...member.deckReadDeckIds],
-            deckWriteMode: member.deckWriteMode,
-            deckWriteDeckIds: [...member.deckWriteDeckIds],
             ...partial
           }
         };
@@ -945,26 +949,6 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
         }
       };
     });
-  };
-
-  const toggleDeckId = (
-    memberId: string,
-    key: "deckReadDeckIds" | "deckWriteDeckIds",
-    deckId: string
-  ) => {
-    const member = members.find((entry) => entry.id === memberId);
-
-    if (!member) {
-      return;
-    }
-
-    const draft = getMemberDraft(member);
-    const current = draft[key];
-    const next = current.includes(deckId)
-      ? current.filter((entry) => entry !== deckId)
-      : [...current, deckId];
-
-    updateMemberDraft(memberId, { [key]: next } as Partial<MemberPermissionDraft>);
   };
 
   const handleSaveMemberPermissions = async (member: ProjectMember) => {
@@ -1402,6 +1386,74 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
       setSettingsError(err instanceof Error ? err.message : "Failed to remove role");
     } finally {
       setDeletingRoleId((current) => (current === role.id ? null : current));
+    }
+  };
+
+  const getRolePermissionDraft = (role: ProjectRole): RolePermissionDraft => {
+    return (
+      rolePermissionDrafts[role.id] ?? {
+        deckReadMode: role.deckReadMode ?? "FULL_ACCESS",
+        deckReadDeckIds: [...(role.deckReadDeckIds ?? [])],
+        deckWriteMode: role.deckWriteMode ?? "FULL_ACCESS",
+        deckWriteDeckIds: [...(role.deckWriteDeckIds ?? [])],
+        canManageDecks: role.canManageDecks ?? false
+      }
+    );
+  };
+
+  const updateRolePermissionDraft = (roleId: string, partial: Partial<RolePermissionDraft>) => {
+    setRolePermissionDrafts((previous) => {
+      const base = previous[roleId];
+      const role = projectRoles.find((r) => r.id === roleId);
+
+      if (!base) {
+        if (!role) return previous;
+
+        return {
+          ...previous,
+          [roleId]: {
+            deckReadMode: role.deckReadMode ?? "FULL_ACCESS",
+            deckReadDeckIds: [...(role.deckReadDeckIds ?? [])],
+            deckWriteMode: role.deckWriteMode ?? "FULL_ACCESS",
+            deckWriteDeckIds: [...(role.deckWriteDeckIds ?? [])],
+            canManageDecks: role.canManageDecks ?? false,
+            ...partial
+          }
+        };
+      }
+
+      return { ...previous, [roleId]: { ...base, ...partial } };
+    });
+  };
+
+  const toggleRoleDeckId = (roleId: string, key: "deckReadDeckIds" | "deckWriteDeckIds", deckId: string) => {
+    const role = projectRoles.find((r) => r.id === roleId);
+    if (!role) return;
+    const draft = getRolePermissionDraft(role);
+    const current = draft[key];
+    const next = current.includes(deckId) ? current.filter((entry) => entry !== deckId) : [...current, deckId];
+    updateRolePermissionDraft(roleId, { [key]: next } as Partial<RolePermissionDraft>);
+  };
+
+  const handleSaveRolePermissions = async (role: ProjectRole) => {
+    if (!token || !selectedProjectId) return;
+
+    const draft = getRolePermissionDraft(role);
+    setSavingRolePermissionsId(role.id);
+    setRolesPermissionsError(null);
+
+    try {
+      const updated = await projectService.updateRolePermissions(token, selectedProjectId, role.id, draft);
+      setProjectRoles((previous) => previous.map((r) => (r.id === role.id ? updated : r)));
+      setRolePermissionDrafts((previous) => {
+        const next = { ...previous };
+        delete next[role.id];
+        return next;
+      });
+    } catch (err: unknown) {
+      setRolesPermissionsError(err instanceof Error ? err.message : "Failed to save role permissions");
+    } finally {
+      setSavingRolePermissionsId((current) => (current === role.id ? null : current));
     }
   };
 
@@ -1926,101 +1978,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                                         ))}
                                       </select>
                                     </label>
-
-                                    <label className="text-slate-300">
-                                      <span className="mb-1 block text-[11px] uppercase tracking-[0.14em] text-slate-400">Deck Read</span>
-                                      <select
-                                        value={getMemberDraft(member).deckReadMode}
-                                        onChange={(event) =>
-                                          updateMemberDraft(member.id, {
-                                            deckReadMode: event.target.value as DeckPermissionMode,
-                                            deckReadDeckIds:
-                                              event.target.value === "WHITELIST" || event.target.value === "BLACKLIST"
-                                                ? getMemberDraft(member).deckReadDeckIds
-                                                : []
-                                          })
-                                        }
-                                        className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white outline-none"
-                                      >
-                                        {DECK_PERMISSION_MODE_OPTIONS.map((option) => (
-                                          <option key={option.value} value={option.value}>{option.label}</option>
-                                        ))}
-                                      </select>
-                                    </label>
-
-                                    <label className="text-slate-300">
-                                      <span className="mb-1 block text-[11px] uppercase tracking-[0.14em] text-slate-400">Deck Write</span>
-                                      <select
-                                        value={getMemberDraft(member).deckWriteMode}
-                                        onChange={(event) =>
-                                          updateMemberDraft(member.id, {
-                                            deckWriteMode: event.target.value as DeckPermissionMode,
-                                            deckWriteDeckIds:
-                                              event.target.value === "WHITELIST" || event.target.value === "BLACKLIST"
-                                                ? getMemberDraft(member).deckWriteDeckIds
-                                                : []
-                                          })
-                                        }
-                                        className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white outline-none"
-                                      >
-                                        {DECK_PERMISSION_MODE_OPTIONS.map((option) => (
-                                          <option key={option.value} value={option.value}>{option.label}</option>
-                                        ))}
-                                      </select>
-                                    </label>
                                   </div>
-
-                                  {getMemberDraft(member).deckReadMode === "WHITELIST" ||
-                                  getMemberDraft(member).deckReadMode === "BLACKLIST" ? (
-                                    <div>
-                                      <p className="mb-2 text-[11px] uppercase tracking-[0.14em] text-slate-400">
-                                        Read {getMemberDraft(member).deckReadMode === "WHITELIST" ? "Whitelist" : "Blacklist"}
-                                      </p>
-                                      <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-                                        {allDecks.map((deck) => {
-                                          const selected = getMemberDraft(member).deckReadDeckIds.includes(deck.id);
-
-                                          return (
-                                            <label key={`read-${member.id}-${deck.id}`} className="flex items-center gap-2 rounded-md border border-white/20 bg-white/10 px-2 py-1.5">
-                                              <input
-                                                type="checkbox"
-                                                checked={selected}
-                                                onChange={() => toggleDeckId(member.id, "deckReadDeckIds", deck.id)}
-                                                className="h-3.5 w-3.5"
-                                              />
-                                              <span className="truncate text-xs text-slate-200">{deck.label}</span>
-                                            </label>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  ) : null}
-
-                                  {getMemberDraft(member).deckWriteMode === "WHITELIST" ||
-                                  getMemberDraft(member).deckWriteMode === "BLACKLIST" ? (
-                                    <div>
-                                      <p className="mb-2 text-[11px] uppercase tracking-[0.14em] text-slate-400">
-                                        Write {getMemberDraft(member).deckWriteMode === "WHITELIST" ? "Whitelist" : "Blacklist"}
-                                      </p>
-                                      <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-                                        {allDecks.map((deck) => {
-                                          const selected = getMemberDraft(member).deckWriteDeckIds.includes(deck.id);
-
-                                          return (
-                                            <label key={`write-${member.id}-${deck.id}`} className="flex items-center gap-2 rounded-md border border-white/20 bg-white/10 px-2 py-1.5">
-                                              <input
-                                                type="checkbox"
-                                                checked={selected}
-                                                onChange={() => toggleDeckId(member.id, "deckWriteDeckIds", deck.id)}
-                                                className="h-3.5 w-3.5"
-                                              />
-                                              <span className="truncate text-xs text-slate-200">{deck.label}</span>
-                                            </label>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  ) : null}
 
                                   <div className="flex justify-end">
                                     <Button
@@ -2028,7 +1986,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                                       disabled={savingMemberId === member.id}
                                       className="min-w-32"
                                     >
-                                      {savingMemberId === member.id ? "Saving..." : "Save Permissions"}
+                                      {savingMemberId === member.id ? "Saving..." : "Save"}
                                     </Button>
                                   </div>
                                 </>
@@ -2646,26 +2604,162 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                     Admin role: <span className="font-semibold">{adminRole?.name ?? "admin"}</span> (owner only)
                   </div>
 
+                  {rolesPermissionsError ? (
+                    <div className="mt-3 rounded-lg border border-red-400/25 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                      {rolesPermissionsError}
+                    </div>
+                  ) : null}
+
                   <div className="mt-4 grid gap-2">
                     {projectRoles.map((role) => {
                       const isAdmin = role.name.trim().toLowerCase() === "admin";
+                      const isExpanded = expandedRoleId === role.id;
+                      const draft = getRolePermissionDraft(role);
 
                       return (
                         <div
                           key={role.id}
-                          className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/12 bg-white/[0.03] px-3 py-2"
+                          className="rounded-xl border border-white/12 bg-white/[0.03]"
                         >
-                          <div>
-                            <p className="text-sm font-semibold text-white">{role.name}</p>
-                            <p className="text-xs text-slate-400">{role.memberCount} members</p>
+                          <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                            <div>
+                              <p className="text-sm font-semibold text-white">{role.name}</p>
+                              <p className="text-xs text-slate-400">{role.memberCount} members</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {!isAdmin ? (
+                                <button
+                                  className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300 hover:bg-white/10"
+                                  onClick={() => setExpandedRoleId(isExpanded ? null : role.id)}
+                                >
+                                  {isExpanded ? "Close" : "Permissions"}
+                                </button>
+                              ) : null}
+                              <Button
+                                variant="ghost"
+                                disabled={isAdmin || deletingRoleId === role.id}
+                                onClick={() => void handleRemoveRole(role)}
+                              >
+                                {deletingRoleId === role.id ? "Removing..." : isAdmin ? "Locked" : "Remove"}
+                              </Button>
+                            </div>
                           </div>
-                          <Button
-                            variant="ghost"
-                            disabled={isAdmin || deletingRoleId === role.id}
-                            onClick={() => void handleRemoveRole(role)}
-                          >
-                            {deletingRoleId === role.id ? "Removing..." : isAdmin ? "Locked" : "Remove"}
-                          </Button>
+
+                          {isExpanded && !isAdmin ? (
+                            <div className="space-y-3 border-t border-white/10 p-3 text-xs text-slate-300">
+                              <div className="grid gap-3 md:grid-cols-2">
+                                <label>
+                                  <span className="mb-1 block text-[11px] uppercase tracking-[0.14em] text-slate-400">Access Cards</span>
+                                  <select
+                                    value={draft.deckReadMode}
+                                    onChange={(event) =>
+                                      updateRolePermissionDraft(role.id, {
+                                        deckReadMode: event.target.value as DeckPermissionMode,
+                                        deckReadDeckIds:
+                                          event.target.value === "WHITELIST" || event.target.value === "BLACKLIST"
+                                            ? draft.deckReadDeckIds
+                                            : []
+                                      })
+                                    }
+                                    className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white outline-none"
+                                  >
+                                    {DECK_PERMISSION_MODE_OPTIONS.map((option) => (
+                                      <option key={option.value} value={option.value}>{option.label}</option>
+                                    ))}
+                                  </select>
+                                </label>
+
+                                <label>
+                                  <span className="mb-1 block text-[11px] uppercase tracking-[0.14em] text-slate-400">Modify Cards</span>
+                                  <select
+                                    value={draft.deckWriteMode}
+                                    onChange={(event) =>
+                                      updateRolePermissionDraft(role.id, {
+                                        deckWriteMode: event.target.value as DeckPermissionMode,
+                                        deckWriteDeckIds:
+                                          event.target.value === "WHITELIST" || event.target.value === "BLACKLIST"
+                                            ? draft.deckWriteDeckIds
+                                            : []
+                                      })
+                                    }
+                                    className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white outline-none"
+                                  >
+                                    {DECK_PERMISSION_MODE_OPTIONS.map((option) => (
+                                      <option key={option.value} value={option.value}>{option.label}</option>
+                                    ))}
+                                  </select>
+                                </label>
+                              </div>
+
+                              {draft.deckReadMode === "WHITELIST" || draft.deckReadMode === "BLACKLIST" ? (
+                                <div>
+                                  <p className="mb-2 text-[11px] uppercase tracking-[0.14em] text-slate-400">
+                                    Access {draft.deckReadMode === "WHITELIST" ? "Whitelist" : "Blacklist"}
+                                  </p>
+                                  <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+                                    {allDecks.map((deck) => {
+                                      const selected = draft.deckReadDeckIds.includes(deck.id);
+                                      return (
+                                        <label key={`rread-${role.id}-${deck.id}`} className="flex items-center gap-2 rounded-md border border-white/20 bg-white/10 px-2 py-1.5">
+                                          <input
+                                            type="checkbox"
+                                            checked={selected}
+                                            onChange={() => toggleRoleDeckId(role.id, "deckReadDeckIds", deck.id)}
+                                            className="h-3.5 w-3.5"
+                                          />
+                                          <span className="truncate text-xs text-slate-200">{deck.label}</span>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ) : null}
+
+                              {draft.deckWriteMode === "WHITELIST" || draft.deckWriteMode === "BLACKLIST" ? (
+                                <div>
+                                  <p className="mb-2 text-[11px] uppercase tracking-[0.14em] text-slate-400">
+                                    Modify {draft.deckWriteMode === "WHITELIST" ? "Whitelist" : "Blacklist"}
+                                  </p>
+                                  <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+                                    {allDecks.map((deck) => {
+                                      const selected = draft.deckWriteDeckIds.includes(deck.id);
+                                      return (
+                                        <label key={`rwrite-${role.id}-${deck.id}`} className="flex items-center gap-2 rounded-md border border-white/20 bg-white/10 px-2 py-1.5">
+                                          <input
+                                            type="checkbox"
+                                            checked={selected}
+                                            onChange={() => toggleRoleDeckId(role.id, "deckWriteDeckIds", deck.id)}
+                                            className="h-3.5 w-3.5"
+                                          />
+                                          <span className="truncate text-xs text-slate-200">{deck.label}</span>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ) : null}
+
+                              <div className="flex items-center justify-between">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={draft.canManageDecks}
+                                    onChange={(event) => updateRolePermissionDraft(role.id, { canManageDecks: event.target.checked })}
+                                    className="h-3.5 w-3.5"
+                                  />
+                                  <span className="text-slate-300">Can manage decks (add, edit, delete)</span>
+                                </label>
+
+                                <Button
+                                  onClick={() => void handleSaveRolePermissions(role)}
+                                  disabled={savingRolePermissionsId === role.id}
+                                  className="min-w-28"
+                                >
+                                  {savingRolePermissionsId === role.id ? "Saving..." : "Save"}
+                                </Button>
+                              </div>
+                            </div>
+                          ) : null}
                         </div>
                       );
                     })}

@@ -64,12 +64,18 @@ export const assignCardSchema = z.object({
 
 const deckPermissionModes = ["FULL_ACCESS", "NO_ACCESS", "WHITELIST", "BLACKLIST"] as const;
 
+// Member permission: only role assignment (deck access controlled by role)
 export const setMemberPermissionsSchema = z.object({
-  roleId: z.string().uuid(),
+  roleId: z.string().uuid()
+});
+
+// Role permissions: deck access and deck management
+export const setRolePermissionsSchema = z.object({
   deckReadMode: z.enum(deckPermissionModes),
   deckReadDeckIds: z.array(z.string().uuid()).max(200).default([]),
   deckWriteMode: z.enum(deckPermissionModes),
-  deckWriteDeckIds: z.array(z.string().uuid()).max(200).default([])
+  deckWriteDeckIds: z.array(z.string().uuid()).max(200).default([]),
+  canManageDecks: z.boolean().default(false)
 });
 
 const XP_PAYOUT_VALUES = [0, 25, 50, 75, 100] as const;

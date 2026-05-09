@@ -3,7 +3,7 @@ import { z } from "zod";
 import { supabaseAdmin } from "../config/db.js";
 import { AppError } from "../middleware/errorHandler.js";
 import { ensureProjectAccess, ensureProjectAdmin, ensureProjectOwner } from "../utils/projectAccess.js";
-import { setMemberPermissionsSchema } from "../utils/validators.js";
+import { setMemberPermissionsSchema, setRolePermissionsSchema } from "../utils/validators.js";
 import { activityService, buildActivityChanges } from "./activityService.js";
 
 type UserMetadata = {
@@ -33,7 +33,13 @@ type RoleRow = {
   id: string;
   project_id: string;
   name: string;
+  display_name?: string;
   is_system: boolean;
+  deck_read_mode?: string;
+  deck_read_deck_ids?: string[];
+  deck_write_mode?: string;
+  deck_write_deck_ids?: string[];
+  can_manage_decks?: boolean;
   created_at: string;
 };
 
@@ -48,17 +54,19 @@ type MemberSummary = {
   statusMessage: string;
   userCode: string | null;
   avatarUrl: string | null;
-  deckReadMode: "FULL_ACCESS" | "NO_ACCESS" | "WHITELIST" | "BLACKLIST";
-  deckReadDeckIds: string[];
-  deckWriteMode: "FULL_ACCESS" | "NO_ACCESS" | "WHITELIST" | "BLACKLIST";
-  deckWriteDeckIds: string[];
 };
 
 type ProjectRoleSummary = {
   id: string;
   name: string;
+  displayName: string;
   isSystem: boolean;
   memberCount: number;
+  deckReadMode: "FULL_ACCESS" | "NO_ACCESS" | "WHITELIST" | "BLACKLIST";
+  deckReadDeckIds: string[];
+  deckWriteMode: "FULL_ACCESS" | "NO_ACCESS" | "WHITELIST" | "BLACKLIST";
+  deckWriteDeckIds: string[];
+  canManageDecks: boolean;
 };
 
 const addMemberSchema = z.object({
@@ -78,11 +86,7 @@ const MEMBER_ACTIVITY_FIELD_LABELS: Record<string, string> = {
   displayName: "Member",
   role: "Role",
   roleId: "Role Id",
-  userCode: "User Code",
-  deckReadMode: "Read Access Mode",
-  deckReadDeckIds: "Readable Decks",
-  deckWriteMode: "Write Access Mode",
-  deckWriteDeckIds: "Writable Decks"
+  userCode: "User Code"
 };
 
 const normalizeMetadata = (meta: unknown): UserMetadata => {
@@ -109,7 +113,7 @@ const isAdminRoleName = (value: string) => value.trim().toLowerCase() === "admin
 const listProjectRoles = async (projectId: string) => {
   const { data, error } = await supabaseAdmin
     .from("sf_project_roles")
-    .select("id, project_id, name, is_system, created_at")
+    .select("id, project_id, name, display_name, is_system, deck_read_mode, deck_read_deck_ids, deck_write_mode, deck_write_deck_ids, can_manage_decks, created_at")
     .eq("project_id", projectId)
     .order("created_at", { ascending: true });
 
@@ -123,7 +127,7 @@ const listProjectRoles = async (projectId: string) => {
 const getRoleById = async (projectId: string, roleId: string) => {
   const { data, error } = await supabaseAdmin
     .from("sf_project_roles")
-    .select("id, project_id, name, is_system, created_at")
+    .select("id, project_id, name, display_name, is_system, deck_read_mode, deck_read_deck_ids, deck_write_mode, deck_write_deck_ids, can_manage_decks, created_at")
     .eq("project_id", projectId)
     .eq("id", roleId)
     .maybeSingle();
@@ -138,7 +142,7 @@ const getRoleById = async (projectId: string, roleId: string) => {
 const getDefaultUserRole = async (projectId: string) => {
   const { data, error } = await supabaseAdmin
     .from("sf_project_roles")
-    .select("id, project_id, name, is_system, created_at")
+    .select("id, project_id, name, display_name, is_system, deck_read_mode, deck_read_deck_ids, deck_write_mode, deck_write_deck_ids, can_manage_decks, created_at")
     .eq("project_id", projectId)
     .ilike("name", "user")
     .maybeSingle();
@@ -238,31 +242,21 @@ const toMemberSummary = (
   user: { id: string; email?: string | null; user_metadata?: unknown },
   role: string,
   joinedAt?: string,
-  permissions?: {
-    roleId?: string | null;
-    deckReadMode?: string;
-    deckReadDeckIds?: string[] | null;
-    deckWriteMode?: string;
-    deckWriteDeckIds?: string[] | null;
-  }
+  roleId?: string | null
 ): MemberSummary => {
   const meta = normalizeMetadata(user.user_metadata);
 
   return {
     id: user.id,
     role,
-    roleId: permissions?.roleId ?? null,
+    roleId: roleId ?? null,
     joinedAt,
     displayName: resolveDisplayName(user.email, meta),
     firstName: meta.firstName ?? "",
     lastName: meta.lastName ?? "",
     statusMessage: meta.statusMessage ?? "",
     userCode: meta.userCode ?? null,
-    avatarUrl: meta.avatarUrl ?? null,
-    deckReadMode: normalizePermissionMode(permissions?.deckReadMode),
-    deckReadDeckIds: permissions?.deckReadDeckIds ?? [],
-    deckWriteMode: normalizePermissionMode(permissions?.deckWriteMode),
-    deckWriteDeckIds: permissions?.deckWriteDeckIds ?? []
+    avatarUrl: meta.avatarUrl ?? null
   };
 };
 
@@ -275,31 +269,27 @@ const enrichMember = async (member: MemberRow, roleMap: Map<string, RoleRow>) =>
 
   const role = roleMap.get(member.role_id);
 
-  return toMemberSummary(data.user, role?.name ?? member.role ?? "user", member.created_at, {
-    roleId: member.role_id,
-    deckReadMode: member.deck_read_mode,
-    deckReadDeckIds: member.deck_read_deck_ids,
-    deckWriteMode: member.deck_write_mode,
-    deckWriteDeckIds: member.deck_write_deck_ids
-  });
+  return toMemberSummary(data.user, role?.name ?? member.role ?? "user", member.created_at, member.role_id);
 };
 
 const toMemberActivityState = (member: MemberSummary) => ({
   displayName: member.displayName,
   role: member.role,
   roleId: member.roleId,
-  userCode: member.userCode,
-  deckReadMode: member.deckReadMode,
-  deckReadDeckIds: member.deckReadDeckIds,
-  deckWriteMode: member.deckWriteMode,
-  deckWriteDeckIds: member.deckWriteDeckIds
+  userCode: member.userCode
 });
 
 const toRoleSummary = (role: RoleRow, memberCount: number): ProjectRoleSummary => ({
   id: role.id,
   name: role.name,
+  displayName: role.display_name ?? role.name,
   isSystem: role.is_system,
-  memberCount
+  memberCount,
+  deckReadMode: normalizePermissionMode(role.deck_read_mode),
+  deckReadDeckIds: role.deck_read_deck_ids ?? [],
+  deckWriteMode: normalizePermissionMode(role.deck_write_mode),
+  deckWriteDeckIds: role.deck_write_deck_ids ?? [],
+  canManageDecks: role.can_manage_decks ?? false
 });
 
 export const memberService = {
@@ -344,9 +334,7 @@ export const memberService = {
 
       if (!ownerError && ownerAuth.user) {
         const adminRole = roleRows.find((role) => isAdminRoleName(role.name));
-        owner = toMemberSummary(ownerAuth.user, adminRole?.name ?? "admin", undefined, {
-          roleId: adminRole?.id ?? null
-        });
+        owner = toMemberSummary(ownerAuth.user, adminRole?.name ?? "admin", undefined, adminRole?.id ?? null);
       }
     }
 
@@ -398,7 +386,7 @@ export const memberService = {
         name,
         is_system: false
       })
-      .select("id, project_id, name, is_system, created_at")
+      .select("id, project_id, name, display_name, is_system, deck_read_mode, deck_read_deck_ids, deck_write_mode, deck_write_deck_ids, can_manage_decks, created_at")
       .single();
 
     if (error || !data) {
@@ -657,50 +645,11 @@ export const memberService = {
       throw new AppError("Admin role is reserved for the project owner", 400);
     }
 
-    const deckIds = [...new Set([...input.deckReadDeckIds, ...input.deckWriteDeckIds])];
-
-    if (deckIds.length > 0) {
-      const { data: decks, error: decksError } = await supabaseAdmin
-        .from("sf_decks")
-        .select("id")
-        .eq("project_id", projectId)
-        .in("id", deckIds);
-
-      if (decksError) {
-        throw new AppError(decksError.message, 500);
-      }
-
-      const existing = new Set((decks ?? []).map((deck: { id: string }) => deck.id));
-      const missing = deckIds.filter((deckId) => !existing.has(deckId));
-
-      if (missing.length > 0) {
-        throw new AppError("One or more selected decks are not in this project", 400);
-      }
-    }
-
-    if (
-      (input.deckReadMode === "WHITELIST" || input.deckReadMode === "BLACKLIST") &&
-      input.deckReadDeckIds.length === 0
-    ) {
-      throw new AppError("Read deck list is required for whitelist or blacklist mode", 400);
-    }
-
-    if (
-      (input.deckWriteMode === "WHITELIST" || input.deckWriteMode === "BLACKLIST") &&
-      input.deckWriteDeckIds.length === 0
-    ) {
-      throw new AppError("Write deck list is required for whitelist or blacklist mode", 400);
-    }
-
     const { error } = await supabaseAdmin
       .from("sf_project_members")
       .update({
         role: nextRole.name,
-        role_id: nextRole.id,
-        deck_read_mode: input.deckReadMode,
-        deck_read_deck_ids: input.deckReadDeckIds,
-        deck_write_mode: input.deckWriteMode,
-        deck_write_deck_ids: input.deckWriteDeckIds
+        role_id: nextRole.id
       })
       .eq("project_id", projectId)
       .eq("user_id", targetUserId);
@@ -747,5 +696,81 @@ export const memberService = {
     }
 
     return member;
+  },
+
+  async updateRolePermissions(projectId: string, actorUserId: string, roleId: string, payload: unknown) {
+    await ensureProjectAdmin(projectId, actorUserId);
+
+    const input = setRolePermissionsSchema.parse(payload);
+
+    const role = await getRoleById(projectId, roleId);
+
+    if (!role) {
+      throw new AppError("Role not found", 404);
+    }
+
+    if (isAdminRoleName(role.name)) {
+      throw new AppError("Admin role permissions cannot be modified", 400);
+    }
+
+    if (
+      (input.deckReadMode === "WHITELIST" || input.deckReadMode === "BLACKLIST") &&
+      input.deckReadDeckIds.length === 0
+    ) {
+      throw new AppError("Read deck list is required for whitelist or blacklist mode", 400);
+    }
+
+    if (
+      (input.deckWriteMode === "WHITELIST" || input.deckWriteMode === "BLACKLIST") &&
+      input.deckWriteDeckIds.length === 0
+    ) {
+      throw new AppError("Write deck list is required for whitelist or blacklist mode", 400);
+    }
+
+    const allDeckIds = [...new Set([...input.deckReadDeckIds, ...input.deckWriteDeckIds])];
+
+    if (allDeckIds.length > 0) {
+      const { data: decks, error: decksError } = await supabaseAdmin
+        .from("sf_decks")
+        .select("id")
+        .eq("project_id", projectId)
+        .in("id", allDeckIds);
+
+      if (decksError) {
+        throw new AppError(decksError.message, 500);
+      }
+
+      const existing = new Set((decks ?? []).map((d: { id: string }) => d.id));
+      const missing = allDeckIds.filter((id) => !existing.has(id));
+
+      if (missing.length > 0) {
+        throw new AppError("One or more selected decks are not in this project", 400);
+      }
+    }
+
+    const { error } = await supabaseAdmin
+      .from("sf_project_roles")
+      .update({
+        deck_read_mode: input.deckReadMode,
+        deck_read_deck_ids: input.deckReadDeckIds,
+        deck_write_mode: input.deckWriteMode,
+        deck_write_deck_ids: input.deckWriteDeckIds,
+        can_manage_decks: input.canManageDecks
+      })
+      .eq("project_id", projectId)
+      .eq("id", roleId);
+
+    if (error) {
+      throw new AppError(error.message, 500);
+    }
+
+    const { data: updatedRole } = await supabaseAdmin
+      .from("sf_project_roles")
+      .select("id, project_id, name, display_name, is_system, deck_read_mode, deck_read_deck_ids, deck_write_mode, deck_write_deck_ids, can_manage_decks, created_at")
+      .eq("project_id", projectId)
+      .eq("id", roleId)
+      .single();
+
+    return toRoleSummary(updatedRole as RoleRow, 0);
   }
 };

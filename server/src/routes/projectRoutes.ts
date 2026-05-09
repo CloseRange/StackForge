@@ -24,6 +24,7 @@ projectRouter.delete("/:projectId", asyncHandler(projectController.remove));
 // Role management
 projectRouter.get("/:projectId/roles", asyncHandler(memberController.listRoles));
 projectRouter.post("/:projectId/roles", asyncHandler(memberController.createRole));
+projectRouter.patch("/:projectId/roles/:roleId/permissions", asyncHandler(memberController.updateRolePermissions));
 projectRouter.delete("/:projectId/roles/:roleId", asyncHandler(memberController.removeRole));
 
 // Member management (owner-only writes, read open to members)

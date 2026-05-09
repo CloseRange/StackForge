@@ -98,5 +98,25 @@ export const memberController = {
     );
 
     return response.status(200).json({ data: member });
+  },
+
+  async updateRolePermissions(request: Request, response: Response) {
+    const projectId =
+      typeof request.params.projectId === "string" ? request.params.projectId : undefined;
+    const roleId =
+      typeof request.params.roleId === "string" ? request.params.roleId : undefined;
+
+    if (!projectId || !roleId) {
+      throw new AppError("Project id and role id are required", 400);
+    }
+
+    const role = await memberService.updateRolePermissions(
+      projectId,
+      request.user!.userId,
+      roleId,
+      request.body
+    );
+
+    return response.status(200).json({ data: role });
   }
 };
