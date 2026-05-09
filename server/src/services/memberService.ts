@@ -110,15 +110,41 @@ const normalizePermissionMode = (value: string | null | undefined) => {
 
 const isAdminRoleName = (value: string) => value.trim().toLowerCase() === "admin";
 
+const ROLE_SELECT_WITH_PERMISSIONS =
+  "id, project_id, name, display_name, is_system, deck_read_mode, deck_read_deck_ids, deck_write_mode, deck_write_deck_ids, can_manage_decks, created_at";
+const ROLE_SELECT_BASE = "id, project_id, name, is_system, created_at";
+
+const isMissingRolePermissionColumnsError = (message: string | null | undefined) =>
+  (message ?? "").includes("sf_project_roles.display_name") ||
+  (message ?? "").includes("sf_project_roles.deck_read_mode") ||
+  (message ?? "").includes("sf_project_roles.deck_read_deck_ids") ||
+  (message ?? "").includes("sf_project_roles.deck_write_mode") ||
+  (message ?? "").includes("sf_project_roles.deck_write_deck_ids") ||
+  (message ?? "").includes("sf_project_roles.can_manage_decks");
+
 const listProjectRoles = async (projectId: string) => {
   const { data, error } = await supabaseAdmin
     .from("sf_project_roles")
-    .select("id, project_id, name, display_name, is_system, deck_read_mode, deck_read_deck_ids, deck_write_mode, deck_write_deck_ids, can_manage_decks, created_at")
+    .select(ROLE_SELECT_WITH_PERMISSIONS)
     .eq("project_id", projectId)
     .order("created_at", { ascending: true });
 
-  if (error) {
+  if (error && !isMissingRolePermissionColumnsError(error.message)) {
     throw new AppError(error.message, 500);
+  }
+
+  if (error && isMissingRolePermissionColumnsError(error.message)) {
+    const { data: fallbackData, error: fallbackError } = await supabaseAdmin
+      .from("sf_project_roles")
+      .select(ROLE_SELECT_BASE)
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: true });
+
+    if (fallbackError) {
+      throw new AppError(fallbackError.message, 500);
+    }
+
+    return (fallbackData ?? []) as RoleRow[];
   }
 
   return (data ?? []) as RoleRow[];
@@ -127,13 +153,28 @@ const listProjectRoles = async (projectId: string) => {
 const getRoleById = async (projectId: string, roleId: string) => {
   const { data, error } = await supabaseAdmin
     .from("sf_project_roles")
-    .select("id, project_id, name, display_name, is_system, deck_read_mode, deck_read_deck_ids, deck_write_mode, deck_write_deck_ids, can_manage_decks, created_at")
+    .select(ROLE_SELECT_WITH_PERMISSIONS)
     .eq("project_id", projectId)
     .eq("id", roleId)
     .maybeSingle();
 
-  if (error) {
+  if (error && !isMissingRolePermissionColumnsError(error.message)) {
     throw new AppError(error.message, 500);
+  }
+
+  if (error && isMissingRolePermissionColumnsError(error.message)) {
+    const { data: fallbackData, error: fallbackError } = await supabaseAdmin
+      .from("sf_project_roles")
+      .select(ROLE_SELECT_BASE)
+      .eq("project_id", projectId)
+      .eq("id", roleId)
+      .maybeSingle();
+
+    if (fallbackError) {
+      throw new AppError(fallbackError.message, 500);
+    }
+
+    return fallbackData as RoleRow | null;
   }
 
   return data as RoleRow | null;
@@ -142,13 +183,32 @@ const getRoleById = async (projectId: string, roleId: string) => {
 const getDefaultUserRole = async (projectId: string) => {
   const { data, error } = await supabaseAdmin
     .from("sf_project_roles")
-    .select("id, project_id, name, display_name, is_system, deck_read_mode, deck_read_deck_ids, deck_write_mode, deck_write_deck_ids, can_manage_decks, created_at")
+    .select(ROLE_SELECT_WITH_PERMISSIONS)
     .eq("project_id", projectId)
     .ilike("name", "user")
     .maybeSingle();
 
-  if (error) {
+  if (error && !isMissingRolePermissionColumnsError(error.message)) {
     throw new AppError(error.message, 500);
+  }
+
+  if (error && isMissingRolePermissionColumnsError(error.message)) {
+    const { data: fallbackData, error: fallbackError } = await supabaseAdmin
+      .from("sf_project_roles")
+      .select(ROLE_SELECT_BASE)
+      .eq("project_id", projectId)
+      .ilike("name", "user")
+      .maybeSingle();
+
+    if (fallbackError) {
+      throw new AppError(fallbackError.message, 500);
+    }
+
+    if (!fallbackData) {
+      throw new AppError("Project role configuration is invalid. Missing default user role", 500);
+    }
+
+    return fallbackData as RoleRow;
   }
 
   if (!data) {
@@ -262,12 +322,23 @@ const toMemberSummary = (
 
 const enrichMember = async (member: MemberRow, roleMap: Map<string, RoleRow>) => {
   const { data, error } = await supabaseAdmin.auth.admin.getUserById(member.user_id);
+  const role = roleMap.get(member.role_id);
 
   if (error || !data.user) {
-    return null;
+    // Fallback keeps the member visible even if auth profile lookup fails.
+    return {
+      id: member.user_id,
+      role: role?.name ?? member.role ?? "user",
+      roleId: member.role_id ?? null,
+      joinedAt: member.created_at,
+      displayName: "Unknown user",
+      firstName: "",
+      lastName: "",
+      statusMessage: "",
+      userCode: null,
+      avatarUrl: null
+    };
   }
-
-  const role = roleMap.get(member.role_id);
 
   return toMemberSummary(data.user, role?.name ?? member.role ?? "user", member.created_at, member.role_id);
 };
@@ -386,15 +457,34 @@ export const memberService = {
         name,
         is_system: false
       })
-      .select("id, project_id, name, display_name, is_system, deck_read_mode, deck_read_deck_ids, deck_write_mode, deck_write_deck_ids, can_manage_decks, created_at")
+      .select(ROLE_SELECT_WITH_PERMISSIONS)
       .single();
 
-    if (error || !data) {
+    if ((error && !isMissingRolePermissionColumnsError(error.message)) || !data) {
       if ((error?.message ?? "").toLowerCase().includes("duplicate")) {
         throw new AppError("A role with this name already exists", 409);
       }
 
-      throw new AppError(error?.message ?? "Failed to create role", 500);
+      if (!error || !isMissingRolePermissionColumnsError(error.message)) {
+        throw new AppError(error?.message ?? "Failed to create role", 500);
+      }
+    }
+
+    if (error && isMissingRolePermissionColumnsError(error.message)) {
+      const { data: fallbackData, error: fallbackError } = await supabaseAdmin
+        .from("sf_project_roles")
+        .select(ROLE_SELECT_BASE)
+        .eq("project_id", projectId)
+        .eq("name", name)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (fallbackError || !fallbackData) {
+        throw new AppError(fallbackError?.message ?? "Failed to create role", 500);
+      }
+
+      return toRoleSummary(fallbackData as RoleRow, 0);
     }
 
     return toRoleSummary(data as RoleRow, 0);

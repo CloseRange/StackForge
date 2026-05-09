@@ -299,6 +299,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const [newRoleName, setNewRoleName] = useState("");
   const [isCreatingRole, setIsCreatingRole] = useState(false);
   const [deletingRoleId, setDeletingRoleId] = useState<string | null>(null);
+  const [pendingRoleRemoval, setPendingRoleRemoval] = useState<ProjectRole | null>(null);
   const [expandedRoleId, setExpandedRoleId] = useState<string | null>(null);
   const [rolePermissionDrafts, setRolePermissionDrafts] = useState<Record<string, RolePermissionDraft>>({});
   const [savingRolePermissionsId, setSavingRolePermissionsId] = useState<string | null>(null);
@@ -403,6 +404,10 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     setMilestoneDeckId("");
     setMilestoneTargetXp(500);
     setMilestoneNotes("");
+  }, [selectedProjectId]);
+
+  useEffect(() => {
+    setPendingRoleRemoval(null);
   }, [selectedProjectId]);
 
   // Load project-wide stats (not filtered by member permissions)
@@ -924,29 +929,9 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const updateMemberDraft = (memberId: string, partial: Partial<MemberRoleDraft>) => {
     setMemberPermissionDrafts((previous) => {
       const base = previous[memberId];
-
-      if (!base) {
-        const member = members.find((entry) => entry.id === memberId);
-
-        if (!member) {
-          return previous;
-        }
-
-        return {
-          ...previous,
-          [memberId]: {
-            roleId: member.roleId ?? defaultAssignableRoleId,
-            ...partial
-          }
-        };
-      }
-
       return {
         ...previous,
-        [memberId]: {
-          ...base,
-          ...partial
-        }
+        [memberId]: base ? { ...base, ...partial } : { roleId: "", ...partial }
       };
     });
   };
@@ -957,6 +942,12 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     }
 
     const draft = getMemberDraft(member);
+
+    if (!draft.roleId.trim()) {
+      setMembersError("Select a role before saving member permissions.");
+      return;
+    }
+
     setSavingMemberId(member.id);
     setMembersError(null);
 
@@ -1368,11 +1359,16 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
       return;
     }
 
-    const shouldDelete = globalThis.confirm(`Delete role "${role.name}"?`);
+    setPendingRoleRemoval(role);
+  };
 
-    if (!shouldDelete) {
+  const handleConfirmRemoveRole = async () => {
+    if (!token || !selectedProjectId || !pendingRoleRemoval) {
       return;
     }
+
+    const role = pendingRoleRemoval;
+    setPendingRoleRemoval(null);
 
     setDeletingRoleId(role.id);
     setSettingsError(null);
@@ -1965,7 +1961,8 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                                     <label className="text-slate-300">
                                       <span className="mb-1 block text-[11px] uppercase tracking-[0.14em] text-slate-400">Role</span>
                                       <select
-                                        value={getMemberDraft(member).roleId}
+                                        value={getMemberDraft(member).roleId || defaultAssignableRoleId || ""}
+                                        disabled={assignableRoles.length === 0}
                                         onChange={(event) =>
                                           updateMemberDraft(member.id, {
                                             roleId: event.target.value
@@ -3142,6 +3139,59 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={pendingRoleRemoval !== null}
+        title="Remove role?"
+        description="This will delete the role and remove it from every member currently assigned to it."
+        onClose={() => setPendingRoleRemoval(null)}
+      >
+        {pendingRoleRemoval ? (
+          <div className="space-y-5">
+            <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-4">
+              <p className="text-xs uppercase tracking-[0.16em] text-rose-200">Danger zone</p>
+              <p className="mt-2 text-sm text-rose-100/90">
+                Role <span className="font-semibold">{pendingRoleRemoval.name}</span> will be removed from this project.
+              </p>
+              <p className="mt-2 text-sm text-rose-100/75">
+                Members assigned to it will lose that role immediately.
+              </p>
+            </div>
+
+            <div className="grid gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300 sm:grid-cols-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Role</p>
+                <p className="mt-1 font-semibold text-white">{pendingRoleRemoval.name}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Members</p>
+                <p className="mt-1 font-semibold text-white">{pendingRoleRemoval.memberCount}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Protected</p>
+                <p className="mt-1 font-semibold text-white">{pendingRoleRemoval.isSystem ? "Yes" : "No"}</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="ghost"
+                onClick={() => setPendingRoleRemoval(null)}
+                disabled={deletingRoleId === pendingRoleRemoval.id}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="border border-rose-300/40 bg-rose-500 text-white hover:bg-rose-400"
+                onClick={() => void handleConfirmRemoveRole()}
+                disabled={deletingRoleId === pendingRoleRemoval.id}
+              >
+                {deletingRoleId === pendingRoleRemoval.id ? "Removing..." : "Remove Role"}
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </Modal>
     </>
   );
