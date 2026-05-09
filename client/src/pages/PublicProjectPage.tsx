@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Globe, Layers3, Zap } from "lucide-react";
+import { Flag, Globe, Layers3, Zap } from "lucide-react";
 
+import { MilestoneTimelineRail } from "../components/timeline/MilestoneTimelineRail";
 import type { PublicProjectData } from "../services/publicApiService";
 import { publicApiService } from "../services/publicApiService";
 import type { Card, Deck } from "../types/api";
@@ -54,6 +55,14 @@ const sortCardsForBoard = (items: Card[]) =>
 
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
+
+const milestoneColorClass: Record<string, string> = {
+  sky: "border-sky-300/45 bg-sky-500/15 text-sky-100",
+  amber: "border-amber-300/45 bg-amber-500/15 text-amber-100",
+  emerald: "border-emerald-300/45 bg-emerald-500/15 text-emerald-100",
+  rose: "border-rose-300/45 bg-rose-500/15 text-rose-100",
+  violet: "border-violet-300/45 bg-violet-500/15 text-violet-100"
+};
 
 function PublicCard({ card, deckColor }: { card: Card; deckColor: string }) {
   const rarity = rarityClasses[card.priority] ?? { text: "text-slate-400" };
@@ -179,7 +188,7 @@ export const PublicProjectPage = () => {
     );
   }
 
-  const { project, decks, cards } = data;
+  const { project, decks, cards, milestones } = data;
 
   const visibleDecks = decks.filter((d) => d.isAccessible);
   const totalXp = cards.reduce((sum, c) => sum + (c.xpValue ?? 0), 0);
@@ -234,6 +243,17 @@ export const PublicProjectPage = () => {
 
       {/* Board columns */}
       <div className="mx-auto max-w-screen-2xl px-6 pb-16">
+        {milestones.length > 0 ? (
+          <section className="mb-8 rounded-2xl border border-white/10 bg-slate-900/60 p-5">
+            <h2 className="text-lg font-semibold text-white">Timeline</h2>
+            <p className="mt-1 text-sm text-slate-400">Public delivery targets and progress.</p>
+
+            <div className="mt-4">
+              <MilestoneTimelineRail milestones={milestones} />
+            </div>
+          </section>
+        ) : null}
+
         <div className="flex gap-4 overflow-x-auto pb-4">
           {visibleDecks.map((deck) => (
             <DeckColumn

@@ -1,9 +1,12 @@
 import type {
+  CreateMilestoneInput,
   CreateProjectInput,
   Project,
   ProjectActivityResponse,
+  ProjectMilestone,
   ProjectMember,
   ProjectMembersResponse,
+  UpdateMilestoneInput,
   UpdateProjectInput
 } from "../types/api";
 import { request } from "./api";
@@ -64,6 +67,38 @@ export const projectService = {
 
     const suffix = params.size > 0 ? `?${params.toString()}` : "";
     return request<ProjectActivityResponse>(`/projects/${projectId}/activity${suffix}`, { token });
+  },
+
+  listMilestones(token: string, projectId: string) {
+    return request<ProjectMilestone[]>(`/projects/${projectId}/milestones`, { token });
+  },
+
+  createMilestone(token: string, projectId: string, payload: CreateMilestoneInput) {
+    return request<ProjectMilestone>(`/projects/${projectId}/milestones`, {
+      method: "POST",
+      token,
+      body: payload
+    });
+  },
+
+  updateMilestone(
+    token: string,
+    projectId: string,
+    milestoneId: string,
+    payload: UpdateMilestoneInput
+  ) {
+    return request<ProjectMilestone>(`/projects/${projectId}/milestones/${milestoneId}`, {
+      method: "PATCH",
+      token,
+      body: payload
+    });
+  },
+
+  removeMilestone(token: string, projectId: string, milestoneId: string) {
+    return request<void>(`/projects/${projectId}/milestones/${milestoneId}`, {
+      method: "DELETE",
+      token
+    });
   },
 
   listMembers(token: string, projectId: string) {

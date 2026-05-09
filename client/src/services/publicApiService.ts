@@ -1,4 +1,4 @@
-import type { Card, Deck } from "../types/api";
+import type { Card, Deck, ProjectMilestone } from "../types/api";
 import { request } from "./api";
 
 export type PublicProjectData = {
@@ -11,6 +11,7 @@ export type PublicProjectData = {
   };
   decks: Deck[];
   cards: Card[];
+  milestones: ProjectMilestone[];
 };
 
 export const publicApiService = {

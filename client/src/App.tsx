@@ -22,7 +22,11 @@ const ProtectedProjectsPage = () => {
   return <ProjectsPage />;
 };
 
-const ProtectedWorkspacePage = ({ tab }: { tab: "board" | "decks" | "members" | "activity" }) => {
+const ProtectedWorkspacePage = ({
+  tab
+}: {
+  tab: "board" | "decks" | "members" | "timeline" | "activity";
+}) => {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
@@ -61,6 +65,7 @@ export const App = () => {
         <Route path="/board" element={<ProtectedWorkspacePage tab="board" />} />
         <Route path="/decks" element={<ProtectedWorkspacePage tab="decks" />} />
         <Route path="/members" element={<ProtectedWorkspacePage tab="members" />} />
+        <Route path="/timeline" element={<ProtectedWorkspacePage tab="timeline" />} />
         <Route path="/activity" element={<ProtectedWorkspacePage tab="activity" />} />
         <Route path="/profile" element={<ProtectedProfilePage />} />
       </Routes>

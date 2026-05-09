@@ -2,6 +2,7 @@ import { supabaseAdmin } from "../config/db.js";
 import { AppError } from "../middleware/errorHandler.js";
 import type { SFCardWithChecklist } from "../models/cardModel.js";
 import type { SFDeckRow } from "../models/deckModel.js";
+import type { SFProjectMilestoneRow } from "../models/milestoneModel.js";
 import type { SFProjectRow } from "../models/projectModel.js";
 import { serializeDeck } from "../utils/cardTransforms.js";
 
@@ -28,6 +29,60 @@ const serializePublicCard = (card: SFCardWithChecklist) => ({
   createdAt: card.created_at,
   updatedAt: card.updated_at
 });
+
+const serializePublicMilestone = (
+  milestone: SFProjectMilestoneRow,
+  cards: SFCardWithChecklist[],
+  decks: SFDeckRow[]
+) => {
+  const deckById = new Map(decks.map((deck) => [deck.id, deck]));
+  const cardById = new Map(cards.map((card) => [card.id, card]));
+  const completedDeckId = decks.find((deck) => deck.system_key === "COMPLETED")?.id ?? null;
+
+  const totalXp = cards.reduce((sum, card) => sum + (card.xp_value ?? 0), 0);
+  const earnedXp = cards.reduce((sum, card) => {
+    const payout = deckById.get(card.deck_id)?.xp_payout ?? 0;
+    return sum + Math.round((card.xp_value * payout) / 100);
+  }, 0);
+
+  const targetCard = milestone.target_card_id ? cardById.get(milestone.target_card_id) : null;
+  const targetDeck = milestone.target_deck_id ? deckById.get(milestone.target_deck_id) : null;
+
+  let isComplete = false;
+
+  if (milestone.type === "CARD") {
+    isComplete = Boolean(targetCard && completedDeckId && targetCard.deck_id === completedDeckId);
+  } else if (milestone.type === "DECK") {
+    isComplete = Boolean(targetDeck) && !cards.some((card) => card.deck_id === milestone.target_deck_id);
+  } else if (milestone.type === "XP") {
+    isComplete = earnedXp >= (milestone.target_xp ?? 0);
+  } else if (milestone.type === "PROJECT") {
+    isComplete = totalXp > 0 && earnedXp >= totalXp;
+  }
+
+  return {
+    id: milestone.id,
+    projectId: milestone.project_id,
+    type: milestone.type.toLowerCase(),
+    color: milestone.color ?? "sky",
+    icon: milestone.icon ?? "flag",
+    title: milestone.title ?? "Milestone",
+    dueAt: milestone.due_at,
+    targetCardId: milestone.target_card_id,
+    targetCardTitle: targetCard?.title ?? null,
+    targetDeckId: milestone.target_deck_id,
+    targetDeckName: targetDeck?.name ?? null,
+    targetXp: milestone.target_xp,
+    notes: milestone.notes,
+    isComplete,
+    progress: {
+      totalXp,
+      earnedXp
+    },
+    createdAt: milestone.created_at,
+    updatedAt: milestone.updated_at
+  };
+};
 
 export const publicService = {
   async getPublicProject(userCode: string, projectSlug: string) {
@@ -78,7 +133,20 @@ export const publicService = {
       throw new AppError(cardsError.message, 500);
     }
 
+    const { data: milestones, error: milestonesError } = await supabaseAdmin
+      .from("sf_project_milestones")
+      .select("*")
+      .eq("project_id", (project as SFProjectRow).id)
+      .order("due_at", { ascending: true })
+      .order("created_at", { ascending: true });
+
+    if (milestonesError) {
+      throw new AppError(milestonesError.message, 500);
+    }
+
     const row = project as SFProjectRow;
+    const cardRows = (cards as SFCardWithChecklist[]) ?? [];
+    const deckRows = (decks as SFDeckRow[]) ?? [];
 
     return {
       project: {
@@ -88,8 +156,11 @@ export const publicService = {
         createdAt: row.created_at,
         updatedAt: row.updated_at
       },
-      decks: (decks as SFDeckRow[]).map(serializeDeck),
-      cards: (cards as SFCardWithChecklist[]).map(serializePublicCard)
+      decks: deckRows.map(serializeDeck),
+      cards: cardRows.map(serializePublicCard),
+      milestones: ((milestones ?? []) as SFProjectMilestoneRow[]).map((milestone) =>
+        serializePublicMilestone(milestone, cardRows, deckRows)
+      )
     };
   }
 };

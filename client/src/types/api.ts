@@ -147,6 +147,55 @@ export type ProjectActivityResponse = {
   last7Days: number;
 };
 
+export type MilestoneType = "card" | "deck" | "xp" | "project";
+export type MilestoneColor = "sky" | "amber" | "emerald" | "rose" | "violet";
+
+export type ProjectMilestone = {
+  id: string;
+  projectId: string;
+  type: MilestoneType;
+  color: MilestoneColor;
+  icon: string;
+  title: string;
+  dueAt: string | null;
+  targetCardId: string | null;
+  targetCardTitle: string | null;
+  targetDeckId: string | null;
+  targetDeckName: string | null;
+  targetXp: number | null;
+  notes: string | null;
+  isComplete: boolean;
+  progress: {
+    totalXp: number;
+    earnedXp: number;
+  };
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateMilestoneInput = {
+  type: MilestoneType;
+  color?: MilestoneColor;
+  icon?: string;
+  title?: string;
+  dueAt?: string | null;
+  targetCardId?: string;
+  targetDeckId?: string;
+  targetXp?: number;
+  notes?: string;
+};
+
+export type UpdateMilestoneInput = {
+  color?: MilestoneColor;
+  icon?: string;
+  title?: string;
+  dueAt?: string | null;
+  targetCardId?: string | null;
+  targetDeckId?: string | null;
+  targetXp?: number;
+  notes?: string;
+};
+
 export type CreateCardInput = {
   title: string;
   description?: string;

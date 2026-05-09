@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronUp,
   Clock3,
+  Flag,
   Layers3,
   PencilLine,
   PlusCircle,
@@ -19,6 +20,7 @@ import { useNavigate } from "react-router-dom";
 import { ClaimBoard } from "../components/board/ClaimBoard";
 import { CardEditorModal } from "../components/cards/CardEditorModal";
 import { Header } from "../components/header/Header";
+import { MilestoneTimelineRail } from "../components/timeline/MilestoneTimelineRail";
 import { Button } from "../components/ui/Button";
 import { Modal } from "../components/ui/Modal";
 import { useAuth } from "../hooks/useAuth";
@@ -31,12 +33,15 @@ import type {
   CardPriority,
   Deck,
   DeckColor,
+  MilestoneColor,
+  MilestoneType,
   ProjectActivityEvent,
   ProjectActivityResponse,
+  ProjectMilestone,
   ProjectMember
 } from "../types/api";
 
-type ProjectTab = "board" | "decks" | "members" | "activity";
+type ProjectTab = "board" | "decks" | "members" | "timeline" | "activity";
 
 type DeckPermissionMode = "FULL_ACCESS" | "NO_ACCESS" | "WHITELIST" | "BLACKLIST";
 
@@ -148,6 +153,7 @@ const cardBelongsToDeck = (card: Card, deck: DeckCard) => {
 };
 
 type ActivityFilter = "all" | "project" | "card" | "deck" | "member";
+type TimelineSubTab = "timeline" | "manage";
 
 const ACTIVITY_FILTERS: Array<{ value: ActivityFilter; label: string }> = [
   { value: "all", label: "All" },
@@ -155,6 +161,14 @@ const ACTIVITY_FILTERS: Array<{ value: ActivityFilter; label: string }> = [
   { value: "card", label: "Cards" },
   { value: "deck", label: "Decks" },
   { value: "member", label: "Members" }
+];
+
+const MILESTONE_COLOR_OPTIONS: Array<{ value: MilestoneColor; label: string; className: string }> = [
+  { value: "sky", label: "Sky", className: "border-sky-300/40 bg-sky-500/15 text-sky-100" },
+  { value: "amber", label: "Amber", className: "border-amber-300/40 bg-amber-500/15 text-amber-100" },
+  { value: "emerald", label: "Emerald", className: "border-emerald-300/40 bg-emerald-500/15 text-emerald-100" },
+  { value: "rose", label: "Rose", className: "border-rose-300/40 bg-rose-500/15 text-rose-100" },
+  { value: "violet", label: "Violet", className: "border-violet-300/40 bg-violet-500/15 text-violet-100" }
 ];
 
 const formatActivityTime = (value: string) => {
@@ -267,6 +281,23 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const [activityError, setActivityError] = useState<string | null>(null);
   const [selectedActivityEvent, setSelectedActivityEvent] = useState<ProjectActivityEvent | null>(null);
 
+  const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
+  const [isLoadingMilestones, setIsLoadingMilestones] = useState(false);
+  const [milestonesError, setMilestonesError] = useState<string | null>(null);
+  const [isCreatingMilestone, setIsCreatingMilestone] = useState(false);
+  const [timelineSubTab, setTimelineSubTab] = useState<TimelineSubTab>("timeline");
+  const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(null);
+  const [deletingMilestoneId, setDeletingMilestoneId] = useState<string | null>(null);
+  const [milestoneType, setMilestoneType] = useState<MilestoneType>("project");
+  const [milestoneColor, setMilestoneColor] = useState<MilestoneColor>("sky");
+  const [milestoneIcon, setMilestoneIcon] = useState("flag");
+  const [milestoneTitle, setMilestoneTitle] = useState("");
+  const [milestoneDueDate, setMilestoneDueDate] = useState("");
+  const [milestoneCardId, setMilestoneCardId] = useState("");
+  const [milestoneDeckId, setMilestoneDeckId] = useState("");
+  const [milestoneTargetXp, setMilestoneTargetXp] = useState(500);
+  const [milestoneNotes, setMilestoneNotes] = useState("");
+
   const deckQuickTitleRef = useRef<HTMLInputElement>(null);
   const isDeckQuickAddInFlightRef = useRef(false);
 
@@ -303,6 +334,20 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     setActivityFilter("all");
     setActivityLimit(30);
     setSelectedActivityEvent(null);
+    setMilestones([]);
+    setMilestonesError(null);
+    setTimelineSubTab("timeline");
+    setEditingMilestoneId(null);
+    setDeletingMilestoneId(null);
+    setMilestoneType("project");
+    setMilestoneColor("sky");
+    setMilestoneIcon("flag");
+    setMilestoneTitle("");
+    setMilestoneDueDate("");
+    setMilestoneCardId("");
+    setMilestoneDeckId("");
+    setMilestoneTargetXp(500);
+    setMilestoneNotes("");
   }, [selectedProjectId]);
 
   // Load project-wide stats (not filtered by member permissions)
@@ -402,6 +447,38 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
       cancelled = true;
     };
   }, [activityFilter, activityLimit, selectedProjectId, tab, token]);
+
+  useEffect(() => {
+    if (tab !== "timeline" || !token || !selectedProjectId) {
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoadingMilestones(true);
+    setMilestonesError(null);
+
+    projectService
+      .listMilestones(token, selectedProjectId)
+      .then((result) => {
+        if (!cancelled) {
+          setMilestones(result);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setMilestonesError(err instanceof Error ? err.message : "Failed to load timeline");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoadingMilestones(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProjectId, tab, token]);
 
   const activeProject = projects.find((project) => project.id === selectedProjectId) ?? null;
   const viewerRole =
@@ -820,6 +897,250 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     }
 
     return date.toLocaleDateString();
+  };
+
+  const toDueDateInputValue = (value: string | null) => {
+    if (!value) {
+      return "";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return "";
+    }
+
+    return date.toISOString().slice(0, 10);
+  };
+
+  const sortedMilestones = useMemo(
+    () =>
+      [...milestones].sort((a, b) => {
+        if (!a.dueAt && !b.dueAt) {
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        }
+
+        if (!a.dueAt) {
+          return 1;
+        }
+
+        if (!b.dueAt) {
+          return -1;
+        }
+
+        return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime();
+      }),
+    [milestones]
+  );
+
+  const formatTimelineDate = (value: string | null) => {
+    if (!value) {
+      return "No due date";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return "No due date";
+    }
+
+    return date.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric"
+    });
+  };
+
+  const formatTimelineTimeRemaining = (value: string | null) => {
+    if (!value) {
+      return null;
+    }
+
+    const dueTime = new Date(value).getTime();
+
+    if (Number.isNaN(dueTime)) {
+      return null;
+    }
+
+    const delta = dueTime - Date.now();
+    const absDelta = Math.abs(delta);
+    const days = Math.round(absDelta / 86_400_000);
+
+    if (days === 0) {
+      return delta >= 0 ? "due today" : "passed today";
+    }
+
+    if (days < 7) {
+      return delta >= 0 ? `${days}d left` : `${days}d overdue`;
+    }
+
+    const weeks = Math.round(days / 7);
+
+    if (weeks < 6) {
+      return delta >= 0 ? `${weeks}w left` : `${weeks}w overdue`;
+    }
+
+    const months = Math.round(days / 30);
+    return delta >= 0 ? `${months}mo left` : `${months}mo overdue`;
+  };
+
+  const getTimelineBadge = (milestone: ProjectMilestone) => {
+    if (milestone.isComplete) {
+      return "border-emerald-300/35 bg-emerald-500/15 text-emerald-100";
+    }
+
+    if (!milestone.dueAt) {
+      return "border-slate-300/25 bg-slate-500/10 text-slate-200";
+    }
+
+    const dueTime = new Date(milestone.dueAt).getTime();
+    if (Number.isNaN(dueTime)) {
+      return "border-slate-300/25 bg-slate-500/10 text-slate-200";
+    }
+
+    const now = Date.now();
+    if (dueTime < now) {
+      return "border-rose-300/35 bg-rose-500/15 text-rose-100";
+    }
+
+    if (dueTime - now < 604_800_000) {
+      return "border-amber-300/35 bg-amber-500/15 text-amber-100";
+    }
+
+    return "border-sky-300/35 bg-sky-500/12 text-sky-100";
+  };
+
+  const getMilestoneColorClass = (color: MilestoneColor) => {
+    const option = MILESTONE_COLOR_OPTIONS.find((entry) => entry.value === color);
+    return option?.className ?? "border-sky-300/40 bg-sky-500/15 text-sky-100";
+  };
+
+  const getMilestoneTypeLabel = (type: MilestoneType) => {
+    if (type === "xp") {
+      return "XP";
+    }
+
+    return type.charAt(0).toUpperCase() + type.slice(1);
+  };
+
+  const resetMilestoneForm = () => {
+    setEditingMilestoneId(null);
+    setMilestoneType("project");
+    setMilestoneColor("sky");
+    setMilestoneIcon("flag");
+    setMilestoneTitle("");
+    setMilestoneDueDate("");
+    setMilestoneCardId("");
+    setMilestoneDeckId("");
+    setMilestoneTargetXp(500);
+    setMilestoneNotes("");
+  };
+
+  const handleCreateMilestone = async () => {
+    if (!token || !selectedProjectId) {
+      return;
+    }
+
+    setIsCreatingMilestone(true);
+    setMilestonesError(null);
+
+    try {
+      const dueAt = milestoneDueDate ? `${milestoneDueDate}T12:00:00.000Z` : null;
+
+      const milestone = await projectService.createMilestone(token, selectedProjectId, {
+        type: milestoneType,
+        color: milestoneColor,
+        icon: milestoneIcon,
+        title: milestoneTitle,
+        dueAt,
+        targetCardId: milestoneType === "card" ? milestoneCardId : undefined,
+        targetDeckId: milestoneType === "deck" ? milestoneDeckId : undefined,
+        targetXp: milestoneType === "xp" ? milestoneTargetXp : undefined,
+        notes: milestoneNotes
+      });
+
+      setMilestones((previous) => [...previous, milestone]);
+      resetMilestoneForm();
+    } catch (err: unknown) {
+      setMilestonesError(err instanceof Error ? err.message : "Failed to create milestone");
+    } finally {
+      setIsCreatingMilestone(false);
+    }
+  };
+
+  const beginEditMilestone = (milestone: ProjectMilestone) => {
+    setTimelineSubTab("manage");
+    setEditingMilestoneId(milestone.id);
+    setMilestoneType(milestone.type);
+    setMilestoneColor(milestone.color);
+    setMilestoneIcon(milestone.icon || "flag");
+    setMilestoneTitle(milestone.title);
+    setMilestoneDueDate(toDueDateInputValue(milestone.dueAt));
+    setMilestoneCardId(milestone.targetCardId ?? "");
+    setMilestoneDeckId(milestone.targetDeckId ?? "");
+    setMilestoneTargetXp(milestone.targetXp ?? milestone.progress.totalXp ?? 500);
+    setMilestoneNotes(milestone.notes ?? "");
+  };
+
+  const handleUpdateMilestone = async () => {
+    if (!token || !selectedProjectId || !editingMilestoneId) {
+      return;
+    }
+
+    setIsCreatingMilestone(true);
+    setMilestonesError(null);
+
+    try {
+      const dueAt = milestoneDueDate ? `${milestoneDueDate}T12:00:00.000Z` : null;
+
+      const milestone = await projectService.updateMilestone(token, selectedProjectId, editingMilestoneId, {
+        color: milestoneColor,
+        icon: milestoneIcon,
+        title: milestoneTitle,
+        dueAt,
+        targetCardId: milestoneType === "card" ? milestoneCardId : undefined,
+        targetDeckId: milestoneType === "deck" ? milestoneDeckId : undefined,
+        targetXp: milestoneType === "xp" ? milestoneTargetXp : undefined,
+        notes: milestoneNotes
+      });
+
+      setMilestones((previous) =>
+        previous.map((entry) => (entry.id === milestone.id ? milestone : entry))
+      );
+      resetMilestoneForm();
+    } catch (err: unknown) {
+      setMilestonesError(err instanceof Error ? err.message : "Failed to update milestone");
+    } finally {
+      setIsCreatingMilestone(false);
+    }
+  };
+
+  const handleDeleteMilestone = async (milestoneId: string) => {
+    if (!token || !selectedProjectId) {
+      return;
+    }
+
+    const shouldDelete = globalThis.confirm("Delete this milestone from the timeline?");
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setDeletingMilestoneId(milestoneId);
+    setMilestonesError(null);
+
+    try {
+      await projectService.removeMilestone(token, selectedProjectId, milestoneId);
+      setMilestones((previous) => previous.filter((entry) => entry.id !== milestoneId));
+
+      if (editingMilestoneId === milestoneId) {
+        resetMilestoneForm();
+      }
+    } catch (err: unknown) {
+      setMilestonesError(err instanceof Error ? err.message : "Failed to delete milestone");
+    } finally {
+      setDeletingMilestoneId((current) => (current === milestoneId ? null : current));
+    }
   };
 
   const filteredActivity = activityData?.events ?? [];
@@ -1494,6 +1815,376 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                       ) : null}
                     </div>
                   )}
+                </div>
+              </div>
+            ) : null}
+
+            {tab === "timeline" ? (
+              <div className="space-y-5">
+                <div className="rounded-[1.5rem] border border-white/15 bg-gradient-to-br from-slate-900/90 via-slate-900/80 to-slate-800/70 p-5 md:p-6">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                    <div className="flex flex-col gap-2">
+                      <p className="text-xs uppercase tracking-[0.35em] text-cyan-300">Timeline</p>
+                      <h2 className="font-display text-2xl font-semibold text-white">Project timeline</h2>
+                      <p className="text-sm text-slate-400">
+                        Visualize milestones first, then switch to manage milestones when you need to edit.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 p-1">
+                      <button
+                        type="button"
+                        onClick={() => setTimelineSubTab("timeline")}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition ${
+                          timelineSubTab === "timeline"
+                            ? "bg-sky-500/20 text-sky-100"
+                            : "text-slate-300 hover:bg-white/10 hover:text-white"
+                        }`}
+                      >
+                        Timeline View
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTimelineSubTab("manage")}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition ${
+                          timelineSubTab === "manage"
+                            ? "bg-sky-500/20 text-sky-100"
+                            : "text-slate-300 hover:bg-white/10 hover:text-white"
+                        }`}
+                      >
+                        Manage Milestones
+                      </button>
+                    </div>
+                  </div>
+
+                  {timelineSubTab === "timeline" ? (
+                    <div className="mt-6">
+                      {isLoadingMilestones && sortedMilestones.length === 0 ? (
+                        <p className="text-sm text-slate-400">Loading timeline...</p>
+                      ) : null}
+
+                      {sortedMilestones.length === 0 && !isLoadingMilestones ? (
+                        <p className="rounded-xl border border-dashed border-white/15 bg-slate-950/40 px-4 py-6 text-sm text-slate-500">
+                          No milestones yet. Switch to Manage Milestones to add your first marker.
+                        </p>
+                      ) : null}
+
+                      {sortedMilestones.length > 0 ? (
+                        <div className="space-y-5">
+                          <MilestoneTimelineRail milestones={sortedMilestones} />
+
+                          <div className="rounded-[1.5rem] border border-white/15 bg-slate-900/60 p-4 md:p-5">
+                            <div className="mb-4 flex items-center justify-between">
+                              <h3 className="text-lg font-semibold text-white">Milestone List</h3>
+                              <span className="text-sm text-slate-400">{sortedMilestones.length} milestones</span>
+                            </div>
+
+                            <div className="space-y-3">
+                              {sortedMilestones.map((milestone) => (
+                                <div
+                                  key={milestone.id}
+                                  className="rounded-xl border border-white/12 bg-white/[0.03] p-4"
+                                >
+                                  <div className="flex flex-wrap items-start justify-between gap-3">
+                                    <div>
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] ${getTimelineBadge(milestone)}`}>
+                                          {milestone.isComplete ? "Complete" : getMilestoneTypeLabel(milestone.type)}
+                                        </span>
+                                        <span className="text-xs uppercase tracking-[0.08em] text-slate-400">
+                                          {formatTimelineDate(milestone.dueAt)}
+                                        </span>
+                                        {formatTimelineTimeRemaining(milestone.dueAt) ? (
+                                          <span className="text-xs uppercase tracking-[0.08em] text-slate-500">
+                                            {formatTimelineTimeRemaining(milestone.dueAt)}
+                                          </span>
+                                        ) : null}
+                                      </div>
+
+                                      <p className="mt-2 text-base font-semibold text-white">{milestone.title}</p>
+
+                                      {milestone.type === "card" && milestone.targetCardTitle ? (
+                                        <p className="mt-1 text-sm text-slate-400">Card: {milestone.targetCardTitle}</p>
+                                      ) : null}
+
+                                      {milestone.type === "deck" && milestone.targetDeckName ? (
+                                        <p className="mt-1 text-sm text-slate-400">Deck: {milestone.targetDeckName}</p>
+                                      ) : null}
+
+                                      {milestone.type === "xp" ? (
+                                        <p className="mt-1 text-sm text-slate-400">
+                                          XP: {milestone.progress.earnedXp.toLocaleString()} / {(
+                                            milestone.targetXp ?? 0
+                                          ).toLocaleString()}
+                                        </p>
+                                      ) : null}
+
+                                      {milestone.type === "project" ? (
+                                        <p className="mt-1 text-sm text-slate-400">
+                                          Progress: {milestone.progress.earnedXp.toLocaleString()} / {milestone.progress.totalXp.toLocaleString()} XP
+                                        </p>
+                                      ) : null}
+
+                                      {milestone.notes ? (
+                                        <p className="mt-2 text-sm text-slate-300">{milestone.notes}</p>
+                                      ) : null}
+                                    </div>
+
+                                    <Button variant="outline" onClick={() => beginEditMilestone(milestone)}>
+                                      <PencilLine className="h-4 w-4" />
+                                      Edit
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {timelineSubTab === "manage" ? (
+                    <div className="mt-6 space-y-5">
+                      {milestonesError ? (
+                        <div className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                          {milestonesError}
+                        </div>
+                      ) : null}
+
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    <label className="text-xs uppercase tracking-[0.1em] text-slate-300">
+                      Milestone Type
+                      <select
+                        value={milestoneType}
+                        onChange={(event) => setMilestoneType(event.target.value as MilestoneType)}
+                        disabled={Boolean(editingMilestoneId)}
+                        className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
+                      >
+                        <option value="project">Project Complete</option>
+                        <option value="xp">XP Target</option>
+                        <option value="deck">Deck Target</option>
+                        <option value="card">Card Target</option>
+                      </select>
+                    </label>
+
+                    <label className="text-xs uppercase tracking-[0.1em] text-slate-300">
+                      Marker Color
+                      <select
+                        value={milestoneColor}
+                        onChange={(event) => setMilestoneColor(event.target.value as MilestoneColor)}
+                        className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
+                      >
+                        {MILESTONE_COLOR_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="text-xs uppercase tracking-[0.1em] text-slate-300">
+                      Icon
+                      <select
+                        value={milestoneIcon}
+                        onChange={(event) => setMilestoneIcon(event.target.value)}
+                        className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
+                      >
+                        <option value="flag">Flag (more icons coming)</option>
+                      </select>
+                    </label>
+
+                    <label className="text-xs uppercase tracking-[0.1em] text-slate-300">
+                      Due Date
+                      <input
+                        type="date"
+                        value={milestoneDueDate}
+                        onChange={(event) => setMilestoneDueDate(event.target.value)}
+                        className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
+                      />
+                    </label>
+
+                    <label className="text-xs uppercase tracking-[0.1em] text-slate-300 md:col-span-2 xl:col-span-1">
+                      Custom Title
+                      <input
+                        value={milestoneTitle}
+                        onChange={(event) => setMilestoneTitle(event.target.value)}
+                        placeholder="Optional title"
+                        className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
+                      />
+                    </label>
+
+                    {milestoneType === "card" ? (
+                      <label className="text-xs uppercase tracking-[0.1em] text-slate-300 md:col-span-2 xl:col-span-3">
+                        Target Card
+                        <select
+                          value={milestoneCardId}
+                          onChange={(event) => setMilestoneCardId(event.target.value)}
+                          className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
+                        >
+                          <option value="">Select a card</option>
+                          {cards.map((card) => (
+                            <option key={card.id} value={card.id}>{card.title}</option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : null}
+
+                    {milestoneType === "deck" ? (
+                      <label className="text-xs uppercase tracking-[0.1em] text-slate-300 md:col-span-2 xl:col-span-3">
+                        Target Deck
+                        <select
+                          value={milestoneDeckId}
+                          onChange={(event) => setMilestoneDeckId(event.target.value)}
+                          className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
+                        >
+                          <option value="">Select a deck</option>
+                          {decks.map((deck) => (
+                            <option key={deck.id} value={deck.id}>{deck.name}</option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : null}
+
+                    {milestoneType === "xp" ? (
+                      <label className="text-xs uppercase tracking-[0.1em] text-slate-300">
+                        XP Target
+                        <input
+                          type="number"
+                          min={1}
+                          value={milestoneTargetXp}
+                          onChange={(event) => setMilestoneTargetXp(Number(event.target.value) || 1)}
+                          className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
+                        />
+                      </label>
+                    ) : null}
+
+                    <label className="text-xs uppercase tracking-[0.1em] text-slate-300 md:col-span-2 xl:col-span-3">
+                      Notes
+                      <textarea
+                        value={milestoneNotes}
+                        onChange={(event) => setMilestoneNotes(event.target.value)}
+                        rows={2}
+                        placeholder="Optional context for this target"
+                        className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
+                      />
+                    </label>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                    <Button
+                      onClick={() =>
+                        void (editingMilestoneId ? handleUpdateMilestone() : handleCreateMilestone())
+                      }
+                      disabled={
+                        isCreatingMilestone ||
+                        (milestoneType === "card" && !milestoneCardId) ||
+                        (milestoneType === "deck" && !milestoneDeckId) ||
+                        (milestoneType === "xp" && milestoneTargetXp < 1)
+                      }
+                    >
+                      {isCreatingMilestone
+                        ? editingMilestoneId
+                          ? "Saving..."
+                          : "Creating..."
+                        : editingMilestoneId
+                          ? "Save Milestone"
+                          : "Add Milestone"}
+                    </Button>
+
+                    {editingMilestoneId ? (
+                      <Button variant="ghost" onClick={resetMilestoneForm}>
+                        Cancel Edit
+                      </Button>
+                    ) : null}
+                      </div>
+
+                      <div className="rounded-[1.5rem] border border-white/15 bg-slate-900/60 p-4 md:p-5">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-white">Timeline Events</h3>
+                    <span className="text-sm text-slate-400">{sortedMilestones.length} milestones</span>
+                  </div>
+
+                  {isLoadingMilestones && sortedMilestones.length === 0 ? (
+                    <p className="text-sm text-slate-400">Loading timeline...</p>
+                  ) : null}
+
+                  {sortedMilestones.length === 0 && !isLoadingMilestones ? (
+                    <p className="rounded-xl border border-dashed border-white/15 bg-slate-950/40 px-4 py-6 text-sm text-slate-500">
+                      No milestones yet. Add one above to start a visible project timeline.
+                    </p>
+                  ) : null}
+
+                  {sortedMilestones.length > 0 ? (
+                    <div className="space-y-3">
+                      {sortedMilestones.map((milestone) => (
+                        <div
+                          key={milestone.id}
+                          className="rounded-xl border border-white/12 bg-white/[0.03] p-4"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] ${getTimelineBadge(milestone)}`}>
+                                  {milestone.isComplete ? "Complete" : getMilestoneTypeLabel(milestone.type)}
+                                </span>
+                                <span className="text-xs uppercase tracking-[0.08em] text-slate-400">
+                                  {formatTimelineDate(milestone.dueAt)}
+                                </span>
+                                {formatTimelineTimeRemaining(milestone.dueAt) ? (
+                                  <span className="text-xs uppercase tracking-[0.08em] text-slate-500">
+                                    {formatTimelineTimeRemaining(milestone.dueAt)}
+                                  </span>
+                                ) : null}
+                              </div>
+                              <p className="mt-2 text-base font-semibold text-white">{milestone.title}</p>
+
+                              {milestone.type === "card" && milestone.targetCardTitle ? (
+                                <p className="mt-1 text-sm text-slate-400">Card: {milestone.targetCardTitle}</p>
+                              ) : null}
+
+                              {milestone.type === "deck" && milestone.targetDeckName ? (
+                                <p className="mt-1 text-sm text-slate-400">Deck: {milestone.targetDeckName}</p>
+                              ) : null}
+
+                              {milestone.type === "xp" ? (
+                                <p className="mt-1 text-sm text-slate-400">
+                                  XP: {milestone.progress.earnedXp.toLocaleString()} / {(
+                                    milestone.targetXp ?? 0
+                                  ).toLocaleString()}
+                                </p>
+                              ) : null}
+
+                              {milestone.type === "project" ? (
+                                <p className="mt-1 text-sm text-slate-400">
+                                  Progress: {milestone.progress.earnedXp.toLocaleString()} / {milestone.progress.totalXp.toLocaleString()} XP
+                                </p>
+                              ) : null}
+
+                              {milestone.notes ? (
+                                <p className="mt-2 text-sm text-slate-300">{milestone.notes}</p>
+                              ) : null}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <Button variant="outline" onClick={() => beginEditMilestone(milestone)}>
+                                <PencilLine className="h-4 w-4" />
+                                Edit
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                onClick={() => void handleDeleteMilestone(milestone.id)}
+                                disabled={deletingMilestoneId === milestone.id}
+                              >
+                                {deletingMilestoneId === milestone.id ? "Removing..." : "Remove"}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ) : null}

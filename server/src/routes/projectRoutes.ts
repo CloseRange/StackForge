@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import { memberController } from "../controllers/memberController.js";
+import { milestoneController } from "../controllers/milestoneController.js";
 import { projectController } from "../controllers/projectController.js";
 import { requireAuth } from "../middleware/auth.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -13,6 +14,10 @@ projectRouter.post("/", asyncHandler(projectController.create));
 projectRouter.get("/:projectId", asyncHandler(projectController.getById));
 projectRouter.get("/:projectId/activity", asyncHandler(projectController.getActivity));
 projectRouter.get("/:projectId/stats", asyncHandler(projectController.getStats));
+projectRouter.get("/:projectId/milestones", asyncHandler(milestoneController.listByProject));
+projectRouter.post("/:projectId/milestones", asyncHandler(milestoneController.create));
+projectRouter.patch("/:projectId/milestones/:milestoneId", asyncHandler(milestoneController.update));
+projectRouter.delete("/:projectId/milestones/:milestoneId", asyncHandler(milestoneController.remove));
 projectRouter.patch("/:projectId", asyncHandler(projectController.update));
 projectRouter.delete("/:projectId", asyncHandler(projectController.remove));
 

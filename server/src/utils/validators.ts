@@ -93,3 +93,64 @@ export const updateDeckSchema = createDeckSchema
   .omit({ projectId: true })
   .partial()
   .refine((data) => Object.keys(data).length > 0, "At least one deck field must be provided");
+
+const milestoneTypes = ["card", "deck", "xp", "project"] as const;
+const milestoneColors = ["sky", "amber", "emerald", "rose", "violet"] as const;
+
+const dueAtSchema = z
+  .string()
+  .min(1)
+  .refine((value) => !Number.isNaN(new Date(value).getTime()), "dueAt must be a valid date")
+  .optional()
+  .nullable();
+
+export const createMilestoneSchema = z
+  .object({
+    type: z.enum(milestoneTypes),
+    color: z.enum(milestoneColors).default("sky"),
+    icon: z.string().max(24).default("flag"),
+    title: z.string().max(120).optional().or(z.literal("")),
+    notes: z.string().max(500).optional().or(z.literal("")),
+    dueAt: dueAtSchema,
+    targetCardId: z.string().uuid().optional(),
+    targetDeckId: z.string().uuid().optional(),
+    targetXp: z.number().int().min(1).max(1_000_000).optional()
+  })
+  .superRefine((data, context) => {
+    if (data.type === "card" && !data.targetCardId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["targetCardId"],
+        message: "Card milestones require targetCardId"
+      });
+    }
+
+    if (data.type === "deck" && !data.targetDeckId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["targetDeckId"],
+        message: "Deck milestones require targetDeckId"
+      });
+    }
+
+    if (data.type === "xp" && !data.targetXp) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["targetXp"],
+        message: "XP milestones require targetXp"
+      });
+    }
+  });
+
+export const updateMilestoneSchema = z
+  .object({
+    color: z.enum(milestoneColors).optional(),
+    icon: z.string().max(24).optional(),
+    title: z.string().max(120).optional().or(z.literal("")),
+    notes: z.string().max(500).optional().or(z.literal("")),
+    dueAt: dueAtSchema,
+    targetCardId: z.string().uuid().optional().nullable(),
+    targetDeckId: z.string().uuid().optional().nullable(),
+    targetXp: z.number().int().min(1).max(1_000_000).optional()
+  })
+  .refine((data) => Object.keys(data).length > 0, "At least one milestone field must be provided");
