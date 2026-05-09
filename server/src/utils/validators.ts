@@ -65,7 +65,7 @@ export const assignCardSchema = z.object({
 const deckPermissionModes = ["FULL_ACCESS", "NO_ACCESS", "WHITELIST", "BLACKLIST"] as const;
 
 export const setMemberPermissionsSchema = z.object({
-  role: z.enum(["MEMBER", "ADMIN"]),
+  roleId: z.string().uuid(),
   deckReadMode: z.enum(deckPermissionModes),
   deckReadDeckIds: z.array(z.string().uuid()).max(200).default([]),
   deckWriteMode: z.enum(deckPermissionModes),

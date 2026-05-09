@@ -146,6 +146,27 @@ export const projectService = {
 
     const projectId = (data as SFProjectWithCount).id;
 
+    // Seed default project roles.
+    const { error: adminRoleError } = await supabaseAdmin.from("sf_project_roles").insert({
+      project_id: projectId,
+      name: "admin",
+      is_system: true
+    });
+
+    if (adminRoleError) {
+      throw new AppError(adminRoleError.message, 500);
+    }
+
+    const { error: userRoleError } = await supabaseAdmin.from("sf_project_roles").insert({
+      project_id: projectId,
+      name: "user",
+      is_system: true
+    });
+
+    if (userRoleError) {
+      throw new AppError(userRoleError.message, 500);
+    }
+
     // Ensure completed deck exists for this project.
     const { data: completedDeck } = await supabaseAdmin
       .from("sf_decks")

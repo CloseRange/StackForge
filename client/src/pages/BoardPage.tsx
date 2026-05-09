@@ -43,15 +43,16 @@ import type {
   ProjectActivityEvent,
   ProjectActivityResponse,
   ProjectMilestone,
-  ProjectMember
+  ProjectMember,
+  ProjectRole
 } from "../types/api";
 
-type ProjectTab = "board" | "decks" | "members" | "timeline" | "activity";
+type ProjectTab = "board" | "decks" | "members" | "timeline" | "activity" | "settings";
 
 type DeckPermissionMode = "FULL_ACCESS" | "NO_ACCESS" | "WHITELIST" | "BLACKLIST";
 
 type MemberPermissionDraft = {
-  role: "MEMBER" | "ADMIN";
+  roleId: string;
   deckReadMode: DeckPermissionMode;
   deckReadDeckIds: string[];
   deckWriteMode: DeckPermissionMode;
@@ -110,6 +111,21 @@ const COLOR_OPTIONS: Array<{
     value: "indigo",
     label: "Indigo",
     className: "border-indigo-300/30 bg-indigo-500/10 text-indigo-100"
+  },
+  {
+    value: "sky",
+    label: "Sky",
+    className: "border-sky-300/30 bg-sky-500/10 text-sky-100"
+  },
+  {
+    value: "orange",
+    label: "Orange",
+    className: "border-orange-300/30 bg-orange-500/10 text-orange-100"
+  },
+  {
+    value: "lime",
+    label: "Lime",
+    className: "border-lime-300/30 bg-lime-500/10 text-lime-100"
   }
 ];
 
@@ -133,6 +149,12 @@ const deckCardSurfaceClass: Record<DeckColor, string> = {
     "border-rose-400/45 bg-[radial-gradient(ellipse_at_0%_50%,rgba(244,63,94,0.38),transparent_65%),linear-gradient(180deg,rgba(48,24,30,0.88),rgba(30,14,20,0.94))]",
   indigo:
     "border-violet-400/45 bg-[radial-gradient(ellipse_at_0%_50%,rgba(139,92,246,0.40),transparent_65%),linear-gradient(180deg,rgba(34,26,58,0.88),rgba(20,16,40,0.94))]",
+  sky:
+    "border-sky-400/45 bg-[radial-gradient(ellipse_at_0%_50%,rgba(56,189,248,0.38),transparent_65%),linear-gradient(180deg,rgba(16,42,58,0.88),rgba(10,24,36,0.94))]",
+  orange:
+    "border-orange-400/45 bg-[radial-gradient(ellipse_at_0%_50%,rgba(249,115,22,0.38),transparent_65%),linear-gradient(180deg,rgba(52,34,18,0.88),rgba(30,20,12,0.94))]",
+  lime:
+    "border-lime-400/45 bg-[radial-gradient(ellipse_at_0%_50%,rgba(132,204,22,0.38),transparent_65%),linear-gradient(180deg,rgba(34,44,16,0.88),rgba(20,28,10,0.94))]",
   emerald:
     "border-emerald-400/45 bg-[radial-gradient(ellipse_at_0%_50%,rgba(16,185,129,0.38),transparent_65%),linear-gradient(180deg,rgba(18,46,36,0.88),rgba(10,28,22,0.94))]"
 };
@@ -230,6 +252,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     createDeck,
     updateDeck,
     removeDeck,
+    updateProject,
     updateCard,
   } = useBoardStore();
 
@@ -268,6 +291,10 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
   const [memberPermissionDrafts, setMemberPermissionDrafts] = useState<Record<string, MemberPermissionDraft>>({});
   const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
+  const [projectRoles, setProjectRoles] = useState<ProjectRole[]>([]);
+  const [newRoleName, setNewRoleName] = useState("");
+  const [isCreatingRole, setIsCreatingRole] = useState(false);
+  const [deletingRoleId, setDeletingRoleId] = useState<string | null>(null);
   const [deckQuickTitle, setDeckQuickTitle] = useState("");
   const [deckQuickPriority, setDeckQuickPriority] = useState<CardPriority>("uncommon");
   const [deckQuickDifficulty, setDeckQuickDifficulty] = useState<CardDifficulty>("easy");
@@ -285,6 +312,13 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const [isLoadingActivity, setIsLoadingActivity] = useState(false);
   const [activityError, setActivityError] = useState<string | null>(null);
   const [selectedActivityEvent, setSelectedActivityEvent] = useState<ProjectActivityEvent | null>(null);
+
+  const [settingsName, setSettingsName] = useState("");
+  const [settingsDescription, setSettingsDescription] = useState("");
+  const [settingsIsPublic, setSettingsIsPublic] = useState(false);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [settingsSuccess, setSettingsSuccess] = useState<string | null>(null);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
 
   const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
   const [isLoadingMilestones, setIsLoadingMilestones] = useState(false);
@@ -332,6 +366,10 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     setMembers([]);
     setMembersOwnerId(null);
     setOwnerProfile(null);
+    setProjectRoles([]);
+    setNewRoleName("");
+    setIsCreatingRole(false);
+    setDeletingRoleId(null);
     setMembersError(null);
     setExpandedMemberId(null);
     setMemberPermissionDrafts({});
@@ -402,6 +440,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
           setMembers(result.members);
           setMembersOwnerId(result.ownerId);
           setOwnerProfile(result.owner);
+          setProjectRoles(result.roles ?? []);
         }
       })
       .catch((err: unknown) => {
@@ -485,12 +524,46 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     };
   }, [selectedProjectId, tab, token]);
 
+  useEffect(() => {
+    if ((tab !== "settings" && tab !== "members") || !token || !selectedProjectId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    projectService
+      .listRoles(token, selectedProjectId)
+      .then((roles) => {
+        if (!cancelled) {
+          setProjectRoles(roles);
+        }
+      })
+      .catch(() => {
+        // Keep existing roles state if fetch fails.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProjectId, tab, token]);
+
   const activeProject = projects.find((project) => project.id === selectedProjectId) ?? null;
-  const viewerRole =
-    user?.id === membersOwnerId
-      ? "OWNER"
-      : members.find((member) => member.id === user?.id)?.role ?? "MEMBER";
-  const canManageMembers = viewerRole === "OWNER" || viewerRole === "ADMIN";
+  const canManageMembers = user?.id === membersOwnerId;
+
+  useEffect(() => {
+    if (!activeProject) {
+      setSettingsName("");
+      setSettingsDescription("");
+      setSettingsIsPublic(false);
+      return;
+    }
+
+    setSettingsName(activeProject.name);
+    setSettingsDescription(activeProject.description ?? "");
+    setSettingsIsPublic(activeProject.isPublic);
+    setSettingsSuccess(null);
+    setSettingsError(null);
+  }, [activeProject]);
 
   const openNewCard = () => {
     setEditingCard(null);
@@ -498,6 +571,21 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   };
 
   const allDecks = useMemo<DeckCard[]>(() => decks.map(toDeckCard), [decks]);
+
+  const adminRole = useMemo(
+    () => projectRoles.find((role) => role.name.trim().toLowerCase() === "admin") ?? null,
+    [projectRoles]
+  );
+
+  const assignableRoles = useMemo(
+    () => projectRoles.filter((role) => role.name.trim().toLowerCase() !== "admin"),
+    [projectRoles]
+  );
+
+  const defaultAssignableRoleId = useMemo(
+    () => assignableRoles.find((role) => role.name.trim().toLowerCase() === "user")?.id ?? assignableRoles[0]?.id ?? "",
+    [assignableRoles]
+  );
   const completedDeckId = useMemo(
     () => allDecks.find((deck) => deck.systemKey === "COMPLETED")?.id ?? "",
     [allDecks]
@@ -535,6 +623,24 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
 
     return allDecks.find((deck) => deck.id === activeDeckId) ?? null;
   }, [activeDeckId, allDecks]);
+
+  const activeDeckCompletionTarget = useMemo(() => {
+    if (!activeDeck) {
+      return null;
+    }
+
+    return allDecks.find((deck) => deck.id === activeDeck.completionTargetDeckId) ?? null;
+  }, [activeDeck, allDecks]);
+
+  const activeDeckIncomingTargets = useMemo(() => {
+    if (!activeDeck) {
+      return [] as DeckCard[];
+    }
+
+    return allDecks
+      .filter((deck) => deck.id !== activeDeck.id && deck.completionTargetDeckId === activeDeck.id)
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [activeDeck, allDecks]);
 
   const activeDeckCards = useMemo(() => {
     if (!activeDeck) {
@@ -745,7 +851,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     }
 
     const shouldDelete = globalThis.confirm(
-      `Delete deck "${activeDeck.label}"? Cards will remain and be unassigned from this deck.`
+      `Delete deck "${activeDeck.label}"? This only works when no cards use it and no other deck targets it.`
     );
 
     if (!shouldDelete) {
@@ -773,6 +879,8 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     try {
       const newMember = await projectService.addMember(token, selectedProjectId, inviteCode.trim());
       setMembers((prev) => [...prev, newMember]);
+      const roles = await projectService.listRoles(token, selectedProjectId);
+      setProjectRoles(roles);
       setInviteCode("");
     } catch (err: unknown) {
       setMembersError(err instanceof Error ? err.message : "Failed to invite member");
@@ -786,6 +894,8 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     try {
       await projectService.removeMember(token, selectedProjectId, memberId);
       setMembers((prev) => prev.filter((m) => m.id !== memberId));
+      const roles = await projectService.listRoles(token, selectedProjectId);
+      setProjectRoles(roles);
     } catch (err: unknown) {
       setMembersError(err instanceof Error ? err.message : "Failed to remove member");
     }
@@ -794,7 +904,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const getMemberDraft = (member: ProjectMember): MemberPermissionDraft => {
     return (
       memberPermissionDrafts[member.id] ?? {
-        role: member.role === "ADMIN" ? "ADMIN" : "MEMBER",
+        roleId: member.roleId ?? defaultAssignableRoleId,
         deckReadMode: member.deckReadMode,
         deckReadDeckIds: [...member.deckReadDeckIds],
         deckWriteMode: member.deckWriteMode,
@@ -817,7 +927,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
         return {
           ...previous,
           [memberId]: {
-            role: member.role === "ADMIN" ? "ADMIN" : "MEMBER",
+            roleId: member.roleId ?? defaultAssignableRoleId,
             deckReadMode: member.deckReadMode,
             deckReadDeckIds: [...member.deckReadDeckIds],
             deckWriteMode: member.deckWriteMode,
@@ -877,6 +987,8 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
       setMembers((previous) =>
         previous.map((entry) => (entry.id === member.id ? updatedMember : entry))
       );
+      const roles = await projectService.listRoles(token, selectedProjectId);
+      setProjectRoles(roles);
 
       setMemberPermissionDrafts((previous) => {
         const next = { ...previous };
@@ -1223,6 +1335,76 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     navigate(`/${nextTab}`);
   };
 
+  const handleSaveProjectSettings = async () => {
+    if (!token || !activeProject || !settingsName.trim()) {
+      return;
+    }
+
+    setIsSavingSettings(true);
+    setSettingsSuccess(null);
+    setSettingsError(null);
+
+    try {
+      await updateProject(token, activeProject.id, {
+        name: settingsName.trim(),
+        description: settingsDescription.trim(),
+        isPublic: settingsIsPublic
+      });
+      setSettingsSuccess("Project settings saved.");
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : "Failed to save project settings");
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  const handleCreateRole = async () => {
+    if (!token || !selectedProjectId || !newRoleName.trim()) {
+      return;
+    }
+
+    setIsCreatingRole(true);
+    setSettingsError(null);
+    setSettingsSuccess(null);
+
+    try {
+      const created = await projectService.createRole(token, selectedProjectId, newRoleName.trim());
+      setProjectRoles((previous) => [...previous, created]);
+      setNewRoleName("");
+      setSettingsSuccess(`Role "${created.name}" created.`);
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : "Failed to create role");
+    } finally {
+      setIsCreatingRole(false);
+    }
+  };
+
+  const handleRemoveRole = async (role: ProjectRole) => {
+    if (!token || !selectedProjectId) {
+      return;
+    }
+
+    const shouldDelete = globalThis.confirm(`Delete role "${role.name}"?`);
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setDeletingRoleId(role.id);
+    setSettingsError(null);
+    setSettingsSuccess(null);
+
+    try {
+      await projectService.removeRole(token, selectedProjectId, role.id);
+      setProjectRoles((previous) => previous.filter((entry) => entry.id !== role.id));
+      setSettingsSuccess(`Role "${role.name}" deleted.`);
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : "Failed to remove role");
+    } finally {
+      setDeletingRoleId((current) => (current === role.id ? null : current));
+    }
+  };
+
   return (
     <>
       {activeProject ? (
@@ -1233,6 +1415,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
           xpMax={projectTotalXp || 1}
           activeTab={tab}
           onTabChange={handleTabChange}
+          onSettings={() => navigate("/settings")}
         />
       ) : (
         <Header
@@ -1471,6 +1654,39 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                     ) : null}
 
                     <div className="rounded-2xl border border-white/20 bg-white/10 p-4">
+                      <h4 className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-300">
+                        Completion Routing
+                      </h4>
+
+                      <div className="mt-3 grid gap-4 md:grid-cols-2">
+                        <div className="rounded-xl border border-white/12 bg-slate-900/45 p-3">
+                          <p className="text-xs uppercase tracking-[0.1em] text-slate-400">This deck points to</p>
+                          <p className="mt-1 text-sm font-semibold text-white">
+                            {activeDeckCompletionTarget?.label ?? "No completion target"}
+                          </p>
+                        </div>
+
+                        <div className="rounded-xl border border-white/12 bg-slate-900/45 p-3">
+                          <p className="text-xs uppercase tracking-[0.1em] text-slate-400">Decks that point here</p>
+                          {activeDeckIncomingTargets.length === 0 ? (
+                            <p className="mt-1 text-sm text-slate-300">None</p>
+                          ) : (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {activeDeckIncomingTargets.map((deck) => (
+                                <span
+                                  key={deck.id}
+                                  className="rounded-lg border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-medium text-slate-200"
+                                >
+                                  {deck.label}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/20 bg-white/10 p-4">
                       <div className="mb-3 flex items-center justify-between">
                         <h4 className="text-lg font-semibold text-white">Cards In {activeDeck.label}</h4>
                         <span className="text-sm text-slate-300">{sortedActiveDeckCards.length} total</span>
@@ -1697,16 +1913,17 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                                     <label className="text-slate-300">
                                       <span className="mb-1 block text-[11px] uppercase tracking-[0.14em] text-slate-400">Role</span>
                                       <select
-                                        value={getMemberDraft(member).role}
+                                        value={getMemberDraft(member).roleId}
                                         onChange={(event) =>
                                           updateMemberDraft(member.id, {
-                                            role: event.target.value as "MEMBER" | "ADMIN"
+                                            roleId: event.target.value
                                           })
                                         }
                                         className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white outline-none"
                                       >
-                                        <option value="MEMBER">Member</option>
-                                        <option value="ADMIN">Admin</option>
+                                        {assignableRoles.map((role) => (
+                                          <option key={role.id} value={role.id}>{role.name}</option>
+                                        ))}
                                       </select>
                                     </label>
 
@@ -2341,6 +2558,147 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
               </div>
             ) : null}
 
+            {tab === "settings" ? (
+              <div className="space-y-5">
+                <div className="rounded-[1.5rem] border border-white/15 bg-gradient-to-br from-slate-900/90 via-slate-900/80 to-slate-800/70 p-5 md:p-6">
+                  <p className="text-xs uppercase tracking-[0.35em] text-cyan-300">Project Settings</p>
+                  <h2 className="mt-2 font-display text-2xl font-semibold text-white">Configure this project</h2>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Update project metadata and visibility for your public share page.
+                  </p>
+
+                  {settingsSuccess ? (
+                    <div className="mt-4 rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+                      {settingsSuccess}
+                    </div>
+                  ) : null}
+
+                  {settingsError ? (
+                    <div className="mt-4 rounded-xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                      {settingsError}
+                    </div>
+                  ) : null}
+
+                  <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                    <label className="text-xs uppercase tracking-[0.1em] text-slate-300">
+                      Project Name
+                      <input
+                        value={settingsName}
+                        onChange={(event) => setSettingsName(event.target.value)}
+                        placeholder="Project name"
+                        className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 text-sm text-white outline-none"
+                      />
+                    </label>
+
+                    <label className="text-xs uppercase tracking-[0.1em] text-slate-300">
+                      Public Visibility
+                      <select
+                        value={settingsIsPublic ? "public" : "private"}
+                        onChange={(event) => setSettingsIsPublic(event.target.value === "public")}
+                        className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 text-sm text-white outline-none"
+                      >
+                        <option value="private">Private (team only)</option>
+                        <option value="public">Public (shareable)</option>
+                      </select>
+                    </label>
+
+                    <label className="text-xs uppercase tracking-[0.1em] text-slate-300 lg:col-span-2">
+                      Project Description
+                      <textarea
+                        value={settingsDescription}
+                        onChange={(event) => setSettingsDescription(event.target.value)}
+                        rows={4}
+                        placeholder="Add context for what this project is shipping"
+                        className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 text-sm text-white outline-none"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    <Button
+                      onClick={() => void handleSaveProjectSettings()}
+                      disabled={isSavingSettings || !settingsName.trim()}
+                    >
+                      {isSavingSettings ? "Saving..." : "Save Settings"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setSettingsName(activeProject.name);
+                        setSettingsDescription(activeProject.description ?? "");
+                        setSettingsIsPublic(activeProject.isPublic);
+                        setSettingsSuccess(null);
+                        setSettingsError(null);
+                      }}
+                    >
+                      Reset
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="rounded-[1.5rem] border border-white/15 bg-slate-900/60 p-4 md:p-5">
+                  <h3 className="text-lg font-semibold text-white">Roles</h3>
+                  <p className="mt-1 text-sm text-slate-400">
+                    `admin` is always the owner role and cannot be assigned, changed, or removed. Keep at least one additional role.
+                  </p>
+
+                  <div className="mt-4 rounded-xl border border-amber-300/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                    Admin role: <span className="font-semibold">{adminRole?.name ?? "admin"}</span> (owner only)
+                  </div>
+
+                  <div className="mt-4 grid gap-2">
+                    {projectRoles.map((role) => {
+                      const isAdmin = role.name.trim().toLowerCase() === "admin";
+
+                      return (
+                        <div
+                          key={role.id}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/12 bg-white/[0.03] px-3 py-2"
+                        >
+                          <div>
+                            <p className="text-sm font-semibold text-white">{role.name}</p>
+                            <p className="text-xs text-slate-400">{role.memberCount} members</p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            disabled={isAdmin || deletingRoleId === role.id}
+                            onClick={() => void handleRemoveRole(role)}
+                          >
+                            {deletingRoleId === role.id ? "Removing..." : isAdmin ? "Locked" : "Remove"}
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-4 flex flex-col gap-2 md:flex-row">
+                    <input
+                      value={newRoleName}
+                      onChange={(event) => setNewRoleName(event.target.value)}
+                      placeholder="New role name"
+                      className="flex-1 rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 text-sm text-white outline-none"
+                    />
+                    <Button
+                      onClick={() => void handleCreateRole()}
+                      disabled={isCreatingRole || !newRoleName.trim()}
+                    >
+                      {isCreatingRole ? "Creating..." : "Add Role"}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="rounded-[1.5rem] border border-white/15 bg-slate-900/60 p-4 md:p-5">
+                  <h3 className="text-lg font-semibold text-white">Share URL</h3>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Public projects are available at `/userCode/projectSlug`.
+                  </p>
+                  <code className="mt-3 block overflow-auto rounded-xl border border-white/12 bg-black/30 px-3 py-2 text-xs text-slate-200">
+                    {activeProject.slug}
+                  </code>
+                </div>
+              </div>
+            ) : null}
+
             <CardEditorModal
               isOpen={isEditorOpen}
               projectId={activeProject.id}
@@ -2505,7 +2863,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
 
           <div>
             <p className="text-sm text-slate-300">Color</p>
-            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
               {COLOR_OPTIONS.map((option) => (
                 <button
                   key={option.value}
@@ -2635,7 +2993,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
 
           <div>
             <p className="text-sm text-slate-300">Color</p>
-            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
               {COLOR_OPTIONS.map((option) => (
                 <button
                   key={option.value}

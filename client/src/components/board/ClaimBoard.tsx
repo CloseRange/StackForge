@@ -4,7 +4,7 @@ import { Bug, Eye, Layers3, Lock, Plus, Trophy, Zap } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 
 import { Button } from "../ui/Button";
-import type { Card, CardPriority, Deck, UpdateCardInput, User } from "../../types/api";
+import type { Card, CardPriority, Deck, DeckColor, UpdateCardInput, User } from "../../types/api";
 import { ProjectIcon } from "../ui/ProjectIcon";
 
 const BOARD_SLOT_COUNT = 5;
@@ -23,14 +23,17 @@ const priorityClasses: Record<CardPriority, string> = {
   legendary: "border-amber-300/35 bg-amber-500/14 text-amber-100"
 };
 
-const deckToneClasses = {
+const deckToneClasses: Record<DeckColor, string> = {
   teal: "bg-[radial-gradient(ellipse_at_20%_0%,rgba(45,212,191,0.42),transparent_60%),linear-gradient(180deg,rgba(22,46,48,0.96),rgba(12,26,32,0.99))] text-teal-100 border-teal-300/50",
   cyan: "bg-[radial-gradient(ellipse_at_20%_0%,rgba(34,211,238,0.42),transparent_60%),linear-gradient(180deg,rgba(18,44,54,0.96),rgba(10,24,36,0.99))] text-cyan-100 border-cyan-300/50",
   amber: "bg-[radial-gradient(ellipse_at_20%_0%,rgba(245,158,11,0.40),transparent_60%),linear-gradient(180deg,rgba(46,38,16,0.96),rgba(28,22,10,0.99))] text-amber-100 border-amber-300/50",
   rose: "bg-[radial-gradient(ellipse_at_20%_0%,rgba(244,63,94,0.40),transparent_60%),linear-gradient(180deg,rgba(50,22,28,0.96),rgba(30,12,18,0.99))] text-rose-100 border-rose-300/50",
   indigo: "bg-[radial-gradient(ellipse_at_20%_0%,rgba(139,92,246,0.44),transparent_60%),linear-gradient(180deg,rgba(34,22,60,0.96),rgba(20,14,42,0.99))] text-violet-100 border-violet-300/50",
+  sky: "bg-[radial-gradient(ellipse_at_20%_0%,rgba(56,189,248,0.42),transparent_60%),linear-gradient(180deg,rgba(16,42,58,0.96),rgba(8,24,36,0.99))] text-sky-100 border-sky-300/50",
+  orange: "bg-[radial-gradient(ellipse_at_20%_0%,rgba(249,115,22,0.42),transparent_60%),linear-gradient(180deg,rgba(50,32,14,0.96),rgba(30,18,8,0.99))] text-orange-100 border-orange-300/50",
+  lime: "bg-[radial-gradient(ellipse_at_20%_0%,rgba(132,204,22,0.42),transparent_60%),linear-gradient(180deg,rgba(36,44,14,0.96),rgba(22,28,8,0.99))] text-lime-100 border-lime-300/50",
   emerald: "bg-[radial-gradient(ellipse_at_20%_0%,rgba(16,185,129,0.42),transparent_60%),linear-gradient(180deg,rgba(16,46,34,0.96),rgba(8,28,20,0.99))] text-emerald-100 border-emerald-300/50"
-} as const;
+};
 
 type ClaimBoardProps = {
   cards: Card[];

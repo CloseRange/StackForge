@@ -1,9 +1,9 @@
-import { UserPlus, Zap } from "lucide-react";
+import { Settings, Zap } from "lucide-react";
 
 import { Logo } from "./Logo";
 import { ProfileMenu } from "./ProfileMenu";
 
-type ProjectTab = "board" | "decks" | "members" | "timeline" | "activity";
+type ProjectTab = "board" | "decks" | "members" | "timeline" | "activity" | "settings";
 
 type ProjectHeaderProps = {
   projectName: string;
@@ -11,7 +11,7 @@ type ProjectHeaderProps = {
   xpMax?: number;
   activeTab?: ProjectTab;
   onTabChange?: (tab: ProjectTab) => void;
-  onInvite?: () => void;
+  onSettings?: () => void;
 };
 
 const TABS: { id: ProjectTab; label: string }[] = [
@@ -28,7 +28,7 @@ export const ProjectHeader = ({
   xpMax = 2000,
   activeTab = "board",
   onTabChange,
-  onInvite,
+  onSettings,
 }: ProjectHeaderProps) => (
   <header className="sticky top-0 z-40 border-b border-white/[0.12] bg-[linear-gradient(180deg,rgba(12,18,30,0.95),rgba(9,14,24,0.92))] backdrop-blur-md">
     <div className="mx-auto flex h-14 max-w-[1600px] items-center justify-between px-6">
@@ -59,7 +59,7 @@ export const ProjectHeader = ({
         ))}
       </nav>
 
-      {/* Right — XP + invite + avatar */}
+      {/* Right — XP + settings + avatar */}
       <div className="flex items-center gap-3">
         <div className="hidden items-center gap-1.5 rounded-xl border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 md:flex">
           <Zap className="h-3.5 w-3.5 text-amber-300" />
@@ -70,11 +70,11 @@ export const ProjectHeader = ({
 
         <button
           type="button"
-          onClick={onInvite}
+          onClick={onSettings}
           className="hidden items-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.04] px-3.5 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/[0.09] hover:text-white sm:flex"
         >
-          <UserPlus className="h-4 w-4" />
-          Invite
+          <Settings className="h-4 w-4" />
+          Project Settings
         </button>
 
         <ProfileMenu />

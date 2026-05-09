@@ -16,6 +16,44 @@ export const memberController = {
     return response.status(200).json({ data: result });
   },
 
+  async listRoles(request: Request, response: Response) {
+    const projectId =
+      typeof request.params.projectId === "string" ? request.params.projectId : undefined;
+
+    if (!projectId) {
+      throw new AppError("Project id is required", 400);
+    }
+
+    const roles = await memberService.listRoles(projectId, request.user!.userId);
+    return response.status(200).json({ data: roles });
+  },
+
+  async createRole(request: Request, response: Response) {
+    const projectId =
+      typeof request.params.projectId === "string" ? request.params.projectId : undefined;
+
+    if (!projectId) {
+      throw new AppError("Project id is required", 400);
+    }
+
+    const role = await memberService.createRole(projectId, request.user!.userId, request.body);
+    return response.status(201).json({ data: role });
+  },
+
+  async removeRole(request: Request, response: Response) {
+    const projectId =
+      typeof request.params.projectId === "string" ? request.params.projectId : undefined;
+    const roleId =
+      typeof request.params.roleId === "string" ? request.params.roleId : undefined;
+
+    if (!projectId || !roleId) {
+      throw new AppError("Project id and role id are required", 400);
+    }
+
+    await memberService.removeRole(projectId, request.user!.userId, roleId);
+    return response.status(204).send();
+  },
+
   async add(request: Request, response: Response) {
     const projectId =
       typeof request.params.projectId === "string" ? request.params.projectId : undefined;

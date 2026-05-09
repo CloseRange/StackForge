@@ -10,9 +10,9 @@ type HeaderProps =
       projectName: string;
       xp?: number;
       xpMax?: number;
-      activeTab?: "board" | "decks" | "members" | "timeline" | "activity";
-      onTabChange?: (tab: "board" | "decks" | "members" | "timeline" | "activity") => void;
-      onInvite?: () => void;
+      activeTab?: "board" | "decks" | "members" | "timeline" | "activity" | "settings";
+      onTabChange?: (tab: "board" | "decks" | "members" | "timeline" | "activity" | "settings") => void;
+      onSettings?: () => void;
     };
 
 export const Header = (props: HeaderProps) => {
@@ -31,7 +31,7 @@ export const Header = (props: HeaderProps) => {
       xpMax={props.xpMax}
       activeTab={props.activeTab}
       onTabChange={props.onTabChange}
-      onInvite={props.onInvite}
+      onSettings={props.onSettings}
     />
   );
 };

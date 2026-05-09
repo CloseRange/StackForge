@@ -360,9 +360,9 @@ export const deckService = {
       throw new AppError("Cannot delete deck while cards are assigned to it", 400);
     }
 
-    const { count: referencingCount, error: referencingError } = await supabaseAdmin
+    const { data: referencingDecks, error: referencingError } = await supabaseAdmin
       .from("sf_decks")
-      .select("id", { count: "exact", head: true })
+      .select("id, name")
       .eq("completion_target_deck_id", deckId)
       .neq("id", deckId);
 
@@ -370,17 +370,32 @@ export const deckService = {
       throw new AppError(referencingError.message, 500);
     }
 
-    if ((referencingCount ?? 0) > 0) {
-      throw new AppError("Cannot delete deck while it is used as a completion target", 400);
+    if ((referencingDecks?.length ?? 0) > 0) {
+      const names = (referencingDecks ?? [])
+        .map((deck) => String((deck as { name?: string }).name ?? "Unknown"))
+        .filter(Boolean)
+        .slice(0, 5);
+
+      const suffix = (referencingDecks?.length ?? 0) > 5 ? " and more" : "";
+      throw new AppError(
+        `Cannot delete deck while it is used as a completion target by: ${names.join(", ")}${suffix}`,
+        400
+      );
     }
 
-    const { error } = await supabaseAdmin
+    const { data: deletedDeck, error } = await supabaseAdmin
       .from("sf_decks")
       .delete()
-      .eq("id", deckId);
+      .eq("id", deckId)
+      .select("id")
+      .maybeSingle();
 
     if (error) {
       throw new AppError(error.message, 500);
+    }
+
+    if (!deletedDeck) {
+      throw new AppError("Deck delete did not apply", 409);
     }
 
     await activityService.log({

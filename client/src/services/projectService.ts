@@ -6,13 +6,14 @@ import type {
   ProjectMilestone,
   ProjectMember,
   ProjectMembersResponse,
+  ProjectRole,
   UpdateMilestoneInput,
   UpdateProjectInput
 } from "../types/api";
 import { request } from "./api";
 
 type UpdateMemberPermissionsInput = {
-  role: "MEMBER" | "ADMIN";
+  roleId: string;
   deckReadMode: "FULL_ACCESS" | "NO_ACCESS" | "WHITELIST" | "BLACKLIST";
   deckReadDeckIds: string[];
   deckWriteMode: "FULL_ACCESS" | "NO_ACCESS" | "WHITELIST" | "BLACKLIST";
@@ -103,6 +104,25 @@ export const projectService = {
 
   listMembers(token: string, projectId: string) {
     return request<ProjectMembersResponse>(`/projects/${projectId}/members`, { token });
+  },
+
+  listRoles(token: string, projectId: string) {
+    return request<ProjectRole[]>(`/projects/${projectId}/roles`, { token });
+  },
+
+  createRole(token: string, projectId: string, name: string) {
+    return request<ProjectRole>(`/projects/${projectId}/roles`, {
+      method: "POST",
+      token,
+      body: { name }
+    });
+  },
+
+  removeRole(token: string, projectId: string, roleId: string) {
+    return request<void>(`/projects/${projectId}/roles/${roleId}`, {
+      method: "DELETE",
+      token
+    });
   },
 
   addMember(token: string, projectId: string, userCode: string) {

@@ -21,6 +21,9 @@ const deckBorderClasses: Record<string, string> = {
   amber:   "border-amber-400/60",
   rose:    "border-rose-400/60",
   indigo:  "border-indigo-400/60",
+  sky:     "border-sky-400/60",
+  orange:  "border-orange-400/60",
+  lime:    "border-lime-400/60",
   emerald: "border-emerald-400/60"
 };
 

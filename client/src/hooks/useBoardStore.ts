@@ -42,6 +42,9 @@ type BoardState = {
 const replaceCard = (cards: Card[], nextCard: Card) =>
   cards.map((card) => (card.id === nextCard.id ? nextCard : card));
 
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
+
 export const useBoardStore = create<BoardState>((set, get) => ({
   projects: [],
   cards: [],
@@ -68,21 +71,31 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     }
   },
   async createProject(token, payload) {
-    const project = await projectService.create(token, payload);
-    set((state) => ({
-      projects: [project, ...state.projects],
-      selectedProjectId: project.id,
-      error: null
-    }));
-    return project;
+    try {
+      const project = await projectService.create(token, payload);
+      set((state) => ({
+        projects: [project, ...state.projects],
+        selectedProjectId: project.id,
+        error: null
+      }));
+      return project;
+    } catch (error) {
+      set({ error: getErrorMessage(error, "Failed to create project") });
+      throw error;
+    }
   },
   async updateProject(token, projectId, payload) {
-    const project = await projectService.update(token, projectId, payload);
-    set((state) => ({
-      projects: state.projects.map((p) => (p.id === project.id ? project : p)),
-      error: null
-    }));
-    return project;
+    try {
+      const project = await projectService.update(token, projectId, payload);
+      set((state) => ({
+        projects: state.projects.map((p) => (p.id === project.id ? project : p)),
+        error: null
+      }));
+      return project;
+    } catch (error) {
+      set({ error: getErrorMessage(error, "Failed to update project") });
+      throw error;
+    }
   },
   async loadCards(token, projectId) {
     set({ isLoadingCards: true, error: null });
@@ -113,40 +126,70 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     }
   },
   async createCard(token, payload) {
-    const card = await cardService.create(token, payload);
-    set((state) => ({ cards: [card, ...state.cards], error: null }));
-    return card;
+    try {
+      const card = await cardService.create(token, payload);
+      set((state) => ({ cards: [card, ...state.cards], error: null }));
+      return card;
+    } catch (error) {
+      set({ error: getErrorMessage(error, "Failed to create card") });
+      throw error;
+    }
   },
   async removeCard(token, cardId) {
-    await cardService.remove(token, cardId);
-    set((state) => ({
-      cards: state.cards.filter((card) => card.id !== cardId),
-      error: null
-    }));
+    try {
+      await cardService.remove(token, cardId);
+      set((state) => ({
+        cards: state.cards.filter((card) => card.id !== cardId),
+        error: null
+      }));
+    } catch (error) {
+      set({ error: getErrorMessage(error, "Failed to delete card") });
+      throw error;
+    }
   },
   async createDeck(token, payload) {
-    const deck = await deckService.create(token, payload);
-    set((state) => ({ decks: [...state.decks, deck], error: null }));
-    return deck;
+    try {
+      const deck = await deckService.create(token, payload);
+      set((state) => ({ decks: [...state.decks, deck], error: null }));
+      return deck;
+    } catch (error) {
+      set({ error: getErrorMessage(error, "Failed to create deck") });
+      throw error;
+    }
   },
   async updateDeck(token, deckId, payload) {
-    const deck = await deckService.update(token, deckId, payload);
-    set((state) => ({
-      decks: state.decks.map((item) => (item.id === deck.id ? deck : item)),
-      error: null
-    }));
-    return deck;
+    try {
+      const deck = await deckService.update(token, deckId, payload);
+      set((state) => ({
+        decks: state.decks.map((item) => (item.id === deck.id ? deck : item)),
+        error: null
+      }));
+      return deck;
+    } catch (error) {
+      set({ error: getErrorMessage(error, "Failed to update deck") });
+      throw error;
+    }
   },
   async removeDeck(token, deckId) {
-    await deckService.remove(token, deckId);
-    set((state) => ({
-      decks: state.decks.filter((deck) => deck.id !== deckId),
-      error: null
-    }));
+    try {
+      await deckService.remove(token, deckId);
+      set((state) => ({
+        decks: state.decks.filter((deck) => deck.id !== deckId),
+        error: null
+      }));
+    } catch (error) {
+      set({ error: getErrorMessage(error, "Failed to delete deck") });
+      throw error;
+    }
   },
   async updateCard(token, cardId, payload) {
-    const card = await cardService.update(token, cardId, payload);
-    set((state) => ({ cards: replaceCard(state.cards, card), error: null }));
-    return card;
+    try {
+      const card = await cardService.update(token, cardId, payload);
+      set((state) => ({ cards: replaceCard(state.cards, card), error: null }));
+      return card;
+    } catch (error) {
+      set({ error: getErrorMessage(error, "Failed to update card") });
+      throw error;
+    }
   }
 }));

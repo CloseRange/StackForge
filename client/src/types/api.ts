@@ -53,7 +53,16 @@ export type Card = {
   updatedAt: string;
 };
 
-export type DeckColor = "teal" | "cyan" | "amber" | "rose" | "indigo" | "emerald";
+export type DeckColor =
+  | "teal"
+  | "cyan"
+  | "amber"
+  | "rose"
+  | "indigo"
+  | "sky"
+  | "orange"
+  | "lime"
+  | "emerald";
 
 export type Deck = {
   id: string;
@@ -93,6 +102,7 @@ export type UpdateProjectInput = {
 export type ProjectMember = {
   id: string;
   role: string;
+  roleId: string | null;
   displayName: string;
   firstName: string;
   lastName: string;
@@ -106,10 +116,18 @@ export type ProjectMember = {
   deckWriteDeckIds: string[];
 };
 
+export type ProjectRole = {
+  id: string;
+  name: string;
+  isSystem: boolean;
+  memberCount: number;
+};
+
 export type ProjectMembersResponse = {
   ownerId: string | null;
   owner: ProjectMember | null;
   members: ProjectMember[];
+  roles?: ProjectRole[];
 };
 
 export type ProjectActivityChange = {

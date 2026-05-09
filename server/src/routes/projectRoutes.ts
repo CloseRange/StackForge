@@ -21,6 +21,11 @@ projectRouter.delete("/:projectId/milestones/:milestoneId", asyncHandler(milesto
 projectRouter.patch("/:projectId", asyncHandler(projectController.update));
 projectRouter.delete("/:projectId", asyncHandler(projectController.remove));
 
+// Role management
+projectRouter.get("/:projectId/roles", asyncHandler(memberController.listRoles));
+projectRouter.post("/:projectId/roles", asyncHandler(memberController.createRole));
+projectRouter.delete("/:projectId/roles/:roleId", asyncHandler(memberController.removeRole));
+
 // Member management (owner-only writes, read open to members)
 projectRouter.get("/:projectId/members", asyncHandler(memberController.list));
 projectRouter.post("/:projectId/members", asyncHandler(memberController.add));
