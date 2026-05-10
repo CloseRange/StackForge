@@ -40,7 +40,7 @@ export const ProfileMenu = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-11 z-50 w-56 overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-2xl shadow-black/40">
+        <div className="absolute right-0 top-11 z-50 w-56 max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-2xl shadow-black/40">
           <div className="border-b border-white/8 px-4 py-3">
             <div className="truncate text-sm font-semibold text-white">
               {user?.displayName ?? "Operator"}

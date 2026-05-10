@@ -1,7 +1,7 @@
 import { DndContext, type DragEndEvent, useDraggable, useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { Bug, Eye, Layers3, Lock, Plus, Trophy, Zap } from "lucide-react";
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 
 import { Button } from "../ui/Button";
 import { useAuth } from "../../hooks/useAuth";
@@ -158,18 +158,37 @@ const BoardSlot = ({
   id,
   index,
   children,
-  isDarkMode
+  isDarkMode,
+  onClick,
+  isInteractive = false,
+  isSelected = false
 }: {
   id: string;
   index: number;
   children?: ReactNode;
   isDarkMode: boolean;
+  onClick?: () => void;
+  isInteractive?: boolean;
+  isSelected?: boolean;
 }) => {
   const { isOver, setNodeRef } = useDroppable({ id });
 
   return (
     <div
       ref={setNodeRef}
+      role={isInteractive ? "button" : undefined}
+      tabIndex={isInteractive ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={
+        isInteractive
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onClick?.();
+              }
+            }
+          : undefined
+      }
       className={`relative w-full max-w-[9rem] sm:max-w-[9.5rem] lg:max-w-[10rem] aspect-[2/3] rounded-[1.5rem] border border-dashed p-1 transition ${
         isOver
           ? isDarkMode
@@ -178,7 +197,7 @@ const BoardSlot = ({
           : isDarkMode
             ? "border-white/[0.14] bg-[linear-gradient(180deg,rgba(17,24,38,0.84),rgba(9,14,23,0.9))]"
             : "border-slate-200 bg-slate-50"
-      }`}
+      } ${isInteractive ? "touch-manipulation active:scale-[0.99]" : ""} ${isSelected ? (isDarkMode ? "ring-2 ring-sky-300/65" : "ring-2 ring-blue-400/60") : ""}`}
     >
       {children ? (
         children
@@ -208,24 +227,43 @@ const BoardSlot = ({
 const FinishSlot = ({
   targetDeckName,
   pulseActive,
-  isDarkMode
+  isDarkMode,
+  onClick,
+  isInteractive = false,
+  isSelected = false
 }: {
   targetDeckName: string;
   pulseActive: boolean;
   isDarkMode: boolean;
+  onClick?: () => void;
+  isInteractive?: boolean;
+  isSelected?: boolean;
 }) => {
   const { isOver, setNodeRef } = useDroppable({ id: "completion-zone" });
 
   return (
     <div
       ref={setNodeRef}
+      role={isInteractive ? "button" : undefined}
+      tabIndex={isInteractive ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={
+        isInteractive
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onClick?.();
+              }
+            }
+          : undefined
+      }
       className={`relative w-full max-w-[9rem] sm:max-w-[9.5rem] lg:max-w-[10rem] aspect-[2/3] rounded-[1.5rem] border border-dashed p-1 transition ${
         isOver
           ? "border-emerald-300/60 bg-emerald-500/12 shadow-[0_0_0_1px_rgba(110,231,183,0.25)]"
           : isDarkMode
             ? "border-emerald-300/30 bg-emerald-500/[0.08]"
             : "border-emerald-300/45 bg-emerald-50"
-      } ${pulseActive ? "completion-slot-pulse" : ""}`}
+      } ${pulseActive ? "completion-slot-pulse" : ""} ${isInteractive ? "touch-manipulation active:scale-[0.99]" : ""} ${isSelected ? (isDarkMode ? "ring-2 ring-emerald-300/65" : "ring-2 ring-emerald-400/60") : ""}`}
     >
       <div className={`flex h-full flex-col justify-between rounded-[1.2rem] border px-3 py-3.5 ${
         isDarkMode
@@ -482,6 +520,19 @@ export const ClaimBoard = ({
   const [busyCardId, setBusyCardId] = useState<string | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [completionPulse, setCompletionPulse] = useState(false);
+  const [selectedMobileCardId, setSelectedMobileCardId] = useState<string | null>(null);
+  const [isMobileView, setIsMobileView] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+
+    const updateMobileView = () => setIsMobileView(mediaQuery.matches);
+
+    updateMobileView();
+    mediaQuery.addEventListener("change", updateMobileView);
+
+    return () => mediaQuery.removeEventListener("change", updateMobileView);
+  }, []);
 
   const activeBoardCards = useMemo(
     () => cards.filter((card) => card.assigneeId === currentUser.id),
@@ -625,6 +676,92 @@ export const ClaimBoard = ({
     }
   };
 
+  const handleMobileCardSelect = (card: Card) => {
+    if (card.assigneeId && card.assigneeId !== currentUser.id) {
+      setNotice("That card is already claimed on someone else’s board.");
+      return;
+    }
+
+    setSelectedMobileCardId((current) => {
+      const nextSelectedId = current === card.id ? null : card.id;
+
+      setNotice(nextSelectedId ? `Selected ${card.title}. Tap a slot to place it.` : null);
+
+      return nextSelectedId;
+    });
+  };
+
+  const handleMobileBoardSlotSelect = async (slotIndex: number) => {
+    if (!isMobileView || !selectedMobileCardId || busyCardId) {
+      return;
+    }
+
+    const selectedCard = cards.find((entry) => entry.id === selectedMobileCardId);
+
+    if (!selectedCard) {
+      setSelectedMobileCardId(null);
+      return;
+    }
+
+    if (selectedCard.assigneeId && selectedCard.assigneeId !== currentUser.id) {
+      setNotice("That card is already claimed on someone else’s board.");
+      setSelectedMobileCardId(null);
+      return;
+    }
+
+    const occupyingCard = visibleBoardCards[slotIndex];
+
+    try {
+      if (occupyingCard && occupyingCard.id !== selectedCard.id) {
+        await mutateCard(occupyingCard.id, { boardSlot: null });
+      }
+
+      await mutateCard(
+        selectedCard.id,
+        { assigneeId: currentUser.id, boardSlot: slotIndex },
+        `Placed ${selectedCard.title} in slot ${slotIndex + 1}.`
+      );
+    } finally {
+      setSelectedMobileCardId(null);
+    }
+  };
+
+  const handleMobileCompletionSelect = async () => {
+    if (!isMobileView || !selectedMobileCardId || busyCardId) {
+      return;
+    }
+
+    const selectedCard = cards.find((entry) => entry.id === selectedMobileCardId);
+
+    if (!selectedCard) {
+      setSelectedMobileCardId(null);
+      return;
+    }
+
+    const cardDeck = decks.find((entry) => entry.id === selectedCard.deckId);
+    const completionTargetId =
+      cardDeck?.completionTargetDeckId ?? decks.find((entry) => entry.systemKey === "COMPLETED")?.id;
+    const completionTarget = decks.find((entry) => entry.id === completionTargetId);
+
+    if (!completionTargetId || !completionTarget) {
+      setNotice("No completion target configured for this deck.");
+      setSelectedMobileCardId(null);
+      return;
+    }
+
+    try {
+      await mutateCard(
+        selectedCard.id,
+        { deckId: completionTargetId, assigneeId: null, boardSlot: null },
+        `Card moved to ${completionTarget.name}.`
+      );
+      setCompletionPulse(true);
+      window.setTimeout(() => setCompletionPulse(false), 700);
+    } finally {
+      setSelectedMobileCardId(null);
+    }
+  };
+
   const defaultCompletionTargetName =
     decks.find((entry) => entry.systemKey === "COMPLETED")?.name ?? "completion target";
 
@@ -682,6 +819,16 @@ export const ClaimBoard = ({
             </div>
           ) : null}
 
+          {isMobileView && selectedMobileCardId ? (
+            <div className={`mt-4 rounded-xl border px-3 py-2.5 text-sm ${
+              isDarkMode
+                ? "border-amber-300/24 bg-amber-500/10 text-amber-100"
+                : "border-amber-200 bg-amber-50 text-amber-800"
+            }`}>
+              Card selected. Tap a slot to place it, or tap the selected card again to cancel.
+            </div>
+          ) : null}
+
           {overflowBoardCount > 0 ? (
             <div className={`mt-4 rounded-xl border px-3 py-2.5 text-sm ${
               isDarkMode
@@ -694,7 +841,60 @@ export const ClaimBoard = ({
           ) : null}
 
           <div className="mt-4">
-            <div className="grid justify-center gap-1.5 [grid-template-columns:repeat(auto-fit,minmax(9rem,9rem))] sm:gap-2 sm:[grid-template-columns:repeat(auto-fit,minmax(9.5rem,9.5rem))] lg:[grid-template-columns:repeat(auto-fit,minmax(10rem,10rem))]">
+            <div className="md:hidden">
+              <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                {Array.from({ length: boardSlotCount }, (_, index) => {
+                  const card = visibleBoardCards[index];
+
+                  return (
+                    <div key={index} className="snap-center shrink-0">
+                      <BoardSlot
+                        id={`board-slot-${index}`}
+                        index={index}
+                        isDarkMode={isDarkMode}
+                        onClick={() => void handleMobileBoardSlotSelect(index)}
+                        isInteractive={isMobileView && Boolean(selectedMobileCardId)}
+                        isSelected={isMobileView && Boolean(selectedMobileCardId)}
+                      >
+                        {card ? (
+                          <BoardCard
+                            card={card}
+                            currentUser={currentUser}
+                            deckPresentation={getDeckPresentation(card, decks, isDarkMode)}
+                            isDarkMode={isDarkMode}
+                            dragSource="board"
+                            draggable
+                            isLocked={false}
+                            isBusy={busyCardId === card.id}
+                            onSelectCard={(selectedCard) => {
+                              if (isMobileView) {
+                                handleMobileCardSelect(selectedCard);
+                                return;
+                              }
+
+                              onSelectCard(selectedCard);
+                            }}
+                          />
+                        ) : null}
+                      </BoardSlot>
+                    </div>
+                  );
+                })}
+
+                <div className="snap-center shrink-0">
+                  <FinishSlot
+                    targetDeckName={defaultCompletionTargetName}
+                    pulseActive={completionPulse}
+                    isDarkMode={isDarkMode}
+                    onClick={() => void handleMobileCompletionSelect()}
+                    isInteractive={isMobileView && Boolean(selectedMobileCardId)}
+                    isSelected={isMobileView && Boolean(selectedMobileCardId)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="hidden justify-center gap-1.5 md:grid md:[grid-template-columns:repeat(auto-fit,minmax(9rem,9rem))] lg:[grid-template-columns:repeat(auto-fit,minmax(10rem,10rem))]">
               {Array.from({ length: boardSlotCount }, (_, index) => {
                 const card = visibleBoardCards[index];
 

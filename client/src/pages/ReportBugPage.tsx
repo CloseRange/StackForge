@@ -69,7 +69,7 @@ export const ReportBugPage = () => {
       title="Report a bug or message the site admin"
       description="This form stores messages in the admin_messages table so bug reports, feedback, and direct site questions all land in one place."
     >
-      <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+      <div className="grid gap-5 sm:gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
           <h2 className="text-xl font-semibold text-white">What this form is for</h2>
           <div className="mt-4 space-y-3 text-sm leading-7 text-slate-300">

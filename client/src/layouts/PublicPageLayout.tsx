@@ -13,14 +13,14 @@ export const PublicPageLayout = ({ eyebrow, title, description, children }: Publ
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
       <Header variant="public" />
-      <main className="px-6 py-12 sm:py-16">
+      <main className="px-4 py-10 sm:px-6 sm:py-16">
         <div className="mx-auto max-w-5xl">
           <div className="max-w-3xl">
             <p className="text-xs uppercase tracking-[0.38em] text-sky-300">{eyebrow}</p>
-            <h1 className="mt-4 font-display text-4xl font-semibold text-white sm:text-5xl">{title}</h1>
+            <h1 className="mt-4 font-display text-3xl font-semibold text-white sm:text-5xl">{title}</h1>
             <p className="mt-4 text-base text-slate-400 sm:text-lg">{description}</p>
           </div>
-          <div className="mt-10 rounded-[2rem] border border-white/10 bg-slate-900/55 p-6 shadow-[0_24px_70px_rgba(4,9,20,0.28)] sm:p-8">
+          <div className="mt-8 rounded-[2rem] border border-white/10 bg-slate-900/55 p-4 shadow-[0_24px_70px_rgba(4,9,20,0.28)] sm:mt-10 sm:p-8">
             {children}
           </div>
         </div>

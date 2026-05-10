@@ -27,7 +27,7 @@ export const LandingPage = ({ initialSection = "hero" }: { initialSection?: "her
       <PublicHeader />
       
       {/* Hero Section */}
-      <section className="relative overflow-hidden px-6 py-20 sm:py-32 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      <section className="relative overflow-hidden px-4 py-16 sm:px-6 sm:py-32 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
         {/* Background gradient elements */}
         <div className="absolute inset-0 -z-10 overflow-hidden">
           <div className="absolute -top-40 -left-32 h-[600px] w-[600px] rounded-full bg-sky-600/15 blur-[120px]" />
@@ -42,31 +42,31 @@ export const LandingPage = ({ initialSection = "hero" }: { initialSection?: "her
             </span>
           </div>
           
-          <h1 className="font-display text-5xl sm:text-7xl font-bold tracking-tight text-white leading-tight">
+          <h1 className="font-display text-4xl font-bold leading-tight tracking-tight text-white sm:text-6xl lg:text-7xl">
             Your projects as{" "}
             <span className="bg-gradient-to-r from-sky-400 to-cyan-300 bg-clip-text text-transparent">
               playable campaigns
             </span>
           </h1>
           
-          <p className="mx-auto mt-6 max-w-2xl text-xl text-slate-400">
+          <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-400 sm:text-xl">
             Move cards from deck to victory. Track progress through rarity and XP. Make project management feel like gaming — strategic, rewarding, and fun.
           </p>
           
-          <div className="mt-10 flex flex-col sm:flex-row gap-4 items-center justify-center">
+          <div className="mt-10 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center sm:gap-4">
             <Link to="/register">
-              <Button className="text-lg px-8 py-3 flex items-center gap-2">
+              <Button className="flex w-full items-center justify-center gap-2 px-8 py-3 text-lg sm:w-auto">
                 Get Started Free
                 <ArrowRight className="h-5 w-5" />
               </Button>
             </Link>
             <Link to="/login">
-              <Button variant="outline" className="text-lg px-8 py-3">
+              <Button variant="outline" className="w-full px-8 py-3 text-lg sm:w-auto">
                 Sign In
               </Button>
             </Link>
             <Link to="/demo">
-              <Button variant="outline" className="text-lg px-8 py-3">
+              <Button variant="outline" className="w-full px-8 py-3 text-lg sm:w-auto">
                 Try Demo
               </Button>
             </Link>
@@ -79,7 +79,7 @@ export const LandingPage = ({ initialSection = "hero" }: { initialSection?: "her
       </section>
 
       {/* Features Section */}
-      <section ref={featuresSectionRef} className="relative px-6 py-20 sm:py-28 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+      <section ref={featuresSectionRef} className="relative px-4 py-16 sm:px-6 sm:py-28 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
         {/* Background accent elements */}
         <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
           <div className="absolute top-0 left-1/4 h-px w-1/2 bg-gradient-to-r from-transparent via-sky-400 to-transparent opacity-20" />
@@ -167,20 +167,20 @@ export const LandingPage = ({ initialSection = "hero" }: { initialSection?: "her
       </section>
 
       {/* How It Works Section */}
-      <section className="relative px-6 py-20 sm:py-28 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border-t border-white/5">
+      <section className="relative px-4 py-16 sm:px-6 sm:py-28 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border-t border-white/5">
         {/* Background accent elements */}
         <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
           <div className="absolute -top-32 right-1/3 h-80 w-80 rounded-full bg-sky-600/10 blur-[120px]" />
           <div className="absolute bottom-0 left-1/4 h-96 w-96 rounded-full bg-amber-600/10 blur-[120px]" />
         </div>
         <div className="mx-auto max-w-4xl">
-          <h2 className="font-display text-4xl sm:text-5xl font-bold text-white text-center mb-16">
+          <h2 className="mb-12 text-center font-display text-3xl font-bold text-white sm:mb-16 sm:text-5xl">
             Ship campaigns in three steps
           </h2>
 
           <div className="space-y-8">
             {/* Step 1 */}
-            <div className="flex gap-6 items-start">
+            <div className="flex flex-col items-start gap-4 sm:flex-row sm:gap-6">
               <div className="h-12 w-12 min-w-12 rounded-full bg-gradient-to-br from-sky-400 to-cyan-300 flex items-center justify-center">
                 <span className="text-xl font-bold text-slate-950">1</span>
               </div>
@@ -193,7 +193,7 @@ export const LandingPage = ({ initialSection = "hero" }: { initialSection?: "her
             </div>
 
             {/* Step 2 */}
-            <div className="flex gap-6 items-start">
+            <div className="flex flex-col items-start gap-4 sm:flex-row sm:gap-6">
               <div className="h-12 w-12 min-w-12 rounded-full bg-gradient-to-br from-amber-400 to-orange-300 flex items-center justify-center">
                 <span className="text-xl font-bold text-slate-950">2</span>
               </div>
@@ -206,7 +206,7 @@ export const LandingPage = ({ initialSection = "hero" }: { initialSection?: "her
             </div>
 
             {/* Step 3 */}
-            <div className="flex gap-6 items-start">
+            <div className="flex flex-col items-start gap-4 sm:flex-row sm:gap-6">
               <div className="h-12 w-12 min-w-12 rounded-full bg-gradient-to-br from-pink-400 to-rose-300 flex items-center justify-center">
                 <span className="text-xl font-bold text-slate-950">3</span>
               </div>
@@ -222,21 +222,21 @@ export const LandingPage = ({ initialSection = "hero" }: { initialSection?: "her
       </section>
 
       {/* CTA Section */}
-      <section className="relative px-6 py-20 sm:py-32 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-950">
+      <section className="relative px-4 py-16 sm:px-6 sm:py-32 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-950">
         {/* Background accent elements */}
         <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
           <div className="absolute -top-32 left-1/4 h-80 w-80 rounded-full bg-sky-500/15 blur-[120px]" />
           <div className="absolute -bottom-32 right-1/3 h-80 w-80 rounded-full bg-cyan-500/10 blur-[120px]" />
         </div>
         <div className="mx-auto max-w-3xl text-center">
-          <h2 className="font-display text-4xl sm:text-5xl font-bold text-white mb-6">
+          <h2 className="mb-6 font-display text-3xl font-bold text-white sm:text-5xl">
             Ready to transform how you ship?
           </h2>
-          <p className="text-xl text-slate-400 mb-10">
+          <p className="mb-10 text-lg text-slate-400 sm:text-xl">
             Join teams that turned project management into something they actually enjoy using.
           </p>
           <Link to="/register">
-            <Button className="text-lg px-8 py-3 flex items-center gap-2 mx-auto">
+            <Button className="mx-auto flex w-full items-center justify-center gap-2 px-8 py-3 text-lg sm:w-auto">
               Create Your Free Campaign
               <ArrowRight className="h-5 w-5" />
             </Button>

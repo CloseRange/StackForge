@@ -151,11 +151,11 @@ export const NotificationBell = () => {
   };
 
   return (
-    <div className="relative" ref={rootRef}>
+    <div className="relative overflow-visible" ref={rootRef}>
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`btn-motion btn-shimmer relative flex h-9 w-9 items-center justify-center rounded-xl border transition ${
+        className={`btn-motion relative z-0 flex h-9 w-9 items-center justify-center rounded-xl border transition ${
           isDarkMode
             ? "border-white/12 bg-white/[0.04] text-slate-200 hover:bg-white/[0.09] hover:text-white"
             : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -163,16 +163,17 @@ export const NotificationBell = () => {
         aria-label="Open notifications"
       >
         <Mail className="h-4 w-4" />
-        {unreadCount > 0 ? (
-          <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full border border-slate-950 bg-rose-500 px-1 text-[10px] font-bold text-white">
-            {unreadCount > 99 ? "99+" : unreadCount}
-          </span>
-        ) : null}
       </button>
+
+      {unreadCount > 0 ? (
+        <span className="pointer-events-none absolute -right-2 -top-2 z-30 flex h-5 min-w-5 items-center justify-center rounded-full border border-slate-950 bg-rose-500 px-1 text-[10px] font-bold text-white shadow-[0_4px_10px_rgba(0,0,0,0.35)]">
+          {unreadCount > 99 ? "99+" : unreadCount}
+        </span>
+      ) : null}
 
       {isOpen ? (
         <div
-          className={`absolute right-0 top-11 z-50 w-[22rem] overflow-hidden rounded-2xl border shadow-2xl ${
+          className={`absolute right-0 top-11 z-50 w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border shadow-2xl ${
             isDarkMode
               ? "border-white/10 bg-slate-900 shadow-black/50"
               : "border-slate-200 bg-white shadow-slate-900/12"

@@ -127,7 +127,7 @@ export const ProfilePage = () => {
           <div className="mb-6 flex items-start justify-between gap-4">
             <div>
               <p className="text-xs uppercase tracking-[0.36em] text-cyan-300">Profile</p>
-              <h1 className="mt-2 font-display text-3xl font-semibold text-white">Your account details</h1>
+              <h1 className="mt-2 font-display text-2xl font-semibold text-white sm:text-3xl">Your account details</h1>
               <p className="mt-2 text-sm text-slate-400">Update your name, set your status, and share your user code.</p>
             </div>
             <div className="hidden rounded-2xl border border-cyan-300/20 bg-cyan-500/10 p-3 text-cyan-100 md:block">
@@ -220,7 +220,7 @@ export const ProfilePage = () => {
           <div className="mt-6 rounded-2xl border border-amber-300/20 bg-amber-500/10 p-4">
             <p className="text-xs uppercase tracking-[0.28em] text-amber-200">User code</p>
             <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="font-mono text-3xl font-bold tracking-[0.3em] text-white">{code}</p>
+              <p className="break-all font-mono text-2xl font-bold tracking-[0.18em] text-white sm:text-3xl sm:tracking-[0.3em]">{code}</p>
               <Button
                 variant="outline"
                 onClick={async () => {

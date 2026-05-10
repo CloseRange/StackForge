@@ -146,7 +146,7 @@ function PublicCard({ card, deckColor }: { card: Card; deckColor: string }) {
 
 function DeckColumn({ deck, cards }: { deck: Deck; cards: Card[] }) {
   return (
-    <section className="flex min-w-[17rem] flex-1 flex-col rounded-[2rem] border border-white/10 bg-slate-900/50 p-4">
+    <section className="flex min-w-[15rem] flex-1 flex-col rounded-[2rem] border border-white/10 bg-slate-900/50 p-4 sm:min-w-[17rem]">
       <div className="mb-4 flex items-center justify-between gap-2">
         <div>
           <ProjectIcon
@@ -232,7 +232,7 @@ export const PublicProjectPage = () => {
     <div className="min-h-screen bg-slate-950">
       {/* Top bar */}
       <header className="sticky top-0 z-10 border-b border-white/5 bg-slate-950/80 backdrop-blur">
-        <div className="mx-auto flex max-w-screen-2xl items-center justify-between gap-4 px-6 py-3">
+        <div className="mx-auto flex max-w-screen-2xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Link to="/" className="font-display text-sm font-bold text-sky-400">
             StackForge
           </Link>
@@ -244,7 +244,7 @@ export const PublicProjectPage = () => {
       </header>
 
       {/* Project hero */}
-      <div className="mx-auto max-w-screen-2xl px-6 py-10">
+      <div className="mx-auto max-w-screen-2xl px-4 py-8 sm:px-6 sm:py-10">
         <h1 className="font-display text-3xl font-bold text-white md:text-4xl">{project.name}</h1>
         {project.description ? (
           <p className="mt-3 max-w-2xl text-slate-400">{project.description}</p>
@@ -273,7 +273,7 @@ export const PublicProjectPage = () => {
       </div>
 
       {/* Board columns */}
-      <div className="mx-auto max-w-screen-2xl px-6 pb-16">
+      <div className="mx-auto max-w-screen-2xl px-4 pb-16 sm:px-6">
         {milestones.length > 0 ? (
           <section className="mb-8 rounded-2xl border border-white/10 bg-slate-900/60 p-5">
             <h2 className="text-lg font-semibold text-white">Timeline</h2>
@@ -285,7 +285,7 @@ export const PublicProjectPage = () => {
           </section>
         ) : null}
 
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="flex gap-4 overflow-x-auto pb-4 [scrollbar-width:thin]">
           {visibleDecks.map((deck) => (
             <DeckColumn
               key={deck.id}

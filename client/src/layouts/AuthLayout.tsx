@@ -29,7 +29,7 @@ export const AuthLayout = ({ children }: { children: ReactNode }) => {
           Track campaigns, move cards from deck to victory, and make progress visible through rarity and XP instead of flat lists.
         </div>
       </div>
-      <div className={`flex items-center justify-center px-6 py-12 ${
+      <div className={`flex items-center justify-center px-4 py-8 sm:px-6 sm:py-12 ${
         isDarkMode ? "" : "bg-slate-50"
       }`}>{children}</div>
     </div>

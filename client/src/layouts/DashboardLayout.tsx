@@ -13,22 +13,22 @@ export const DashboardLayout = ({ sidebar, children, backgroundIcon }: Dashboard
                      document.documentElement.getAttribute("data-theme") === "dark";
 
   const panelClasses = isDarkMode
-    ? "rounded-[2rem] border border-white/[0.22] bg-[linear-gradient(180deg,rgba(70,100,130,0.25),rgba(50,70,100,0.22))] p-5 shadow-glow"
-    : "rounded-[2rem] border border-slate-200 bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]";
+    ? "rounded-[2rem] border border-white/[0.22] bg-[linear-gradient(180deg,rgba(70,100,130,0.25),rgba(50,70,100,0.22))] p-4 sm:p-5 shadow-glow"
+    : "rounded-[2rem] border border-slate-200 bg-white p-4 sm:p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]";
 
   return (
-    <div className="min-h-screen px-4 py-4 md:px-6 md:py-6">
+    <div className="min-h-screen px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-6">
       <div
         className={`mx-auto grid min-h-[calc(100vh-5rem)] max-w-[1600px] gap-4 ${
           sidebar ? "lg:grid-cols-[320px_1fr]" : "lg:grid-cols-1"
         }`}
       >
         {sidebar ? (
-          <aside className={panelClasses}>
+          <aside className={`order-2 lg:order-1 ${panelClasses}`}>
             {sidebar}
           </aside>
         ) : null}
-        <div className={`relative overflow-hidden ${panelClasses}`}>
+        <div className={`relative order-1 overflow-hidden lg:order-2 ${panelClasses}`}>
           {backgroundIcon ? (
             <div
               aria-hidden="true"

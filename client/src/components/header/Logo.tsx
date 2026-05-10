@@ -19,7 +19,7 @@ export const Logo = ({ href = "/" }: LogoProps) => {
           isDarkMode ? "text-slate-950" : "text-white"
         }`}>SF</span>
       </div>
-      <span className={`font-display text-base font-semibold transition-colors ${
+      <span className={`hidden font-display text-base font-semibold transition-colors sm:inline ${
         isDarkMode
           ? "text-white group-hover:text-sky-300"
           : "text-slate-900 group-hover:text-blue-600"

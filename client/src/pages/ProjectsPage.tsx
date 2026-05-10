@@ -173,7 +173,7 @@ export const ProjectsPage = () => {
         </div>
       }>
         {error ? (
-          <div className="mb-4 flex items-center justify-between rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+          <div className="mb-4 flex flex-col items-start justify-between gap-3 rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200 sm:flex-row sm:items-center">
             <span>{error}</span>
             <Button variant="ghost" onClick={clearError}>
               Dismiss
@@ -220,7 +220,7 @@ export const ProjectsPage = () => {
                   <p className="mt-1 text-sm text-slate-400">{project.description || "No campaign brief yet."}</p>
                   <p className="mt-3 text-xs uppercase tracking-[0.08em] text-slate-400">{project.cardCount} cards</p>
 
-                  <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-3">
+                  <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/5 pt-3 sm:justify-between">
                     <button
                       type="button"
                       onClick={(e) => {

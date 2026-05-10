@@ -19,7 +19,7 @@ export const DashboardHeader = ({ onNewProject }: DashboardHeaderProps) => {
         ? "border-white/[0.12] bg-[linear-gradient(180deg,rgba(12,18,30,0.95),rgba(9,14,24,0.92))]"
         : "border-slate-200 bg-white"
     }`}>
-      <div className="mx-auto flex h-14 max-w-[1600px] items-center justify-between px-6">
+      <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-x-2 gap-y-2 px-3 py-2 sm:px-4 sm:py-2.5 md:px-6">
         {/* Left — logo */}
         <Logo href="/" />
 
@@ -38,8 +38,8 @@ export const DashboardHeader = ({ onNewProject }: DashboardHeaderProps) => {
         </nav>
 
         {/* Right — actions */}
-        <div className="flex items-center gap-3">
-          <div className={`hidden items-center gap-2 rounded-xl border px-3 py-1.5 md:flex ${
+        <div className="ml-auto flex items-center gap-1.5 sm:gap-3">
+          <div className={`hidden items-center gap-2 rounded-xl border px-3 py-1.5 lg:flex ${
             isDarkMode
               ? "border-white/12 bg-white/[0.04]"
               : "border-slate-200 bg-slate-50"
@@ -61,14 +61,14 @@ export const DashboardHeader = ({ onNewProject }: DashboardHeaderProps) => {
           <button
             type="button"
             onClick={onNewProject}
-            className={`btn-motion btn-shimmer flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-sm font-semibold transition ${
+            className={`btn-motion btn-shimmer flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-sm font-semibold transition sm:px-3.5 ${
               isDarkMode
                 ? "border-sky-200/35 bg-gradient-to-r from-sky-300 via-cyan-300 to-indigo-300 text-slate-950 shadow-md shadow-sky-500/20 hover:from-sky-200 hover:via-cyan-200 hover:to-indigo-200"
                 : "border-blue-300 bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-600"
             }`}
           >
             <Plus className="h-4 w-4" />
-            New Project
+            <span className="hidden sm:inline">New Project</span>
           </button>
 
           <NotificationBell />

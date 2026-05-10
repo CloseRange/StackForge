@@ -215,7 +215,7 @@ export const SettingsPage = () => {
 
             <div className="space-y-2">
 
-              <label className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2.5">
+              <label className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2.5">
                 <span className="text-sm text-slate-200">Milestone due date is approaching</span>
                 <input
                   type="checkbox"
@@ -227,7 +227,7 @@ export const SettingsPage = () => {
                 />
               </label>
 
-              <label className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2.5">
+              <label className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2.5">
                 <span className="text-sm text-slate-200">A milestone was completed</span>
                 <input
                   type="checkbox"
@@ -239,7 +239,7 @@ export const SettingsPage = () => {
                 />
               </label>
 
-              <label className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2.5">
+              <label className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2.5">
                 <span className="text-sm text-slate-200">I am added to a project</span>
                 <input
                   type="checkbox"
@@ -251,7 +251,7 @@ export const SettingsPage = () => {
                 />
               </label>
 
-              <label className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2.5">
+              <label className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2.5">
                 <span className="text-sm text-slate-200">A card assigned to me changed</span>
                 <input
                   type="checkbox"
@@ -263,7 +263,7 @@ export const SettingsPage = () => {
                 />
               </label>
 
-              <label className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2.5">
+              <label className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2.5">
                 <span className="text-sm text-slate-200">A new member joined one of my projects</span>
                 <input
                   type="checkbox"
