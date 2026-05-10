@@ -3,6 +3,7 @@ import { AppError } from "../middleware/errorHandler.js";
 import type { SFCardRow } from "../models/cardModel.js";
 import type { SFDeckRow } from "../models/deckModel.js";
 import type { MilestoneType, SFProjectMilestoneRow } from "../models/milestoneModel.js";
+import { notificationService } from "./notificationService.js";
 import { ensureProjectAccess } from "../utils/projectAccess.js";
 import { createMilestoneSchema, updateMilestoneSchema } from "../utils/validators.js";
 
@@ -240,6 +241,8 @@ export const milestoneService = {
       throw new AppError(error?.message ?? "Failed to create milestone", 500);
     }
 
+    await notificationService.syncMilestoneCompletionForProject(projectId, userId);
+
     const context = await getMilestoneContext(projectId);
     return serializeMilestone(data as SFProjectMilestoneRow, context);
   },
@@ -304,6 +307,8 @@ export const milestoneService = {
     if (error || !data) {
       throw new AppError(error?.message ?? "Failed to update milestone", 500);
     }
+
+    await notificationService.syncMilestoneCompletionForProject(projectId, userId);
 
     const context = await getMilestoneContext(projectId);
     return serializeMilestone(data as SFProjectMilestoneRow, context);

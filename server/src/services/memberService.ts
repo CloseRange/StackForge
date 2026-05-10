@@ -3,8 +3,10 @@ import { z } from "zod";
 import { supabaseAdmin } from "../config/db.js";
 import { AppError } from "../middleware/errorHandler.js";
 import { ensureProjectAccess, ensureProjectAdmin, ensureProjectOwner } from "../utils/projectAccess.js";
+import { listUserAliases, resolveUserDisplayName } from "../utils/userDisplay.js";
 import { setMemberPermissionsSchema, setRolePermissionsSchema } from "../utils/validators.js";
 import { activityService, buildActivityChanges } from "./activityService.js";
+import { notificationService } from "./notificationService.js";
 
 type UserMetadata = {
   displayName?: string;
@@ -92,12 +94,6 @@ const MEMBER_ACTIVITY_FIELD_LABELS: Record<string, string> = {
 const normalizeMetadata = (meta: unknown): UserMetadata => {
   if (!meta || typeof meta !== "object") return {};
   return meta as UserMetadata;
-};
-
-const resolveDisplayName = (email: string | null | undefined, meta: UserMetadata) => {
-  const fromMeta = meta.displayName?.trim() || `${meta.firstName ?? ""} ${meta.lastName ?? ""}`.trim();
-  if (fromMeta) return fromMeta;
-  return email?.split("@")[0]?.trim() || "Operator";
 };
 
 const normalizePermissionMode = (value: string | null | undefined) => {
@@ -302,7 +298,8 @@ const toMemberSummary = (
   user: { id: string; email?: string | null; user_metadata?: unknown },
   role: string,
   joinedAt?: string,
-  roleId?: string | null
+  roleId?: string | null,
+  aliasName?: string | null
 ): MemberSummary => {
   const meta = normalizeMetadata(user.user_metadata);
 
@@ -311,7 +308,7 @@ const toMemberSummary = (
     role,
     roleId: roleId ?? null,
     joinedAt,
-    displayName: resolveDisplayName(user.email, meta),
+    displayName: resolveUserDisplayName(user.email, meta, aliasName),
     firstName: meta.firstName ?? "",
     lastName: meta.lastName ?? "",
     statusMessage: meta.statusMessage ?? "",
@@ -320,7 +317,11 @@ const toMemberSummary = (
   };
 };
 
-const enrichMember = async (member: MemberRow, roleMap: Map<string, RoleRow>) => {
+const enrichMember = async (
+  member: MemberRow,
+  roleMap: Map<string, RoleRow>,
+  aliasMap: Map<string, string> = new Map<string, string>()
+) => {
   const { data, error } = await supabaseAdmin.auth.admin.getUserById(member.user_id);
   const role = roleMap.get(member.role_id);
 
@@ -340,7 +341,13 @@ const enrichMember = async (member: MemberRow, roleMap: Map<string, RoleRow>) =>
     };
   }
 
-  return toMemberSummary(data.user, role?.name ?? member.role ?? "user", member.created_at, member.role_id);
+  return toMemberSummary(
+    data.user,
+    role?.name ?? member.role ?? "user",
+    member.created_at,
+    member.role_id,
+    aliasMap.get(member.user_id) ?? null
+  );
 };
 
 const toMemberActivityState = (member: MemberSummary) => ({
@@ -386,6 +393,11 @@ export const memberService = {
 
     const roleRows = await listProjectRoles(projectId);
     const roleMap = new Map(roleRows.map((role) => [role.id, role]));
+    const ownerId = (project as { owner_id: string } | null)?.owner_id ?? null;
+    const aliasMap = await listUserAliases([
+      ...(ownerId ? [ownerId] : []),
+      ...(rows as MemberRow[]).map((row) => row.user_id)
+    ]);
     const memberCountByRoleId = new Map<string, number>();
 
     for (const row of rows as MemberRow[]) {
@@ -394,10 +406,9 @@ export const memberService = {
 
     const roles = roleRows.map((role) => toRoleSummary(role, memberCountByRoleId.get(role.id) ?? 0));
 
-    const members = await Promise.all((rows as MemberRow[]).map((row) => enrichMember(row, roleMap)));
+    const members = await Promise.all((rows as MemberRow[]).map((row) => enrichMember(row, roleMap, aliasMap)));
     const filtered = members.filter(Boolean);
 
-    const ownerId = (project as { owner_id: string } | null)?.owner_id ?? null;
     let owner: MemberSummary | null = null;
 
     if (ownerId) {
@@ -405,7 +416,13 @@ export const memberService = {
 
       if (!ownerError && ownerAuth.user) {
         const adminRole = roleRows.find((role) => isAdminRoleName(role.name));
-        owner = toMemberSummary(ownerAuth.user, adminRole?.name ?? "admin", undefined, adminRole?.id ?? null);
+        owner = toMemberSummary(
+          ownerAuth.user,
+          adminRole?.name ?? "admin",
+          undefined,
+          adminRole?.id ?? null,
+          aliasMap.get(ownerId) ?? null
+        );
       }
     }
 
@@ -547,11 +564,12 @@ export const memberService = {
 
     const { data: project } = await supabaseAdmin
       .from("sf_projects")
-      .select("owner_id")
+      .select("owner_id, name")
       .eq("id", projectId)
       .single();
 
-    const ownerId = (project as { owner_id: string } | null)?.owner_id;
+    const ownerId = (project as { owner_id: string; name?: string } | null)?.owner_id;
+    const projectName = (project as { owner_id: string; name?: string } | null)?.name ?? "project";
 
     if (!ownerId) {
       throw new AppError("Project not found", 404);
@@ -624,6 +642,21 @@ export const memberService = {
       metadata: {
         invitedBy: actorUserId
       }
+    });
+
+    await notificationService.notifyAddedToProject({
+      projectId,
+      projectName,
+      addedUserId: member.id,
+      actorUserId
+    });
+
+    await notificationService.notifyProjectMemberJoined({
+      projectId,
+      projectName,
+      joinedUserId: member.id,
+      joinedDisplayName: member.displayName,
+      actorUserId
     });
 
     return member;

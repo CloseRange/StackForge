@@ -2,6 +2,7 @@ import { supabaseAdmin } from "../config/db.js";
 import { AppError } from "../middleware/errorHandler.js";
 import type { SFDeckRow } from "../models/deckModel.js";
 import { activityService, buildActivityChanges } from "./activityService.js";
+import { notificationService } from "./notificationService.js";
 import { serializeDeck } from "../utils/cardTransforms.js";
 import { canCreateDeck, canReadDeck, canWriteDeck, getProjectMemberPolicy } from "../utils/memberPermissions.js";
 import { ensureProjectAccess } from "../utils/projectAccess.js";
@@ -204,6 +205,8 @@ export const deckService = {
       }
     });
 
+    await notificationService.syncMilestoneCompletionForProject(createdDeck.project_id, userId);
+
     return serializeDeck(createdDeck);
   },
 
@@ -331,6 +334,8 @@ export const deckService = {
       });
     }
 
+    await notificationService.syncMilestoneCompletionForProject(updatedDeck.project_id, userId);
+
     return serializeDeck(updatedDeck);
   },
 
@@ -411,5 +416,7 @@ export const deckService = {
         isSystem: existingDeck.is_system
       }
     });
+
+    await notificationService.syncMilestoneCompletionForProject(existingDeck.project_id, userId);
   }
 };

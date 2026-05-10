@@ -3,6 +3,7 @@ import { env } from "../config/env.js";
 import { AppError } from "../middleware/errorHandler.js";
 import type { SFCardWithChecklist } from "../models/cardModel.js";
 import { activityService, buildActivityChanges } from "./activityService.js";
+import { notificationService } from "./notificationService.js";
 import {
   difficultyToXp,
   serializeCard,
@@ -11,6 +12,7 @@ import {
 } from "../utils/cardTransforms.js";
 import { canReadDeck, canWriteDeck, getProjectMemberPolicy } from "../utils/memberPermissions.js";
 import { ensureProjectAccess } from "../utils/projectAccess.js";
+import { getUserAlias, resolveUserDisplayName } from "../utils/userDisplay.js";
 import {
   assignCardSchema,
   createCardSchema,
@@ -29,8 +31,37 @@ const CARD_ACTIVITY_FIELD_LABELS: Record<string, string> = {
   assigneeName: "Assignee",
   boardSlot: "Board Slot",
   tags: "Tags",
-  checklist: "Checklist"
+  checklist: "Checklist",
+  dependencies: "Dependencies"
 };
+
+type CardDependencyInput = {
+  dependsOnCardId: string;
+  requiredDeckId: string | null;
+};
+
+type CardDependencyView = {
+  dependsOnCardId: string;
+  requiredDeckId: string | null;
+  dependsOnCardTitle: string;
+  requiredDeckName: string;
+  isSatisfied: boolean;
+};
+
+type CardDependencyState = {
+  dependencies: CardDependencyView[];
+  isActive: boolean;
+  blockedBy: string[];
+};
+
+const defaultDependencyState = (): CardDependencyState => ({
+  dependencies: [],
+  isActive: true,
+  blockedBy: []
+});
+
+const isMissingCardDependenciesTableError = (message: string | null | undefined) =>
+  (message ?? "").includes("sf_card_dependencies");
 
 type AssigneeMetadata = {
   displayName?: string;
@@ -87,23 +118,6 @@ const getSignedAvatarUrl = async (path: string) => {
   return data.signedUrl;
 };
 
-const resolveAssigneeDisplayName = (email: string | null | undefined, metadata: AssigneeMetadata) => {
-  const fromMetadata = metadata.displayName?.trim();
-
-  if (fromMetadata) {
-    return fromMetadata;
-  }
-
-  const composed = `${metadata.firstName ?? ""} ${metadata.lastName ?? ""}`.trim();
-
-  if (composed) {
-    return composed;
-  }
-
-  const local = email?.split("@")[0]?.trim();
-  return local || "Operator";
-};
-
 const resolveAssigneeAvatar = async (metadata: AssigneeMetadata) => {
   const path = metadata.avatarPath ?? getAvatarPathFromUrl(metadata.avatarUrl);
 
@@ -130,9 +144,10 @@ const getAssigneeSummary = async (
   }
 
   const metadata = normalizeAssigneeMetadata(data.user.user_metadata);
+  const aliasName = await getUserAlias(assigneeId);
   const summary: AssigneeSummary = {
     id: data.user.id,
-    displayName: resolveAssigneeDisplayName(data.user.email, metadata),
+    displayName: resolveUserDisplayName(data.user.email, metadata, aliasName),
     avatarUrl: await resolveAssigneeAvatar(metadata)
   };
 
@@ -141,15 +156,35 @@ const getAssigneeSummary = async (
 };
 
 const serializeCardsWithAssignees = async (cards: SFCardWithChecklist[]) => {
+  if (cards.length === 0) {
+    return [];
+  }
+
   const cache = new Map<string, AssigneeSummary | null>();
   const assigneeIds = [...new Set(cards.map((card) => card.assignee_id).filter(Boolean) as string[])];
+  const projectId = cards[0]?.project_id;
+
+  if (!projectId) {
+    return [];
+  }
 
   await Promise.all(assigneeIds.map((assigneeId) => getAssigneeSummary(assigneeId, cache)));
+  const dependencyState = await evaluateCardDependencyState(
+    projectId,
+    cards.map((card) => card.id)
+  );
 
-  return cards.map((card) => ({
-    ...serializeCard(card),
-    assignee: card.assignee_id ? cache.get(card.assignee_id) ?? null : null
-  }));
+  return cards.map((card) => {
+    const state = dependencyState.get(card.id) ?? defaultDependencyState();
+
+    return {
+      ...serializeCard(card),
+      assignee: card.assignee_id ? cache.get(card.assignee_id) ?? null : null,
+      dependencies: state.dependencies,
+      isActive: state.isActive,
+      blockedBy: state.blockedBy
+    };
+  });
 };
 
 const serializeCardWithAssignee = async (card: SFCardWithChecklist) => {
@@ -208,6 +243,287 @@ const getProjectBoardSlotLimit = async (projectId: string) => {
   }
 
   return Math.min(10, Math.max(1, raw));
+};
+
+const normalizeDependencyInputs = (
+  items: Array<{ dependsOnCardId: string; requiredDeckId?: string | null }>
+) => {
+  const seen = new Set<string>();
+  const normalized: CardDependencyInput[] = [];
+
+  for (const item of items) {
+    const key = item.dependsOnCardId;
+
+    if (seen.has(key)) {
+      throw new AppError("Each prerequisite card can only be added once", 400);
+    }
+
+    seen.add(key);
+    normalized.push({
+      dependsOnCardId: item.dependsOnCardId,
+      requiredDeckId: item.requiredDeckId ?? null
+    });
+  }
+
+  return normalized;
+};
+
+const validateDependencyTargets = async (
+  projectId: string,
+  dependencies: CardDependencyInput[],
+  sourceCardId?: string
+) => {
+  if (dependencies.length === 0) {
+    return;
+  }
+
+  const dependencyIds = dependencies.map((item) => item.dependsOnCardId);
+  const requiredDeckIds = dependencies
+    .map((item) => item.requiredDeckId)
+    .filter((value): value is string => Boolean(value));
+
+  if (sourceCardId && dependencyIds.includes(sourceCardId)) {
+    throw new AppError("A card cannot depend on itself", 400);
+  }
+
+  const { data: cards, error: cardsError } = await supabaseAdmin
+    .from("sf_cards")
+    .select("id")
+    .eq("project_id", projectId)
+    .in("id", dependencyIds);
+
+  const { data: decks, error: decksError } =
+    requiredDeckIds.length > 0
+      ? await supabaseAdmin
+          .from("sf_decks")
+          .select("id")
+          .eq("project_id", projectId)
+          .in("id", requiredDeckIds)
+      : { data: [], error: null };
+
+  if (cardsError) {
+    throw new AppError(cardsError.message, 500);
+  }
+
+  if (decksError) {
+    throw new AppError(decksError.message, 500);
+  }
+
+  const validCardIds = new Set(((cards ?? []) as Array<{ id: string }>).map((row) => row.id));
+  const validDeckIds = new Set(((decks ?? []) as Array<{ id: string }>).map((row) => row.id));
+
+  for (const dependencyId of dependencyIds) {
+    if (!validCardIds.has(dependencyId)) {
+      throw new AppError("Dependency card must belong to the same project", 400);
+    }
+  }
+
+  for (const deckId of requiredDeckIds) {
+    if (!validDeckIds.has(deckId)) {
+      throw new AppError("Dependency deck must belong to the same project", 400);
+    }
+  }
+};
+
+const listStoredDependenciesBySource = async (sourceCardId: string) => {
+  const { data, error } = await supabaseAdmin
+    .from("sf_card_dependencies")
+    .select("source_card_id, depends_on_card_id, required_deck_id")
+    .eq("source_card_id", sourceCardId);
+
+  if (error) {
+    if (isMissingCardDependenciesTableError(error.message)) {
+      return [] as CardDependencyInput[];
+    }
+
+    throw new AppError(error.message, 500);
+  }
+
+  return ((data ?? []) as Array<{
+    source_card_id: string;
+    depends_on_card_id: string;
+    required_deck_id: string | null;
+  }>).map((row) => ({
+    dependsOnCardId: row.depends_on_card_id,
+    requiredDeckId: row.required_deck_id
+  }));
+};
+
+const replaceDependencies = async (sourceCardId: string, dependencies: CardDependencyInput[]) => {
+  try {
+    await supabaseAdmin.from("sf_card_dependencies").delete().eq("source_card_id", sourceCardId);
+
+    if (dependencies.length > 0) {
+      const { error } = await supabaseAdmin.from("sf_card_dependencies").insert(
+        dependencies.map((item) => ({
+          source_card_id: sourceCardId,
+          depends_on_card_id: item.dependsOnCardId,
+          required_deck_id: item.requiredDeckId
+        }))
+      );
+
+      if (error) {
+        throw error;
+      }
+    }
+  } catch (error) {
+    if (error instanceof Error && isMissingCardDependenciesTableError(error.message)) {
+      throw new AppError("Card dependencies are not available until latest migrations are applied", 500);
+    }
+
+    throw error;
+  }
+};
+
+const evaluateCardDependencyState = async (
+  projectId: string,
+  sourceCardIds: string[],
+  sourceOverrides?: Map<string, CardDependencyInput[]>
+) => {
+  const stateBySource = new Map<string, CardDependencyState>();
+
+  for (const sourceCardId of sourceCardIds) {
+    stateBySource.set(sourceCardId, defaultDependencyState());
+  }
+
+  if (sourceCardIds.length === 0) {
+    return stateBySource;
+  }
+
+  let dependencyRows: Array<{
+    source_card_id: string;
+    depends_on_card_id: string;
+    required_deck_id: string | null;
+  }> = [];
+
+  const sourceIdsNeedingQuery = sourceCardIds.filter((id) => !sourceOverrides?.has(id));
+
+  if (sourceIdsNeedingQuery.length > 0) {
+    const { data, error } = await supabaseAdmin
+      .from("sf_card_dependencies")
+      .select("source_card_id, depends_on_card_id, required_deck_id")
+      .in("source_card_id", sourceIdsNeedingQuery);
+
+    if (error) {
+      if (isMissingCardDependenciesTableError(error.message)) {
+        return stateBySource;
+      }
+
+      throw new AppError(error.message, 500);
+    }
+
+    dependencyRows = (data ?? []) as Array<{
+      source_card_id: string;
+      depends_on_card_id: string;
+      required_deck_id: string | null;
+    }>;
+  }
+
+  if (sourceOverrides) {
+    for (const [sourceCardId, dependencies] of sourceOverrides.entries()) {
+      for (const dependency of dependencies) {
+        dependencyRows.push({
+          source_card_id: sourceCardId,
+          depends_on_card_id: dependency.dependsOnCardId,
+          required_deck_id: dependency.requiredDeckId
+        });
+      }
+    }
+  }
+
+  if (dependencyRows.length === 0) {
+    return stateBySource;
+  }
+
+  const [{ data: projectCards, error: cardsError }, { data: projectDecks, error: decksError }] = await Promise.all([
+    supabaseAdmin
+      .from("sf_cards")
+      .select("id, title, deck_id")
+      .eq("project_id", projectId),
+    supabaseAdmin
+      .from("sf_decks")
+      .select("id, name, system_key")
+      .eq("project_id", projectId)
+  ]);
+
+  if (cardsError) {
+    throw new AppError(cardsError.message, 500);
+  }
+
+  if (decksError) {
+    throw new AppError(decksError.message, 500);
+  }
+
+  const cardsById = new Map(
+    ((projectCards ?? []) as Array<{ id: string; title: string; deck_id: string }>).map((row) => [row.id, row])
+  );
+  const decksById = new Map(
+    ((projectDecks ?? []) as Array<{ id: string; name: string; system_key: string | null }>).map((row) => [
+      row.id,
+      row
+    ])
+  );
+  const completedDeck = ((projectDecks ?? []) as Array<{ id: string; name: string; system_key: string | null }>).find(
+    (deck) => deck.system_key === "COMPLETED"
+  );
+
+  for (const row of dependencyRows) {
+    const sourceState = stateBySource.get(row.source_card_id);
+
+    if (!sourceState) {
+      continue;
+    }
+
+    const prerequisiteCard = cardsById.get(row.depends_on_card_id);
+    const requiredDeckId = row.required_deck_id ?? completedDeck?.id ?? null;
+    const requiredDeckName =
+      (requiredDeckId ? decksById.get(requiredDeckId)?.name : null) ?? completedDeck?.name ?? "completion deck";
+    const isSatisfied = Boolean(
+      prerequisiteCard && requiredDeckId && prerequisiteCard.deck_id === requiredDeckId
+    );
+
+    sourceState.dependencies.push({
+      dependsOnCardId: row.depends_on_card_id,
+      requiredDeckId,
+      dependsOnCardTitle: prerequisiteCard?.title ?? "Unknown card",
+      requiredDeckName,
+      isSatisfied
+    });
+  }
+
+  for (const sourceCardId of sourceCardIds) {
+    const state = stateBySource.get(sourceCardId);
+
+    if (!state || state.dependencies.length === 0) {
+      continue;
+    }
+
+    state.isActive = state.dependencies.every((dependency) => dependency.isSatisfied);
+    state.blockedBy = state.dependencies
+      .filter((dependency) => !dependency.isSatisfied)
+      .map((dependency) => `${dependency.dependsOnCardTitle} in ${dependency.requiredDeckName}`);
+  }
+
+  return stateBySource;
+};
+
+const ensureCardIsActiveForClaim = async (
+  projectId: string,
+  sourceCardId: string,
+  options?: { dependenciesOverride?: CardDependencyInput[] }
+) => {
+  const overrides = options?.dependenciesOverride
+    ? new Map<string, CardDependencyInput[]>([[sourceCardId, options.dependenciesOverride]])
+    : undefined;
+  const dependencyState = await evaluateCardDependencyState(projectId, [sourceCardId], overrides);
+  const state = dependencyState.get(sourceCardId) ?? defaultDependencyState();
+
+  if (!state.isActive) {
+    throw new AppError(
+      `Card cannot be claimed yet. Blocked by: ${state.blockedBy.join(", ")}`,
+      409
+    );
+  }
 };
 
 const fetchCardForUser = async (cardId: string, userId: string) => {
@@ -320,6 +636,13 @@ const toCardActivityState = async (card: SFCardWithChecklist) => {
     assigneeName: serialized.assignee?.displayName ?? null,
     boardSlot: serialized.boardSlot ?? null,
     tags: serialized.tags,
+    dependencies: serialized.dependencies.map((dependency) => ({
+      dependsOnCardId: dependency.dependsOnCardId,
+      dependsOnCardTitle: dependency.dependsOnCardTitle,
+      requiredDeckId: dependency.requiredDeckId,
+      requiredDeckName: dependency.requiredDeckName,
+      isSatisfied: dependency.isSatisfied
+    })),
     checklist: serialized.checklist.map((item) => ({
       label: item.label,
       completed: item.completed,
@@ -350,6 +673,7 @@ export const cardService = {
 
   async create(userId: string, payload: unknown) {
     const input = createCardSchema.parse(payload);
+    const normalizedDependencies = normalizeDependencyInputs(input.dependencies);
     await ensureProjectAccess(input.projectId, userId);
     const policy = await getProjectMemberPolicy(input.projectId, userId);
 
@@ -357,7 +681,16 @@ export const cardService = {
       throw new AppError("You do not have permission to create cards in this deck", 403);
     }
 
+    await validateDependencyTargets(input.projectId, normalizedDependencies);
+
     const assigneeId = await ensureAssignee(input.assigneeId);
+
+    if (assigneeId) {
+      await ensureCardIsActiveForClaim(input.projectId, "__new-card__", {
+        dependenciesOverride: normalizedDependencies
+      });
+    }
+
     const deck = await ensureDeckForProject(input.deckId, input.projectId);
     ensureDeckCanAssign(deck, Boolean(assigneeId));
 
@@ -394,6 +727,10 @@ export const cardService = {
       await replaceChecklist(card.id, input.checklist);
     }
 
+    if (normalizedDependencies.length > 0) {
+      await replaceDependencies(card.id, normalizedDependencies);
+    }
+
     const createdCard = await fetchCardById(card.id);
     const afterState = await toCardActivityState(createdCard);
 
@@ -412,11 +749,24 @@ export const cardService = {
       }
     });
 
+    await notificationService.notifyAssignedCardChanged({
+      projectId: createdCard.project_id,
+      cardId: createdCard.id,
+      cardTitle: createdCard.title,
+      assigneeId: createdCard.assignee_id,
+      actorUserId: userId,
+      message: `A card assigned to you was created: ${createdCard.title}`
+    });
+
+    await notificationService.syncMilestoneCompletionForProject(createdCard.project_id, userId);
+
     return serializeCardWithAssignee(createdCard);
   },
 
   async update(cardId: string, userId: string, payload: unknown) {
     const input = updateCardSchema.parse(payload);
+    const normalizedDependencies =
+      input.dependencies !== undefined ? normalizeDependencyInputs(input.dependencies) : undefined;
     const existingCard = await fetchCardForUser(cardId, userId);
     const beforeState = await toCardActivityState(existingCard);
     const policy = await getProjectMemberPolicy(existingCard.project_id, userId);
@@ -427,6 +777,10 @@ export const cardService = {
 
     if (input.deckId && !canWriteDeck(policy, input.deckId)) {
       throw new AppError("You do not have permission to move cards to that deck", 403);
+    }
+
+    if (normalizedDependencies !== undefined) {
+      await validateDependencyTargets(existingCard.project_id, normalizedDependencies, existingCard.id);
     }
 
     ensureCardClaimIsMutable(existingCard, userId, { isChangingAssignee: input.assigneeId !== undefined });
@@ -472,6 +826,17 @@ export const cardService = {
 
     ensureDeckCanAssign(nextDeck, Boolean(nextAssigneeId));
 
+    if (nextAssigneeId) {
+      const dependencySource =
+        normalizedDependencies !== undefined
+          ? normalizedDependencies
+          : await listStoredDependenciesBySource(existingCard.id);
+
+      await ensureCardIsActiveForClaim(existingCard.project_id, existingCard.id, {
+        dependenciesOverride: dependencySource
+      });
+    }
+
     if (Object.keys(updateFields).length > 0) {
       const { error } = await supabaseAdmin
         .from("sf_cards")
@@ -485,6 +850,10 @@ export const cardService = {
 
     if (input.checklist !== undefined) {
       await replaceChecklist(cardId, input.checklist);
+    }
+
+    if (normalizedDependencies !== undefined) {
+      await replaceDependencies(cardId, normalizedDependencies);
     }
 
     const updatedCard = await fetchCardById(cardId);
@@ -510,7 +879,18 @@ export const cardService = {
           changeCount: changes.length
         }
       });
+
+      await notificationService.notifyAssignedCardChanged({
+        projectId: updatedCard.project_id,
+        cardId: updatedCard.id,
+        cardTitle: updatedCard.title,
+        assigneeId: afterState.assigneeId,
+        actorUserId: userId,
+        message: `A card assigned to you changed: ${updatedCard.title}`
+      });
     }
+
+    await notificationService.syncMilestoneCompletionForProject(updatedCard.project_id, userId);
 
     return serializeCardWithAssignee(updatedCard);
   },
@@ -531,6 +911,10 @@ export const cardService = {
     const nextAssigneeId = await ensureAssignee(input.assigneeId);
 
     ensureDeckCanAssign(deck, Boolean(nextAssigneeId));
+
+    if (nextAssigneeId) {
+      await ensureCardIsActiveForClaim(existingCard.project_id, existingCard.id);
+    }
 
     const { error } = await supabaseAdmin
       .from("sf_cards")
@@ -563,6 +947,19 @@ export const cardService = {
         assigneeName: afterState.assigneeName
       }
     });
+
+    await notificationService.notifyAssignedCardChanged({
+      projectId: updatedCard.project_id,
+      cardId: updatedCard.id,
+      cardTitle: updatedCard.title,
+      assigneeId: afterState.assigneeId,
+      actorUserId: userId,
+      message: afterState.assigneeName
+        ? `Assignment changed for card: ${updatedCard.title}`
+        : `You are no longer assigned to card: ${updatedCard.title}`
+    });
+
+    await notificationService.syncMilestoneCompletionForProject(updatedCard.project_id, userId);
 
     return serializeCardWithAssignee(updatedCard);
   },
@@ -599,5 +996,7 @@ export const cardService = {
         deckName: beforeState.deckName
       }
     });
+
+    await notificationService.syncMilestoneCompletionForProject(card.project_id, userId);
   }
 };

@@ -7,9 +7,10 @@ import { useAuth } from "../hooks/useAuth";
 import { DashboardLayout } from "../layouts/DashboardLayout";
 
 export const ProfilePage = () => {
-  const { token, user, refreshProfile, updateProfile, uploadAvatar } = useAuth();
+  const { token, user, accountSettings, getSettings, refreshProfile, updateProfile, updateSettings, uploadAvatar } = useAuth();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [aliasName, setAliasName] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
@@ -21,7 +22,8 @@ export const ProfilePage = () => {
     }
 
     void refreshProfile();
-  }, [token]);
+    void getSettings();
+  }, [getSettings, refreshProfile, token]);
 
   useEffect(() => {
     setFirstName(user?.firstName ?? "");
@@ -29,15 +31,29 @@ export const ProfilePage = () => {
     setStatusMessage(user?.statusMessage ?? "");
   }, [user?.firstName, user?.lastName, user?.statusMessage]);
 
+  useEffect(() => {
+    setAliasName(accountSettings?.aliasName ?? "");
+  }, [accountSettings?.aliasName]);
+
   const code = user?.userCode || "----";
 
   const isDirty = useMemo(() => {
     return (
       firstName.trim() !== (user?.firstName ?? "") ||
       lastName.trim() !== (user?.lastName ?? "") ||
+      aliasName.trim() !== (accountSettings?.aliasName ?? "") ||
       statusMessage.trim() !== (user?.statusMessage ?? "")
     );
-  }, [firstName, lastName, statusMessage, user?.firstName, user?.lastName, user?.statusMessage]);
+  }, [
+    accountSettings?.aliasName,
+    aliasName,
+    firstName,
+    lastName,
+    statusMessage,
+    user?.firstName,
+    user?.lastName,
+    user?.statusMessage
+  ]);
 
   const handleSave = async () => {
     if (!isDirty) {
@@ -48,11 +64,24 @@ export const ProfilePage = () => {
     setSaveMessage(null);
 
     try {
-      await updateProfile({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        statusMessage: statusMessage.trim()
-      });
+      const normalizedAlias = aliasName.trim();
+      const profileChanged =
+        firstName.trim() !== (user?.firstName ?? "") ||
+        lastName.trim() !== (user?.lastName ?? "") ||
+        statusMessage.trim() !== (user?.statusMessage ?? "");
+      const aliasChanged = normalizedAlias !== (accountSettings?.aliasName ?? "");
+
+      if (profileChanged) {
+        await updateProfile({
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          statusMessage: statusMessage.trim()
+        });
+      }
+
+      if (aliasChanged) {
+        await updateSettings({ aliasName: normalizedAlias });
+      }
 
       setSaveMessage("Profile saved.");
     } catch {
@@ -90,20 +119,10 @@ export const ProfilePage = () => {
     }
   };
 
-  const sidebar = (
-    <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-5">
-      <p className="text-xs uppercase tracking-[0.36em] text-sky-300">Identity</p>
-      <h2 className="mt-3 font-display text-2xl font-semibold text-white">Operator profile</h2>
-      <p className="mt-2 text-sm text-slate-400">
-        Keep your account details current so teammates can find and recognize you quickly.
-      </p>
-    </div>
-  );
-
   return (
     <>
       <Header variant="dashboard" />
-      <DashboardLayout sidebar={sidebar}>
+      <DashboardLayout>
         <section className="rounded-[1.75rem] border border-white/10 bg-slate-900/60 p-5 md:p-7">
           <div className="mb-6 flex items-start justify-between gap-4">
             <div>
@@ -170,6 +189,19 @@ export const ProfilePage = () => {
                 placeholder="Lovelace"
                 className="w-full rounded-xl border border-white/12 bg-white/5 px-4 py-2.5 text-sm text-white outline-none"
               />
+            </label>
+            <label className="md:col-span-2 space-y-2">
+              <span className="text-sm font-semibold text-white">Alias</span>
+              <input
+                value={aliasName}
+                onChange={(event) => setAliasName(event.target.value)}
+                placeholder={user?.displayName ?? "Choose an alias"}
+                maxLength={40}
+                className="w-full rounded-xl border border-white/12 bg-white/5 px-4 py-2.5 text-sm text-white outline-none"
+              />
+              <span className="text-xs text-slate-500">
+                When set, your alias is shown around the app instead of your normal display name.
+              </span>
             </label>
           </div>
 

@@ -26,4 +26,13 @@ export type SFCardRow = {
 
 export type SFCardWithChecklist = SFCardRow & {
   checklist: SFChecklistItemRow[];
+  dependencies?: SFCardDependencyRow[];
+};
+
+export type SFCardDependencyRow = {
+  id: string;
+  source_card_id: string;
+  depends_on_card_id: string;
+  required_deck_id: string | null;
+  created_at: string;
 };

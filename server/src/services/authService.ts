@@ -1,7 +1,16 @@
 import { supabaseAdmin, supabaseAnon } from "../config/db.js";
 import { env } from "../config/env.js";
 import { AppError } from "../middleware/errorHandler.js";
-import { loginSchema, registerSchema, updateAccountSettingsSchema, updateProfileSchema } from "../utils/validators.js";
+import { notificationService } from "./notificationService.js";
+import { getUserAlias, resolveUserDisplayName } from "../utils/userDisplay.js";
+import {
+  loginSchema,
+  registerSchema,
+  updateAccountSettingsSchema,
+  updateEmailSchema,
+  updatePasswordSchema,
+  updateProfileSchema
+} from "../utils/validators.js";
 
 type AuthMetadata = {
   displayName?: string;
@@ -22,43 +31,93 @@ type ThemePreference = "system" | "light" | "dark";
 
 type AccountSettings = {
   theme: ThemePreference;
+  aliasName: string;
   emailMentions: boolean;
   weeklyDigest: boolean;
   desktopAlerts: boolean;
   compactBoardCards: boolean;
-  cardGlowIntensity: number;
+  showCardDetails: boolean;
+  showCardPriority: boolean;
+  priorityDisplayMode: "generic" | "rarity";
+  showCardDifficulty: boolean;
+  difficultyDisplayMode: "generic" | "experience";
+  notifyMilestoneDueSoon: boolean;
+  notifyMilestoneCompleted: boolean;
+  notifyAddedToProject: boolean;
+  notifyAssignedCardChanged: boolean;
+  notifyProjectMemberJoined: boolean;
 };
 
 type UserSettingsRow = {
   user_id: string;
   theme_preference: ThemePreference;
+  alias_name?: string | null;
   email_mentions: boolean;
   weekly_digest: boolean;
   desktop_alerts: boolean;
   compact_board_cards: boolean;
-  card_glow_intensity?: number;
+  show_card_details?: boolean;
+  show_card_priority?: boolean;
+  priority_display_mode?: "generic" | "rarity";
+  show_card_difficulty?: boolean;
+  difficulty_display_mode?: "generic" | "experience";
+  notify_milestone_due_soon?: boolean;
+  notify_milestone_completed?: boolean;
+  notify_added_to_project?: boolean;
+  notify_assigned_card_changed?: boolean;
+  notify_project_member_joined?: boolean;
 };
 
-const isMissingCardGlowIntensityColumnError = (message: string | null | undefined) =>
-  (message ?? "").includes("sf_user_settings.card_glow_intensity");
+const isMissingCardDisplayPreferencesColumnError = (message: string | null | undefined) =>
+  (message ?? "").includes("sf_user_settings.alias_name") ||
+  (message ?? "").includes("sf_user_settings.show_card_details") ||
+  (message ?? "").includes("sf_user_settings.show_card_priority") ||
+  (message ?? "").includes("sf_user_settings.priority_display_mode") ||
+  (message ?? "").includes("sf_user_settings.show_card_difficulty") ||
+  (message ?? "").includes("sf_user_settings.difficulty_display_mode") ||
+  (message ?? "").includes("sf_user_settings.notify_milestone_due_soon") ||
+  (message ?? "").includes("sf_user_settings.notify_milestone_completed") ||
+  (message ?? "").includes("sf_user_settings.notify_added_to_project") ||
+  (message ?? "").includes("sf_user_settings.notify_assigned_card_changed") ||
+  (message ?? "").includes("sf_user_settings.notify_project_member_joined");
 
 const defaultAccountSettings = (): AccountSettings => ({
   theme: "system",
+  aliasName: "",
   emailMentions: true,
   weeklyDigest: false,
   desktopAlerts: true,
   compactBoardCards: false,
-  cardGlowIntensity: 100
+  showCardDetails: true,
+  showCardPriority: true,
+  priorityDisplayMode: "rarity",
+  showCardDifficulty: true,
+  difficultyDisplayMode: "experience",
+  notifyMilestoneDueSoon: true,
+  notifyMilestoneCompleted: true,
+  notifyAddedToProject: true,
+  notifyAssignedCardChanged: true,
+  notifyProjectMemberJoined: true
 });
 
 const mapUserSettingsRow = (row: UserSettingsRow): AccountSettings => {
   return {
     theme: row.theme_preference,
+    aliasName: row.alias_name?.trim() ?? "",
     emailMentions: row.email_mentions,
     weeklyDigest: row.weekly_digest,
     desktopAlerts: row.desktop_alerts,
     compactBoardCards: row.compact_board_cards,
-    cardGlowIntensity: row.card_glow_intensity ?? 100
+    showCardDetails: row.show_card_details ?? true,
+    showCardPriority: row.show_card_priority ?? true,
+    priorityDisplayMode: row.priority_display_mode ?? "rarity",
+    showCardDifficulty: row.show_card_difficulty ?? true,
+    difficultyDisplayMode: row.difficulty_display_mode ?? "experience",
+    notifyMilestoneDueSoon: row.notify_milestone_due_soon ?? true,
+    notifyMilestoneCompleted: row.notify_milestone_completed ?? true,
+    notifyAddedToProject: row.notify_added_to_project ?? true,
+    notifyAssignedCardChanged: row.notify_assigned_card_changed ?? true,
+    notifyProjectMemberJoined: row.notify_project_member_joined ?? true
   };
 };
 
@@ -150,17 +209,9 @@ const composeDisplayName = (firstName: string, lastName: string, fallback: strin
   return combined || fallback;
 };
 
-const defaultDisplayName = (email: string | null | undefined) => {
-  if (!email) {
-    return "Operator";
-  }
-
-  const local = email.split("@")[0]?.trim();
-  return local || "Operator";
-};
-
-const toAuthPayloadUser = (user: { id: string; email?: string | null }, metadata: AuthMetadata) => {
-  const displayName = metadata.displayName || defaultDisplayName(user.email);
+const toAuthPayloadUser = async (user: { id: string; email?: string | null }, metadata: AuthMetadata) => {
+  const aliasName = await getUserAlias(user.id);
+  const displayName = resolveUserDisplayName(user.email, metadata, aliasName);
 
   return {
     id: user.id,
@@ -283,6 +334,17 @@ const getUserByIdOrThrow = async (userId: string) => {
   return data.user;
 };
 
+const verifyCurrentPassword = async (email: string, password: string) => {
+  const { error } = await supabaseAnon.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (error) {
+    throw new AppError("Current password is incorrect", 401);
+  }
+};
+
 const syncUserCodeIfMissing = async (userId: string, metadata: AuthMetadata) => {
   const ensuredCode = await ensureUserCode(userId, metadata);
   const normalizedCode = metadata.userCode?.toUpperCase();
@@ -341,10 +403,11 @@ export const authService = {
       ...rawMetadata,
       displayName: rawMetadata.displayName || data.displayName
     });
+    await notificationService.ensureWelcomeForUser(created.user.id);
 
     return {
       token: session.session.access_token,
-      user: toAuthPayloadUser(created.user, metadata)
+      user: await toAuthPayloadUser(created.user, metadata)
     };
   },
 
@@ -363,10 +426,11 @@ export const authService = {
     const rawMetadata = normalizeMetadata(session.user.user_metadata);
     const { metadata } = await syncUserCodeIfMissing(session.user.id, rawMetadata);
     const avatarMetadata = await enrichAvatarMetadata(metadata);
+    await notificationService.ensureWelcomeForUser(session.user.id);
 
     return {
       token: session.session.access_token,
-      user: toAuthPayloadUser(session.user, avatarMetadata)
+      user: await toAuthPayloadUser(session.user, avatarMetadata)
     };
   },
 
@@ -375,8 +439,9 @@ export const authService = {
     const rawMetadata = normalizeMetadata(user.user_metadata);
     const { metadata } = await syncUserCodeIfMissing(user.id, rawMetadata);
     const avatarMetadata = await enrichAvatarMetadata(metadata);
+    await notificationService.ensureWelcomeForUser(user.id);
 
-    return toAuthPayloadUser(user, avatarMetadata);
+    return await toAuthPayloadUser(user, avatarMetadata);
   },
 
   async updateProfile(userId: string, payload: unknown) {
@@ -395,7 +460,7 @@ export const authService = {
           ? avatarUrlInput.trim()
           : undefined;
     const avatarPath = metadata.avatarPath ?? getAvatarPathFromUrl(metadata.avatarUrl);
-    const fallbackDisplayName = metadata.displayName || defaultDisplayName(user.email);
+    const fallbackDisplayName = resolveUserDisplayName(user.email, metadata, null);
     const displayName = composeDisplayName(firstName, lastName, fallbackDisplayName);
     const userCode = await ensureUserCode(userId, metadata);
 
@@ -419,7 +484,7 @@ export const authService = {
     };
 
     const avatarMetadata = await enrichAvatarMetadata(mergedMetadata);
-    return toAuthPayloadUser(data.user, avatarMetadata);
+    return await toAuthPayloadUser(data.user, avatarMetadata);
   },
 
   async uploadAvatar(userId: string, input: UploadAvatarInput) {
@@ -458,26 +523,26 @@ export const authService = {
       throw new AppError(error?.message ?? "Failed to update avatar", 500);
     }
 
-    return toAuthPayloadUser(data.user, mergedMetadata);
+    return await toAuthPayloadUser(data.user, mergedMetadata);
   },
 
   async getSettings(userId: string) {
     const { data, error } = await supabaseAdmin
       .from("sf_user_settings")
-      .select("user_id, theme_preference, email_mentions, weekly_digest, desktop_alerts, compact_board_cards, card_glow_intensity")
+      .select("user_id, theme_preference, alias_name, email_mentions, weekly_digest, desktop_alerts, compact_board_cards, show_card_details, show_card_priority, priority_display_mode, show_card_difficulty, difficulty_display_mode, notify_milestone_due_soon, notify_milestone_completed, notify_added_to_project, notify_assigned_card_changed, notify_project_member_joined")
       .eq("user_id", userId)
       .maybeSingle<UserSettingsRow>();
 
-    if (error && !isMissingCardGlowIntensityColumnError(error.message)) {
+    if (error && !isMissingCardDisplayPreferencesColumnError(error.message)) {
       throw new AppError(error.message, 500);
     }
 
     let resolvedData = data;
 
-    if (error && isMissingCardGlowIntensityColumnError(error.message)) {
+    if (error && isMissingCardDisplayPreferencesColumnError(error.message)) {
       const { data: fallbackData, error: fallbackError } = await supabaseAdmin
         .from("sf_user_settings")
-        .select("user_id, theme_preference, email_mentions, weekly_digest, desktop_alerts, compact_board_cards")
+        .select("user_id, theme_preference, alias_name, email_mentions, weekly_digest, desktop_alerts, compact_board_cards")
         .eq("user_id", userId)
         .maybeSingle<UserSettingsRow>();
 
@@ -498,27 +563,38 @@ export const authService = {
       .insert({
         user_id: userId,
         theme_preference: defaults.theme,
+        alias_name: defaults.aliasName || null,
         email_mentions: defaults.emailMentions,
         weekly_digest: defaults.weeklyDigest,
         desktop_alerts: defaults.desktopAlerts,
         compact_board_cards: defaults.compactBoardCards,
-        card_glow_intensity: defaults.cardGlowIntensity
+        show_card_details: defaults.showCardDetails,
+        show_card_priority: defaults.showCardPriority,
+        priority_display_mode: defaults.priorityDisplayMode,
+        show_card_difficulty: defaults.showCardDifficulty,
+        difficulty_display_mode: defaults.difficultyDisplayMode,
+        notify_milestone_due_soon: defaults.notifyMilestoneDueSoon,
+        notify_milestone_completed: defaults.notifyMilestoneCompleted,
+        notify_added_to_project: defaults.notifyAddedToProject,
+        notify_assigned_card_changed: defaults.notifyAssignedCardChanged,
+        notify_project_member_joined: defaults.notifyProjectMemberJoined
       })
-      .select("user_id, theme_preference, email_mentions, weekly_digest, desktop_alerts, compact_board_cards, card_glow_intensity")
+      .select("user_id, theme_preference, alias_name, email_mentions, weekly_digest, desktop_alerts, compact_board_cards, show_card_details, show_card_priority, priority_display_mode, show_card_difficulty, difficulty_display_mode, notify_milestone_due_soon, notify_milestone_completed, notify_added_to_project, notify_assigned_card_changed, notify_project_member_joined")
       .single<UserSettingsRow>();
 
-    if (insertError && isMissingCardGlowIntensityColumnError(insertError.message)) {
+    if (insertError && isMissingCardDisplayPreferencesColumnError(insertError.message)) {
       const { data: fallbackInserted, error: fallbackInsertError } = await supabaseAdmin
         .from("sf_user_settings")
         .insert({
           user_id: userId,
           theme_preference: defaults.theme,
+          alias_name: defaults.aliasName || null,
           email_mentions: defaults.emailMentions,
           weekly_digest: defaults.weeklyDigest,
           desktop_alerts: defaults.desktopAlerts,
           compact_board_cards: defaults.compactBoardCards
         })
-        .select("user_id, theme_preference, email_mentions, weekly_digest, desktop_alerts, compact_board_cards")
+        .select("user_id, theme_preference, alias_name, email_mentions, weekly_digest, desktop_alerts, compact_board_cards")
         .single<UserSettingsRow>();
 
       if (fallbackInsertError || !fallbackInserted) {
@@ -540,17 +616,31 @@ export const authService = {
     const upsertPayload: {
       user_id: string;
       theme_preference?: ThemePreference;
+      alias_name?: string | null;
       email_mentions?: boolean;
       weekly_digest?: boolean;
       desktop_alerts?: boolean;
       compact_board_cards?: boolean;
-      card_glow_intensity?: number;
+      show_card_details?: boolean;
+      show_card_priority?: boolean;
+      priority_display_mode?: "generic" | "rarity";
+      show_card_difficulty?: boolean;
+      difficulty_display_mode?: "generic" | "experience";
+      notify_milestone_due_soon?: boolean;
+      notify_milestone_completed?: boolean;
+      notify_added_to_project?: boolean;
+      notify_assigned_card_changed?: boolean;
+      notify_project_member_joined?: boolean;
     } = {
       user_id: userId
     };
 
     if (input.theme !== undefined) {
       upsertPayload.theme_preference = input.theme;
+    }
+
+    if (input.aliasName !== undefined) {
+      upsertPayload.alias_name = input.aliasName.trim() || null;
     }
 
     if (input.emailMentions !== undefined) {
@@ -569,20 +659,57 @@ export const authService = {
       upsertPayload.compact_board_cards = input.compactBoardCards;
     }
 
-    if (input.cardGlowIntensity !== undefined) {
-      upsertPayload.card_glow_intensity = input.cardGlowIntensity;
+    if (input.showCardDetails !== undefined) {
+      upsertPayload.show_card_details = input.showCardDetails;
+    }
+
+    if (input.showCardPriority !== undefined) {
+      upsertPayload.show_card_priority = input.showCardPriority;
+    }
+
+    if (input.priorityDisplayMode !== undefined) {
+      upsertPayload.priority_display_mode = input.priorityDisplayMode;
+    }
+
+    if (input.showCardDifficulty !== undefined) {
+      upsertPayload.show_card_difficulty = input.showCardDifficulty;
+    }
+
+    if (input.difficultyDisplayMode !== undefined) {
+      upsertPayload.difficulty_display_mode = input.difficultyDisplayMode;
+    }
+
+    if (input.notifyMilestoneDueSoon !== undefined) {
+      upsertPayload.notify_milestone_due_soon = input.notifyMilestoneDueSoon;
+    }
+
+    if (input.notifyMilestoneCompleted !== undefined) {
+      upsertPayload.notify_milestone_completed = input.notifyMilestoneCompleted;
+    }
+
+    if (input.notifyAddedToProject !== undefined) {
+      upsertPayload.notify_added_to_project = input.notifyAddedToProject;
+    }
+
+    if (input.notifyAssignedCardChanged !== undefined) {
+      upsertPayload.notify_assigned_card_changed = input.notifyAssignedCardChanged;
+    }
+
+    if (input.notifyProjectMemberJoined !== undefined) {
+      upsertPayload.notify_project_member_joined = input.notifyProjectMemberJoined;
     }
 
     const { data, error } = await supabaseAdmin
       .from("sf_user_settings")
       .upsert(upsertPayload, { onConflict: "user_id" })
-      .select("user_id, theme_preference, email_mentions, weekly_digest, desktop_alerts, compact_board_cards, card_glow_intensity")
+      .select("user_id, theme_preference, alias_name, email_mentions, weekly_digest, desktop_alerts, compact_board_cards, show_card_details, show_card_priority, priority_display_mode, show_card_difficulty, difficulty_display_mode, notify_milestone_due_soon, notify_milestone_completed, notify_added_to_project, notify_assigned_card_changed, notify_project_member_joined")
       .single<UserSettingsRow>();
 
-    if (error && isMissingCardGlowIntensityColumnError(error.message)) {
+    if (error && isMissingCardDisplayPreferencesColumnError(error.message)) {
       const fallbackPayload = {
         user_id: userId,
         theme_preference: upsertPayload.theme_preference,
+        alias_name: upsertPayload.alias_name,
         email_mentions: upsertPayload.email_mentions,
         weekly_digest: upsertPayload.weekly_digest,
         desktop_alerts: upsertPayload.desktop_alerts,
@@ -592,7 +719,7 @@ export const authService = {
       const { data: fallbackData, error: fallbackError } = await supabaseAdmin
         .from("sf_user_settings")
         .upsert(fallbackPayload, { onConflict: "user_id" })
-        .select("user_id, theme_preference, email_mentions, weekly_digest, desktop_alerts, compact_board_cards")
+        .select("user_id, theme_preference, alias_name, email_mentions, weekly_digest, desktop_alerts, compact_board_cards")
         .single<UserSettingsRow>();
 
       if (fallbackError || !fallbackData) {
@@ -607,5 +734,76 @@ export const authService = {
     }
 
     return mapUserSettingsRow(data);
+  },
+
+  async listNotifications(userId: string, payload: unknown) {
+    const rawLimit =
+      payload && typeof payload === "object" ? (payload as { limit?: unknown }).limit : undefined;
+    const parsedLimit = typeof rawLimit === "number" ? rawLimit : Number(rawLimit);
+    const limit = Number.isFinite(parsedLimit) ? parsedLimit : undefined;
+
+    return notificationService.listByUser(userId, { limit });
+  },
+
+  async markNotificationRead(userId: string, notificationId: string) {
+    return notificationService.markAsRead(userId, notificationId);
+  },
+
+  async markAllNotificationsRead(userId: string) {
+    return notificationService.markAllAsRead(userId);
+  },
+
+  async updateEmail(userId: string, payload: unknown) {
+    const input = updateEmailSchema.parse(payload);
+    const user = await getUserByIdOrThrow(userId);
+
+    if (!user.email) {
+      throw new AppError("User email is unavailable", 400);
+    }
+
+    const normalizedEmail = input.newEmail.trim().toLowerCase();
+    const currentEmail = user.email.trim().toLowerCase();
+
+    if (normalizedEmail === currentEmail) {
+      throw new AppError("New email must be different from current email", 400);
+    }
+
+    await verifyCurrentPassword(user.email, input.currentPassword);
+
+    const { data, error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+      email: normalizedEmail,
+      email_confirm: true
+    });
+
+    if (error || !data.user) {
+      const message = error?.message ?? "Failed to update email";
+      const statusCode = message.toLowerCase().includes("already") ? 409 : 500;
+      throw new AppError(message, statusCode);
+    }
+
+    const metadata = normalizeMetadata(data.user.user_metadata);
+    const avatarMetadata = await enrichAvatarMetadata(metadata);
+    return await toAuthPayloadUser(data.user, avatarMetadata);
+  },
+
+  async updatePassword(userId: string, payload: unknown) {
+    const input = updatePasswordSchema.parse(payload);
+    const user = await getUserByIdOrThrow(userId);
+
+    if (!user.email) {
+      throw new AppError("User email is unavailable", 400);
+    }
+
+    await verifyCurrentPassword(user.email, input.currentPassword);
+
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+      password: input.newPassword
+    });
+
+    if (error) {
+      throw new AppError(error.message, 500);
+    }
+
+    return { success: true };
   }
 };

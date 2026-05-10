@@ -1,6 +1,16 @@
-import { Settings, Zap } from "lucide-react";
+import {
+  Activity,
+  KanbanSquare,
+  Layers3,
+  Settings,
+  Sparkles,
+  Users,
+  Zap
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { Logo } from "./Logo";
+import { NotificationBell } from "./NotificationBell";
 import { ProjectIcon } from "../ui/ProjectIcon";
 import { ProfileMenu } from "./ProfileMenu";
 
@@ -17,12 +27,12 @@ type ProjectHeaderProps = {
   showSettings?: boolean;
 };
 
-const TABS: { id: ProjectTab; label: string }[] = [
-  { id: "board", label: "Board" },
-  { id: "decks", label: "Decks" },
-  { id: "members", label: "Members" },
-  { id: "timeline", label: "Timeline" },
-  { id: "activity", label: "Activity" },
+const TABS: Array<{ id: ProjectTab; label: string; icon: LucideIcon }> = [
+  { id: "board", label: "Board", icon: KanbanSquare },
+  { id: "decks", label: "Decks", icon: Layers3 },
+  { id: "members", label: "Members", icon: Users },
+  { id: "timeline", label: "Timeline", icon: Sparkles },
+  { id: "activity", label: "Activity", icon: Activity },
 ];
 
 export const ProjectHeader = ({
@@ -68,25 +78,53 @@ export const ProjectHeader = ({
         </div>
 
         {/* Center — tabs */}
-        <nav className="flex items-center gap-2">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => onTabChange?.(tab.id)}
-              className={`rounded-xl border px-4 py-1.5 text-sm font-semibold transition ${
-                activeTab === tab.id
-                  ? isDarkMode
-                    ? "border-sky-300/40 bg-sky-500/12 text-sky-100 shadow-[0_0_0_1px_rgba(125,211,252,0.16)]"
-                    : "border-blue-300 bg-blue-50 text-blue-700 shadow-[0_0_0_1px_rgba(37,99,235,0.16)]"
-                  : isDarkMode
-                    ? "border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
-                    : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <nav
+          className={`relative flex max-w-[48vw] items-center gap-1 overflow-x-auto rounded-2xl border p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:max-w-none ${
+            isDarkMode
+              ? "border-white/10 bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+              : "border-slate-200 bg-slate-100/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]"
+          }`}
+        >
+          {TABS.map((tab) => {
+            const isActive = activeTab === tab.id;
+            const Icon = tab.icon;
+
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => onTabChange?.(tab.id)}
+                className={`group relative overflow-hidden rounded-xl border px-3 py-1.5 text-sm font-semibold transition-all duration-300 motion-safe:hover:-translate-y-0.5 ${
+                  isActive
+                    ? isDarkMode
+                      ? "border-cyan-300/45 bg-[linear-gradient(180deg,rgba(14,165,233,0.34),rgba(2,132,199,0.2))] text-cyan-100 shadow-[0_8px_22px_-10px_rgba(14,165,233,0.75)]"
+                      : "border-sky-300 bg-[linear-gradient(180deg,rgba(219,234,254,1),rgba(191,219,254,0.94))] text-sky-800 shadow-[0_8px_18px_-12px_rgba(2,132,199,0.6)]"
+                    : isDarkMode
+                      ? "border-white/5 bg-white/[0.03] text-slate-300 hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+                      : "border-slate-200 bg-white/70 text-slate-600 hover:border-slate-300 hover:bg-white hover:text-slate-900"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${
+                    isDarkMode
+                      ? "bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.13),transparent_55%)]"
+                      : "bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.85),transparent_55%)]"
+                  }`}
+                />
+                <span className="relative flex items-center gap-1.5">
+                  <Icon className={`h-3.5 w-3.5 transition-transform duration-300 ${isActive ? "motion-safe:scale-110" : ""}`} />
+                  <span>{tab.label}</span>
+                </span>
+                {isActive ? (
+                  <span
+                    className={`pointer-events-none absolute inset-x-2 bottom-0.5 h-[2px] rounded-full ${
+                      isDarkMode ? "bg-cyan-200/95" : "bg-sky-500"
+                    }`}
+                  />
+                ) : null}
+              </button>
+            );
+          })}
         </nav>
 
         {/* Right — XP + settings + avatar */}
@@ -120,6 +158,8 @@ export const ProjectHeader = ({
               Project Settings
             </button>
           ) : null}
+
+          <NotificationBell />
 
           <ProfileMenu />
         </div>

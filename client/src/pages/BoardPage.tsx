@@ -14,7 +14,7 @@ import {
   UserPlus,
   Users
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { ClaimBoard } from "../components/board/ClaimBoard";
 import { CardEditorModal } from "../components/cards/CardEditorModal";
@@ -259,7 +259,8 @@ const formatActivityAge = (value: string) => {
 
 export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const navigate = useNavigate();
-  const { token, user, accountSettings } = useAuth();
+  const { deckId: routeDeckId } = useParams<{ deckId?: string }>();
+  const { token, user } = useAuth();
   const {
     projects,
     cards,
@@ -284,7 +285,6 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<Card | null>(null);
 
-  const [activeDeckId, setActiveDeckId] = useState<string | null>(null);
   const [isCreateDeckModalOpen, setIsCreateDeckModalOpen] = useState(false);
   const [newDeckName, setNewDeckName] = useState("");
   const [newDeckDescription, setNewDeckDescription] = useState("");
@@ -304,6 +304,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const [editDeckXpPayout, setEditDeckXpPayout] = useState(0);
   const [isUpdatingDeck, setIsUpdatingDeck] = useState(false);
   const [isDeletingDeck, setIsDeletingDeck] = useState(false);
+  const [isDeleteDeckConfirmOpen, setIsDeleteDeckConfirmOpen] = useState(false);
 
   // Members tab state
   const [members, setMembers] = useState<ProjectMember[]>([]);
@@ -389,7 +390,6 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   }, [loadCards, loadDecks, selectedProjectId, token]);
 
   useEffect(() => {
-    setActiveDeckId(null);
     setIsDeckQuickAddOpen(false);
     setDeckQuickTitle("");
     setDeckQuickPriority("uncommon");
@@ -652,10 +652,19 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   }, [completedDeckId, newDeckCompletionTargetId]);
 
   useEffect(() => {
-    if (activeDeckId && !allDecks.some((deck) => deck.id === activeDeckId)) {
-      setActiveDeckId(null);
+    if (tab !== "decks") {
+      return;
     }
-  }, [activeDeckId, allDecks]);
+
+    // Wait until deck data is loaded before validating the route param.
+    if (isLoadingDecks || allDecks.length === 0) {
+      return;
+    }
+
+    if (routeDeckId && !allDecks.some((deck) => deck.id === routeDeckId)) {
+      navigate("/decks", { replace: true });
+    }
+  }, [allDecks, isLoadingDecks, navigate, routeDeckId, tab]);
 
   const deckCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -671,12 +680,12 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   }, [allDecks, cards]);
 
   const activeDeck = useMemo(() => {
-    if (!activeDeckId) {
+    if (!routeDeckId) {
       return null;
     }
 
-    return allDecks.find((deck) => deck.id === activeDeckId) ?? null;
-  }, [activeDeckId, allDecks]);
+    return allDecks.find((deck) => deck.id === routeDeckId) ?? null;
+  }, [allDecks, routeDeckId]);
 
   const activeDeckCompletionTarget = useMemo(() => {
     if (!activeDeck) {
@@ -717,7 +726,8 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
 
     return cards.filter((card) => {
       const deck = deckById.get(card.deckId);
-      return deck ? deck.isAccessible : true;
+      const isDeckVisible = deck ? deck.isAccessible : true;
+      return isDeckVisible && card.isActive;
     });
   }, [cards, decks]);
 
@@ -798,7 +808,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
         xpPayout: newDeckXpPayout
       });
 
-      setActiveDeckId(deck.id);
+      navigate(`/decks/${deck.id}`);
       setIsCreateDeckModalOpen(false);
       resetDeckModalForm();
     } finally {
@@ -899,16 +909,16 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     }
   };
 
-  const handleDeleteActiveDeck = async () => {
-    if (!token || !activeDeck || activeDeck.isSystem) {
+  const handleDeleteActiveDeck = () => {
+    if (!activeDeck || activeDeck.isSystem) {
       return;
     }
 
-    const shouldDelete = globalThis.confirm(
-      `Delete deck "${activeDeck.label}"? This only works when no cards use it and no other deck targets it.`
-    );
+    setIsDeleteDeckConfirmOpen(true);
+  };
 
-    if (!shouldDelete) {
+  const handleConfirmDeleteDeck = async () => {
+    if (!token || !activeDeck) {
       return;
     }
 
@@ -916,9 +926,10 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
 
     try {
       await removeDeck(token, activeDeck.id);
-      setActiveDeckId(null);
+      navigate("/decks");
       setIsDeckQuickAddOpen(false);
       setDeckQuickTitle("");
+      setIsDeleteDeckConfirmOpen(false);
     } catch {
       // Error surfaced via board store error banner.
     } finally {
@@ -1545,7 +1556,6 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                 decks={decks}
                 currentUser={user!}
                 maxCardsOnBoard={activeProject.maxCardsOnBoard ?? 5}
-                cardGlowIntensity={accountSettings?.cardGlowIntensity ?? 100}
                 onCreateCard={openNewCard}
                 onSelectCard={(card) => {
                   setEditingCard(card);
@@ -1621,7 +1631,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                             key={deck.id}
                             type="button"
                             onClick={() => {
-                              setActiveDeckId(deck.id);
+                              navigate(`/decks/${deck.id}`);
                               setIsDeckQuickAddOpen(false);
                               setDeckQuickTitle("");
                             }}
@@ -1664,7 +1674,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                         <button
                           type="button"
                           onClick={() => {
-                            setActiveDeckId(null);
+                            navigate("/decks");
                             setIsDeckQuickAddOpen(false);
                             setDeckQuickTitle("");
                           }}
@@ -2916,6 +2926,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
               projectId={activeProject.id}
               currentUserId={user!.id}
               decks={decks}
+              availableCards={cards}
               defaultDeckId={defaultModalDeckId}
               isAssignmentBlocked={isEditingCardAssignmentBlocked}
               card={editingCard}
@@ -3313,6 +3324,41 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
             </div>
           </div>
         ) : null}
+      </Modal>
+
+      <Modal
+        isOpen={isDeleteDeckConfirmOpen}
+        title="Delete Deck?"
+        description={`This will permanently remove "${activeDeck?.label}" from your project.`}
+        onClose={() => setIsDeleteDeckConfirmOpen(false)}
+      >
+        <div className="space-y-4">
+          <div className="rounded-xl border border-rose-400/30 bg-rose-500/10 p-4">
+            <p className="text-sm text-rose-200">
+              This action cannot be undone. The deck can only be deleted if:
+            </p>
+            <ul className="mt-2 space-y-1 text-sm text-rose-200">
+              <li>• No cards are assigned to this deck</li>
+              <li>• No other decks target this one as a completion target</li>
+            </ul>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="ghost"
+              onClick={() => setIsDeleteDeckConfirmOpen(false)}
+              disabled={isDeletingDeck}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="border border-rose-300/40 bg-rose-500 text-white hover:bg-rose-400"
+              onClick={() => void handleConfirmDeleteDeck()}
+              disabled={isDeletingDeck}
+            >
+              {isDeletingDeck ? "Deleting..." : "Delete Deck"}
+            </Button>
+          </div>
+        </div>
       </Modal>
     </>
   );

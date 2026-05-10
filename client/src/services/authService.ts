@@ -1,4 +1,10 @@
-import type { AccountSettings, AuthPayload, UpdateAccountSettingsInput, User } from "../types/api";
+import type {
+  AccountSettings,
+  AuthPayload,
+  NotificationsResponse,
+  UpdateAccountSettingsInput,
+  User
+} from "../types/api";
 import { AUTH_EXPIRED_EVENT, ApiError } from "./api";
 import { request } from "./api";
 
@@ -49,6 +55,43 @@ export const authService = {
       method: "PUT",
       token,
       body: payload
+    });
+  },
+
+  updateEmail(token: string, payload: { newEmail: string; currentPassword: string }) {
+    return request<User>("/auth/security/email", {
+      method: "PUT",
+      token,
+      body: payload
+    });
+  },
+
+  updatePassword(token: string, payload: { currentPassword: string; newPassword: string }) {
+    return request<{ success: boolean }>("/auth/security/password", {
+      method: "PUT",
+      token,
+      body: payload
+    });
+  },
+
+  listNotifications(token: string, limit = 30) {
+    return request<NotificationsResponse>(`/auth/notifications?limit=${limit}`, {
+      method: "GET",
+      token
+    });
+  },
+
+  markNotificationRead(token: string, notificationId: string) {
+    return request<{ id: string }>(`/auth/notifications/${notificationId}/read`, {
+      method: "PATCH",
+      token
+    });
+  },
+
+  markAllNotificationsRead(token: string) {
+    return request<{ success: boolean }>("/auth/notifications/read-all", {
+      method: "POST",
+      token
     });
   },
 

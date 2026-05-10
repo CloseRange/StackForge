@@ -73,5 +73,60 @@ export const authController = {
 
     const result = await authService.updateSettings(request.user.userId, request.body);
     return response.status(200).json({ data: result });
+  },
+
+  async listNotifications(request: Request, response: Response) {
+    if (!request.user) {
+      throw new AppError("Authentication required", 401);
+    }
+
+    const result = await authService.listNotifications(request.user.userId, {
+      limit: request.query.limit ? Number(request.query.limit) : undefined
+    });
+
+    return response.status(200).json({ data: result });
+  },
+
+  async markNotificationRead(request: Request, response: Response) {
+    if (!request.user) {
+      throw new AppError("Authentication required", 401);
+    }
+
+    const notificationId =
+      typeof request.params.notificationId === "string" ? request.params.notificationId : undefined;
+
+    if (!notificationId) {
+      throw new AppError("Notification id is required", 400);
+    }
+
+    const result = await authService.markNotificationRead(request.user.userId, notificationId);
+    return response.status(200).json({ data: result });
+  },
+
+  async markAllNotificationsRead(request: Request, response: Response) {
+    if (!request.user) {
+      throw new AppError("Authentication required", 401);
+    }
+
+    const result = await authService.markAllNotificationsRead(request.user.userId);
+    return response.status(200).json({ data: result });
+  },
+
+  async updateEmail(request: Request, response: Response) {
+    if (!request.user) {
+      throw new AppError("Authentication required", 401);
+    }
+
+    const result = await authService.updateEmail(request.user.userId, request.body);
+    return response.status(200).json({ data: result });
+  },
+
+  async updatePassword(request: Request, response: Response) {
+    if (!request.user) {
+      throw new AppError("Authentication required", 401);
+    }
+
+    const result = await authService.updatePassword(request.user.userId, request.body);
+    return response.status(200).json({ data: result });
   }
 };

@@ -9,6 +9,7 @@ type CardEditorModalProps = {
   projectId: string;
   currentUserId: string;
   decks: Deck[];
+  availableCards: Card[];
   defaultDeckId?: string;
   isAssignmentBlocked?: boolean;
   card: Card | null;
@@ -35,6 +36,7 @@ export const CardEditorModal = ({
   projectId,
   currentUserId,
   decks,
+  availableCards,
   defaultDeckId,
   isAssignmentBlocked = false,
   card,
@@ -49,9 +51,12 @@ export const CardEditorModal = ({
   const [deckId, setDeckId] = useState("");
   const [tags, setTags] = useState("");
   const [checklist, setChecklist] = useState<ChecklistFormItem[]>([]);
+  const [dependencies, setDependencies] = useState<Array<{ dependsOnCardId: string; requiredDeckId: string }>>([]);
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [assignToMe, setAssignToMe] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+
+  const completionDeckId = decks.find((deck) => deck.systemKey === "COMPLETED")?.id ?? decks[0]?.id ?? "";
 
   useEffect(() => {
     if (!isOpen) {
@@ -65,10 +70,18 @@ export const CardEditorModal = ({
     setDeckId(card?.deckId ?? defaultDeckId ?? decks[0]?.id ?? "");
     setTags(card?.tags.join(", ") ?? "");
     setChecklist(card?.checklist.map((item) => ({ label: item.label, completed: item.completed })) ?? []);
+    setDependencies(
+      card?.dependencies.map((dependency) => ({
+        dependsOnCardId: dependency.dependsOnCardId,
+        requiredDeckId: dependency.requiredDeckId ?? completionDeckId
+      })) ?? []
+    );
     const defaultAssignToMe = card ? card.assigneeId === currentUserId : true;
     setAssignToMe(isAssignmentBlocked ? false : defaultAssignToMe);
     setNewChecklistItem("");
-  }, [card, currentUserId, decks, defaultDeckId, isAssignmentBlocked, isOpen]);
+  }, [card, completionDeckId, currentUserId, decks, defaultDeckId, isAssignmentBlocked, isOpen]);
+
+  const dependencyCandidateCards = availableCards.filter((candidate) => candidate.id !== card?.id);
 
   const addChecklistItem = () => {
     if (!newChecklistItem.trim()) {
@@ -94,7 +107,13 @@ export const CardEditorModal = ({
         .split(",")
         .map((item) => item.trim())
         .filter(Boolean),
-      checklist
+      checklist,
+      dependencies: dependencies
+        .filter((dependency) => dependency.dependsOnCardId)
+        .map((dependency) => ({
+          dependsOnCardId: dependency.dependsOnCardId,
+          requiredDeckId: dependency.requiredDeckId || null
+        }))
     };
 
     try {
@@ -241,6 +260,86 @@ export const CardEditorModal = ({
                 Add
               </Button>
             </div>
+          </div>
+        </div>
+        <div className="md:col-span-2">
+          <div className="mb-2 text-sm text-slate-300">Dependencies</div>
+          <div className="space-y-2 rounded-3xl border border-white/20 bg-white/10 p-4">
+            {dependencies.length === 0 ? (
+              <p className="text-xs text-slate-400">No prerequisites yet. Add one to gate this card until another card reaches a deck.</p>
+            ) : null}
+
+            {dependencies.map((dependency, index) => (
+              <div
+                key={`${dependency.dependsOnCardId}-${index}`}
+                className="grid gap-2 md:items-center md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
+              >
+                <select
+                  value={dependency.dependsOnCardId}
+                  onChange={(event) =>
+                    setDependencies((current) =>
+                      current.map((item, itemIndex) =>
+                        itemIndex === index ? { ...item, dependsOnCardId: event.target.value } : item
+                      )
+                    )
+                  }
+                  className="min-w-0 rounded-2xl border border-white/20 bg-white/15 px-4 py-2.5 text-sm text-white outline-none"
+                >
+                  <option value="">Select prerequisite card</option>
+                  {dependencyCandidateCards.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.title}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={dependency.requiredDeckId}
+                  onChange={(event) =>
+                    setDependencies((current) =>
+                      current.map((item, itemIndex) =>
+                        itemIndex === index ? { ...item, requiredDeckId: event.target.value } : item
+                      )
+                    )
+                  }
+                  className="min-w-0 rounded-2xl border border-white/20 bg-white/15 px-4 py-2.5 text-sm text-white outline-none"
+                >
+                  {decks.map((deck) => (
+                    <option key={deck.id} value={deck.id}>
+                      {deck.name}
+                    </option>
+                  ))}
+                </select>
+
+                <Button
+                  variant="ghost"
+                  type="button"
+                  className="w-full md:w-auto md:justify-self-end"
+                  onClick={() =>
+                    setDependencies((current) => current.filter((_, itemIndex) => itemIndex !== index))
+                  }
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                setDependencies((current) => [
+                  ...current,
+                  {
+                    dependsOnCardId: "",
+                    requiredDeckId: completionDeckId
+                  }
+                ])
+              }
+              disabled={dependencyCandidateCards.length === 0}
+            >
+              Add Dependency
+            </Button>
           </div>
         </div>
         <label className="flex items-center gap-3 text-sm text-slate-300 md:col-span-2">

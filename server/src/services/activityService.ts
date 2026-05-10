@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../config/db.js";
 import { AppError } from "../middleware/errorHandler.js";
+import { getUserAlias, resolveUserDisplayName } from "../utils/userDisplay.js";
 import type { SFActivityEventRow } from "../models/activityModel.js";
 import { ensureProjectAccess } from "../utils/projectAccess.js";
 
@@ -49,22 +50,6 @@ const normalizeMetadata = (metadata: unknown): ActorMetadata => {
   }
 
   return metadata as ActorMetadata;
-};
-
-const resolveDisplayName = (email: string | null | undefined, metadata: ActorMetadata) => {
-  const explicitName = metadata.displayName?.trim();
-
-  if (explicitName) {
-    return explicitName;
-  }
-
-  const fullName = `${metadata.firstName ?? ""} ${metadata.lastName ?? ""}`.trim();
-
-  if (fullName) {
-    return fullName;
-  }
-
-  return email?.split("@")[0]?.trim() || "Operator";
 };
 
 const toSerializableValue = (value: unknown): unknown => {
@@ -153,10 +138,11 @@ const resolveActorSnapshot = async (userId: string) => {
   }
 
   const metadata = normalizeMetadata(data.user.user_metadata);
+  const aliasName = await getUserAlias(userId);
 
   return {
     actorUserId: data.user.id,
-    actorDisplayName: resolveDisplayName(data.user.email, metadata),
+    actorDisplayName: resolveUserDisplayName(data.user.email, metadata, aliasName),
     actorUserCode: metadata.userCode?.trim()?.toUpperCase() ?? null,
     actorAvatarUrl: metadata.avatarUrl?.trim() || null
   };

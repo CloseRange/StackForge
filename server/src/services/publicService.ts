@@ -5,10 +5,48 @@ import type { SFDeckRow } from "../models/deckModel.js";
 import type { SFProjectMilestoneRow } from "../models/milestoneModel.js";
 import type { SFProjectRow } from "../models/projectModel.js";
 import { serializeDeck } from "../utils/cardTransforms.js";
+import { getUserAlias, resolveUserDisplayName } from "../utils/userDisplay.js";
 
 const CARD_SELECT = "*, checklist:sf_checklist_items(*)" as const;
 
-const serializePublicCard = (card: SFCardWithChecklist) => ({
+type AssigneeSummary = {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
+};
+
+const buildAssigneeCache = async (cards: SFCardWithChecklist[]): Promise<Map<string, AssigneeSummary | null>> => {
+  const cache = new Map<string, AssigneeSummary | null>();
+  const ids = [...new Set(cards.map((c) => c.assignee_id).filter(Boolean) as string[])];
+
+  await Promise.all(
+    ids.map(async (userId) => {
+      const { data, error } = await supabaseAdmin.auth.admin.getUserById(userId);
+
+      if (error || !data.user) {
+        cache.set(userId, null);
+        return;
+      }
+
+      const metadata = (data.user.user_metadata ?? {}) as {
+        displayName?: string;
+        firstName?: string;
+        lastName?: string;
+        avatarUrl?: string;
+      };
+      const aliasName = await getUserAlias(userId);
+      cache.set(userId, {
+        id: userId,
+        displayName: resolveUserDisplayName(data.user.email, metadata, aliasName),
+        avatarUrl: metadata.avatarUrl ?? null
+      });
+    })
+  );
+
+  return cache;
+};
+
+const serializePublicCard = (card: SFCardWithChecklist, assigneeCache: Map<string, AssigneeSummary | null>) => ({
   id: card.id,
   title: card.title,
   description: card.description,
@@ -18,6 +56,10 @@ const serializePublicCard = (card: SFCardWithChecklist) => ({
   boardSlot: card.board_slot,
   deckId: card.deck_id,
   tags: card.tags,
+  assignee: card.assignee_id ? (assigneeCache.get(card.assignee_id) ?? null) : null,
+  dependencies: [],
+  isActive: true,
+  blockedBy: [],
   checklist: [...card.checklist]
     .sort((a, b) => a.sort_order - b.sort_order)
     .map((item) => ({
@@ -147,6 +189,7 @@ export const publicService = {
     const row = project as SFProjectRow;
     const cardRows = (cards as SFCardWithChecklist[]) ?? [];
     const deckRows = (decks as SFDeckRow[]) ?? [];
+    const assigneeCache = await buildAssigneeCache(cardRows);
 
     return {
       project: {
@@ -157,7 +200,7 @@ export const publicService = {
         updatedAt: row.updated_at
       },
       decks: deckRows.map(serializeDeck),
-      cards: cardRows.map(serializePublicCard),
+      cards: cardRows.map((card) => serializePublicCard(card, assigneeCache)),
       milestones: ((milestones ?? []) as SFProjectMilestoneRow[]).map((milestone) =>
         serializePublicMilestone(milestone, cardRows, deckRows)
       )

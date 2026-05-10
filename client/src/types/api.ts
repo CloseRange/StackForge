@@ -33,6 +33,14 @@ export type ChecklistItem = {
   sortOrder?: number;
 };
 
+export type CardDependency = {
+  dependsOnCardId: string;
+  requiredDeckId: string | null;
+  dependsOnCardTitle: string;
+  requiredDeckName: string;
+  isSatisfied: boolean;
+};
+
 export type Card = {
   id: string;
   title: string;
@@ -50,6 +58,9 @@ export type Card = {
     displayName: string;
     avatarUrl: string | null;
   } | null;
+  dependencies: CardDependency[];
+  isActive: boolean;
+  blockedBy: string[];
   checklist: ChecklistItem[];
   createdAt: string;
   updatedAt: string;
@@ -94,14 +105,50 @@ export type ThemePreference = "system" | "light" | "dark";
 
 export type AccountSettings = {
   theme: ThemePreference;
+  aliasName: string;
   emailMentions: boolean;
   weeklyDigest: boolean;
   desktopAlerts: boolean;
   compactBoardCards: boolean;
-  cardGlowIntensity: number;
+  showCardDetails: boolean;
+  showCardPriority: boolean;
+  priorityDisplayMode: "generic" | "rarity";
+  showCardDifficulty: boolean;
+  difficultyDisplayMode: "generic" | "experience";
+  notifyMilestoneDueSoon: boolean;
+  notifyMilestoneCompleted: boolean;
+  notifyAddedToProject: boolean;
+  notifyAssignedCardChanged: boolean;
+  notifyProjectMemberJoined: boolean;
 };
 
 export type UpdateAccountSettingsInput = Partial<AccountSettings>;
+
+export type NotificationType =
+  | "welcome"
+  | "milestone_due_soon"
+  | "milestone_completed"
+  | "added_to_project"
+  | "assigned_card_changed"
+  | "project_member_joined";
+
+export type NotificationItem = {
+  id: string;
+  userId: string;
+  projectId: string | null;
+  type: NotificationType;
+  title: string;
+  body: string;
+  payload: Record<string, unknown>;
+  isRead: boolean;
+  readAt: string | null;
+  createdAt: string;
+};
+
+export type NotificationsResponse = {
+  notifications: NotificationItem[];
+  unreadCount: number;
+};
 
 export type CreateProjectInput = {
   name: string;
@@ -244,6 +291,10 @@ export type CreateCardInput = {
   boardSlot?: number | null;
   deckId: string;
   projectId: string;
+  dependencies?: Array<{
+    dependsOnCardId: string;
+    requiredDeckId?: string | null;
+  }>;
   tags: string[];
   checklist: ChecklistItem[];
 };

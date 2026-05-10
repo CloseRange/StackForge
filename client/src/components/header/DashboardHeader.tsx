@@ -2,6 +2,7 @@ import { Plus, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { Logo } from "./Logo";
+import { NotificationBell } from "./NotificationBell";
 import { ProfileMenu } from "./ProfileMenu";
 
 type DashboardHeaderProps = {
@@ -69,6 +70,8 @@ export const DashboardHeader = ({ onNewProject }: DashboardHeaderProps) => {
             <Plus className="h-4 w-4" />
             New Project
           </button>
+
+          <NotificationBell />
 
           <ProfileMenu />
         </div>

@@ -8,6 +8,11 @@ const checklistItemSchema = z.object({
   completed: z.boolean().default(false)
 });
 
+const cardDependencySchema = z.object({
+  dependsOnCardId: z.string().uuid(),
+  requiredDeckId: z.string().uuid().nullable().optional()
+});
+
 export const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
@@ -18,6 +23,21 @@ export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1)
 });
+
+export const updateEmailSchema = z.object({
+  newEmail: z.string().email(),
+  currentPassword: z.string().min(1)
+});
+
+export const updatePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1),
+    newPassword: z.string().min(6)
+  })
+  .refine((data) => data.currentPassword !== data.newPassword, {
+    message: "New password must be different from current password",
+    path: ["newPassword"]
+  });
 
 export const updateProfileSchema = z
   .object({
@@ -33,11 +53,21 @@ const themePreferenceSchema = z.enum(["system", "light", "dark"]);
 export const updateAccountSettingsSchema = z
   .object({
     theme: themePreferenceSchema.optional(),
+    aliasName: z.string().trim().max(40).optional().or(z.literal("")),
     emailMentions: z.boolean().optional(),
     weeklyDigest: z.boolean().optional(),
     desktopAlerts: z.boolean().optional(),
     compactBoardCards: z.boolean().optional(),
-    cardGlowIntensity: z.number().int().min(0).max(100).optional()
+    showCardDetails: z.boolean().optional(),
+    showCardPriority: z.boolean().optional(),
+    priorityDisplayMode: z.enum(["generic", "rarity"]).optional(),
+    showCardDifficulty: z.boolean().optional(),
+    difficultyDisplayMode: z.enum(["generic", "experience"]).optional(),
+    notifyMilestoneDueSoon: z.boolean().optional(),
+    notifyMilestoneCompleted: z.boolean().optional(),
+    notifyAddedToProject: z.boolean().optional(),
+    notifyAssignedCardChanged: z.boolean().optional(),
+    notifyProjectMemberJoined: z.boolean().optional()
   })
   .refine((data) => Object.keys(data).length > 0, "At least one settings field must be provided");
 
@@ -65,7 +95,8 @@ export const createCardSchema = z.object({
   deckId: z.string().uuid(),
   projectId: z.string().uuid(),
   tags: z.array(z.string().min(1).max(24)).max(10).default([]),
-  checklist: z.array(checklistItemSchema).max(15).default([])
+  checklist: z.array(checklistItemSchema).max(15).default([]),
+  dependencies: z.array(cardDependencySchema).max(25).default([])
 });
 
 export const updateCardSchema = createCardSchema

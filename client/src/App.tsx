@@ -79,6 +79,7 @@ export const App = () => {
         <Route path="/" element={<ProtectedProjectsPage />} />
         <Route path="/board" element={<ProtectedWorkspacePage tab="board" />} />
         <Route path="/decks" element={<ProtectedWorkspacePage tab="decks" />} />
+        <Route path="/decks/:deckId" element={<ProtectedWorkspacePage tab="decks" />} />
         <Route path="/members" element={<ProtectedWorkspacePage tab="members" />} />
         <Route path="/timeline" element={<ProtectedWorkspacePage tab="timeline" />} />
         <Route path="/activity" element={<ProtectedWorkspacePage tab="activity" />} />

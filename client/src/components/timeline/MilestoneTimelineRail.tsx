@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Flag } from "lucide-react";
+import { Check, Flag } from "lucide-react";
 
 import type { MilestoneColor, MilestoneType, ProjectMilestone } from "../../types/api";
 import { ProjectIcon } from "../ui/ProjectIcon";
@@ -13,6 +13,14 @@ const milestoneColorClass: Record<MilestoneColor, string> = {
   emerald: "border-emerald-300/45 bg-emerald-500/15 text-emerald-100",
   rose: "border-rose-300/45 bg-rose-500/15 text-rose-100",
   violet: "border-violet-300/45 bg-violet-500/15 text-violet-100"
+};
+
+const milestoneColorClassComplete: Record<MilestoneColor, string> = {
+  sky: "border-emerald-400/60 bg-emerald-500/25 text-emerald-50 shadow-[0_0_16px_rgba(16,185,129,0.2)]",
+  amber: "border-emerald-400/60 bg-emerald-500/25 text-emerald-50 shadow-[0_0_16px_rgba(16,185,129,0.2)]",
+  emerald: "border-emerald-400/60 bg-emerald-500/25 text-emerald-50 shadow-[0_0_16px_rgba(16,185,129,0.2)]",
+  rose: "border-emerald-400/60 bg-emerald-500/25 text-emerald-50 shadow-[0_0_16px_rgba(16,185,129,0.2)]",
+  violet: "border-emerald-400/60 bg-emerald-500/25 text-emerald-50 shadow-[0_0_16px_rgba(16,185,129,0.2)]"
 };
 
 const formatDate = (value: string) => {
@@ -238,6 +246,11 @@ export const MilestoneTimelineRail = ({
             ))}
 
             {timeline.items.map(({ milestone, leftPercent }) => {
+              const isComplete = milestone.isComplete;
+              const colorClass = isComplete
+                ? milestoneColorClassComplete[milestone.color]
+                : milestoneColorClass[milestone.color];
+
               return (
                 <div
                   key={milestone.id}
@@ -253,15 +266,19 @@ export const MilestoneTimelineRail = ({
                       onMouseLeave={closeTooltip}
                       onFocus={(event) => openTooltip(milestone, event.currentTarget)}
                       onBlur={closeTooltip}
-                      className={`flex h-10 w-10 items-center justify-center border shadow-[0_10px_26px_rgba(2,6,23,0.32)] transition hover:-translate-y-0.5 hover:scale-[1.03] focus:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-white/60 [transform:rotate(45deg)] ${milestoneColorClass[milestone.color]}`}
+                      className={`flex h-10 w-10 items-center justify-center border shadow-[0_10px_26px_rgba(2,6,23,0.32)] transition hover:-translate-y-0.5 ${isComplete ? "hover:scale-[1.08]" : "hover:scale-[1.03]"} focus:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-white/60 [transform:rotate(45deg)] ${colorClass}`}
                     >
-                      <ProjectIcon
-                        icon={milestone.icon}
-                        alt={`${milestone.title} icon`}
-                        className="h-4 w-4 [transform:rotate(-45deg)]"
-                        tone="timeline"
-                        fallbackClassName="h-4 w-4 [transform:rotate(-45deg)]"
-                      />
+                      {isComplete ? (
+                        <Check className="h-5 w-5 [transform:rotate(-45deg)] text-emerald-50" />
+                      ) : (
+                        <ProjectIcon
+                          icon={milestone.icon}
+                          alt={`${milestone.title} icon`}
+                          className="h-4 w-4 [transform:rotate(-45deg)]"
+                          tone="timeline"
+                          fallbackClassName="h-4 w-4 [transform:rotate(-45deg)]"
+                        />
+                      )}
                     </button>
                   </div>
                 </div>

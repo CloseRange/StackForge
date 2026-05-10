@@ -2,7 +2,13 @@ import { createContext, startTransition, useCallback, useEffect, useMemo, useSta
 
 import { authService } from "../services/authService";
 import { AUTH_EXPIRED_EVENT } from "../services/api";
-import type { AccountSettings, AuthPayload, UpdateAccountSettingsInput, User } from "../types/api";
+import type {
+  AccountSettings,
+  AuthPayload,
+  NotificationItem,
+  UpdateAccountSettingsInput,
+  User
+} from "../types/api";
 
 type AuthContextValue = {
   token: string | null;
@@ -16,6 +22,11 @@ type AuthContextValue = {
   updateSettings: (payload: UpdateAccountSettingsInput) => Promise<AccountSettings>;
   accountSettings: AccountSettings | null;
   updateProfile: (payload: { firstName?: string; lastName?: string; statusMessage?: string; avatarUrl?: string }) => Promise<void>;
+  updateEmail: (payload: { newEmail: string; currentPassword: string }) => Promise<void>;
+  updatePassword: (payload: { currentPassword: string; newPassword: string }) => Promise<void>;
+  listNotifications: (limit?: number) => Promise<{ notifications: NotificationItem[]; unreadCount: number }>;
+  markNotificationRead: (notificationId: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
   uploadAvatar: (file: File) => Promise<void>;
   logout: () => void;
 };
@@ -131,6 +142,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const settings = await authService.updateSettings(token, payload);
+    const shouldRefreshProfile = Object.prototype.hasOwnProperty.call(payload, "aliasName");
+
+    if (shouldRefreshProfile) {
+      const profile = await authService.getProfile(token);
+      persistUser(profile);
+    }
+
     startTransition(() => {
       setAccountSettings(settings);
     });
@@ -145,6 +163,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const profile = await authService.updateProfile(token, payload);
     persistUser(profile);
   };
+
+  const updateEmail = async (payload: { newEmail: string; currentPassword: string }) => {
+    if (!token) {
+      return;
+    }
+
+    const profile = await authService.updateEmail(token, payload);
+    persistUser(profile);
+  };
+
+  const updatePassword = async (payload: { currentPassword: string; newPassword: string }) => {
+    if (!token) {
+      return;
+    }
+
+    await authService.updatePassword(token, payload);
+  };
+
+  const listNotifications = useCallback(async (limit = 30) => {
+    if (!token) {
+      throw new Error("Authentication required");
+    }
+
+    return authService.listNotifications(token, limit);
+  }, [token]);
+
+  const markNotificationRead = useCallback(async (notificationId: string) => {
+    if (!token) {
+      throw new Error("Authentication required");
+    }
+
+    await authService.markNotificationRead(token, notificationId);
+  }, [token]);
+
+  const markAllNotificationsRead = useCallback(async () => {
+    if (!token) {
+      throw new Error("Authentication required");
+    }
+
+    await authService.markAllNotificationsRead(token);
+  }, [token]);
 
   const uploadAvatar = async (file: File) => {
     if (!token) {
@@ -202,28 +261,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const root = document.documentElement;
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
 
     const applyTheme = () => {
-      const preference = accountSettings?.theme ?? "dark";
-      const resolved = preference === "system" ? (media.matches ? "dark" : "light") : preference;
-
-      root.dataset.theme = resolved;
-      root.style.colorScheme = resolved;
+      root.dataset.theme = "dark";
+      root.style.colorScheme = "dark";
     };
 
     applyTheme();
 
-    const onSystemChange = () => {
-      if ((accountSettings?.theme ?? "dark") === "system") {
-        applyTheme();
-      }
-    };
-
-    media.addEventListener("change", onSystemChange);
-    return () => {
-      media.removeEventListener("change", onSystemChange);
-    };
+    return undefined;
   }, [accountSettings?.theme]);
 
   const value = useMemo<AuthContextValue>(
@@ -239,6 +285,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       updateSettings,
       accountSettings,
       updateProfile,
+      updateEmail,
+      updatePassword,
+      listNotifications,
+      markNotificationRead,
+      markAllNotificationsRead,
       uploadAvatar,
       logout
     }),
@@ -253,6 +304,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       updateSettings,
       accountSettings,
       updateProfile,
+      updateEmail,
+      updatePassword,
+      listNotifications,
+      markNotificationRead,
+      markAllNotificationsRead,
       uploadAvatar,
       logout
     ]

@@ -2,21 +2,24 @@ import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { Layers3, Zap } from "lucide-react";
 
+import { useAuth } from "../../hooks/useAuth";
 import type { Card } from "../../types/api";
 import { rarityClasses } from "../../utils/board";
+import { getCardDisplaySettings, getDifficultyLabel, getPriorityLabel } from "../../utils/cardDisplay";
 
 type TaskCardProps = {
   card: Card;
   onSelect: (card: Card) => void;
 };
 
-const formatDifficulty = (difficulty: Card["difficulty"]) =>
-  difficulty.slice(0, 1).toUpperCase() + difficulty.slice(1);
-
 export const TaskCard = ({ card, onSelect }: TaskCardProps) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: card.id });
+  const { accountSettings } = useAuth();
+  const displaySettings = getCardDisplaySettings(accountSettings);
   const assigneeLabel = card.assigneeId ? `User ${card.assigneeId.slice(0, 6)}` : "Unassigned";
   const assigneeInitial = assigneeLabel.slice(0, 1).toUpperCase();
+  const priorityLabel = getPriorityLabel(card.priority, displaySettings.priorityDisplayMode);
+  const difficultyLabel = getDifficultyLabel(card.difficulty, displaySettings.difficultyDisplayMode);
 
   return (
     <button
@@ -35,10 +38,12 @@ export const TaskCard = ({ card, onSelect }: TaskCardProps) => {
           <Layers3 className="h-4 w-4 text-sky-300" />
           <span>Card</span>
         </div>
-        <div className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-1 text-xs font-semibold text-amber-200">
-          <Zap className="h-3.5 w-3.5" />
-          {card.xpValue} XP
-        </div>
+        {displaySettings.showCardPriority ? (
+          <div className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-1 text-xs font-semibold text-amber-200">
+            <Zap className="h-3.5 w-3.5" />
+            {priorityLabel}
+          </div>
+        ) : null}
       </div>
       <div>
         <h3 className="font-display text-lg font-semibold text-white">{card.title}</h3>
@@ -52,14 +57,13 @@ export const TaskCard = ({ card, onSelect }: TaskCardProps) => {
         ))}
       </div>
       <div className="mt-5 flex items-center justify-between">
-        <div className="text-xs text-slate-400">Difficulty {formatDifficulty(card.difficulty)}</div>
+        <div className="text-xs text-slate-400">{displaySettings.showCardDifficulty ? difficultyLabel : null}</div>
         <div className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/12 text-sm font-semibold text-white">
             {assigneeInitial}
           </div>
           <div className="text-right text-xs text-slate-400">
             <div>{assigneeLabel}</div>
-            <div>{card.priority}</div>
           </div>
         </div>
       </div>

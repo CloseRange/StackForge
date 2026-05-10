@@ -1,18 +1,13 @@
 import { DndContext, type DragEndEvent, useDraggable, useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { Bug, Eye, Layers3, Lock, Plus, Trophy, Zap } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 
 import { Button } from "../ui/Button";
+import { useAuth } from "../../hooks/useAuth";
 import type { Card, CardPriority, Deck, DeckColor, UpdateCardInput, User } from "../../types/api";
 import { ProjectIcon } from "../ui/ProjectIcon";
-
-const priorityLabels: Record<CardPriority, string> = {
-  common: "Common",
-  uncommon: "Uncommon",
-  rare: "Rare",
-  legendary: "Legendary"
-};
+import { getCardDisplaySettings, getDifficultyLabel, getPriorityLabel } from "../../utils/cardDisplay";
 
 const priorityClasses: Record<CardPriority, string> = {
   common: "border-slate-300/25 bg-slate-900/78 text-slate-200",
@@ -73,9 +68,6 @@ type BoardCardProps = {
   isBusy: boolean;
   onSelectCard: (card: Card) => void;
 };
-
-const formatDifficulty = (difficulty: Card["difficulty"]) =>
-  difficulty.slice(0, 1).toUpperCase() + difficulty.slice(1);
 
 const parseDragCardId = (id: string) => {
   if (!id.startsWith("card-")) {
@@ -293,18 +285,17 @@ const BoardCard = ({
 }: BoardCardProps) => {
   const DETAIL_PANEL_WIDTH = 224;
   const DETAIL_PANEL_GUTTER = 24;
-  const baseCardShadow = isDarkMode
-    ? "shadow-[0_18px_45px_rgba(2,6,23,0.42)]"
-    : "shadow-[0_10px_24px_rgba(15,23,42,0.14)]";
-  const hoverCardShadow = isDarkMode
-    ? "group-hover/card:shadow-[0_42px_96px_rgba(2,6,23,0.62)]"
-    : "group-hover/card:shadow-[0_18px_36px_rgba(15,23,42,0.2)]";
+  const { accountSettings } = useAuth();
+  const displaySettings = getCardDisplaySettings(accountSettings);
+  const priorityLabel = getPriorityLabel(card.priority, displaySettings.priorityDisplayMode);
+  const difficultyLabel = getDifficultyLabel(card.difficulty, displaySettings.difficultyDisplayMode);
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `card-${card.id}-${dragSource}`,
     disabled: !draggable || isBusy
   });
   const [detailSide, setDetailSide] = useState<"left" | "right">("right");
+  const [isHovered, setIsHovered] = useState(false);
 
   const ownerName =
     card.assignee?.displayName ||
@@ -313,6 +304,8 @@ const BoardCard = ({
   const ownerAvatarUrl = card.assignee?.avatarUrl ?? (card.assigneeId === currentUser.id ? currentUser.avatarUrl ?? null : null);
   const showOwnerBadge = Boolean(card.assigneeId);
   const isClaimedInPool = dragSource === "pool" && Boolean(card.assigneeId);
+  const showInPlayBadge =
+    isClaimedInPool && displaySettings.priorityDisplayMode !== "generic";
   const transformStyle = transform ? CSS.Translate.toString(transform) : undefined;
 
   const handleCardHover = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -321,7 +314,18 @@ const BoardCard = ({
     const hasRoomOnRight = spaceOnRight >= DETAIL_PANEL_WIDTH + DETAIL_PANEL_GUTTER;
 
     setDetailSide(hasRoomOnRight ? "right" : "left");
+    setIsHovered(true);
   };
+
+  const resolvedBoxShadow = isClaimedInPool && !isDragging ? undefined : isHovered && !isDragging
+    ? isDarkMode
+      ? "0 42px 96px rgba(2,6,23,0.62)"
+      : "0 18px 36px rgba(15,23,42,0.2)"
+    : isDarkMode
+      ? "0 18px 45px rgba(2,6,23,0.42)"
+      : "0 10px 24px rgba(15,23,42,0.14)";
+
+  const cardSurfaceStyle: CSSProperties = resolvedBoxShadow ? { boxShadow: resolvedBoxShadow } : {};
 
   return (
     <div
@@ -329,6 +333,7 @@ const BoardCard = ({
       style={{ transform: transformStyle, zIndex: isDragging ? 50 : undefined }}
       className="group/card relative z-0 overflow-visible hover:z-[70]"
       onMouseEnter={handleCardHover}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <button
         type="button"
@@ -338,9 +343,10 @@ const BoardCard = ({
         {...(draggable && !isBusy ? attributes : {})}
       >
         <div
-          className={`claim-card-face relative aspect-[2/3] rounded-[1.35rem] border p-2.5 ${baseCardShadow} transition-[transform,box-shadow,filter] duration-300 ${
+          style={cardSurfaceStyle}
+          className={`claim-card-face relative aspect-[2/3] rounded-[1.35rem] border p-2.5 transition-[transform,box-shadow,filter] duration-300 ${
             deckPresentation.toneClass
-          } ${isLocked ? "opacity-75 saturate-[0.55]" : ""} ${isClaimedInPool && !isDragging ? "brightness-[0.72] saturate-[0.62] shadow-[inset_0_6px_14px_rgba(2,6,23,0.68),inset_0_0_0_1px_rgba(15,23,42,0.75),0_3px_8px_rgba(2,6,23,0.4)]" : ""} ${!isDarkMode && !isClaimedInPool ? "brightness-[1.08]" : ""} ${isDragging ? "scale-[1.03]" : isClaimedInPool ? "transform-gpu" : `transform-gpu group-hover/card:[transform:perspective(960px)_translateY(-10px)_rotateX(4deg)_rotateY(-2deg)_rotateZ(1.2deg)] ${hoverCardShadow}`}`}
+          } ${isLocked ? "opacity-75 saturate-[0.55]" : ""} ${isClaimedInPool && !isDragging ? "brightness-[0.72] saturate-[0.62] shadow-[inset_0_6px_14px_rgba(2,6,23,0.68),inset_0_0_0_1px_rgba(15,23,42,0.75),0_3px_8px_rgba(2,6,23,0.4)]" : ""} ${!isDarkMode && !isClaimedInPool ? "brightness-[1.08]" : ""} ${isDragging ? "scale-[1.03]" : isClaimedInPool ? "transform-gpu" : "transform-gpu group-hover/card:[transform:perspective(960px)_translateY(-10px)_rotateX(4deg)_rotateY(-2deg)_rotateZ(1.2deg)]"}`}
         >
           <div className="pointer-events-none absolute inset-[6px] rounded-[1rem] border border-white/18" />
           {isClaimedInPool ? (
@@ -350,7 +356,7 @@ const BoardCard = ({
             <div className="absolute inset-y-0 -left-[65%] w-[50%] -skew-x-12 bg-gradient-to-r from-transparent via-white/25 to-transparent opacity-0 transition-all duration-500 group-hover/card:left-[125%] group-hover/card:opacity-100" />
           </div>
 
-          {isClaimedInPool ? (
+          {showInPlayBadge ? (
             <div className="pointer-events-none absolute left-2.5 top-2.5 rounded-md border border-slate-200/25 bg-slate-900/55 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.2em] text-slate-200">
               In Play
             </div>
@@ -371,13 +377,17 @@ const BoardCard = ({
             ) : null}
           </div>
 
-          <div className="absolute bottom-2.5 left-2.5 rounded-full border border-amber-200/35 bg-amber-500/18 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-amber-100">
-            {card.xpValue} XP
-          </div>
+          {displaySettings.showCardDifficulty ? (
+            <div className="absolute bottom-2.5 left-2.5 rounded-full border border-amber-200/35 bg-amber-500/18 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-amber-100">
+              {difficultyLabel}
+            </div>
+          ) : null}
 
-          <div className={`absolute right-2.5 top-2.5 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.15em] ${priorityClasses[card.priority]}`}>
-            {priorityLabels[card.priority]}
-          </div>
+          {displaySettings.showCardPriority ? (
+            <div className={`absolute right-2.5 top-2.5 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.15em] ${priorityClasses[card.priority]}`}>
+              {priorityLabel}
+            </div>
+          ) : null}
 
           <div className="absolute inset-x-3 bottom-10">
             <div className="px-1">
