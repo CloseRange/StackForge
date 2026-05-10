@@ -21,7 +21,7 @@ export const DashboardHeader = ({ onNewProject }: DashboardHeaderProps) => {
     }`}>
       <div className="mx-auto flex h-14 max-w-[1600px] items-center justify-between px-6">
         {/* Left — logo */}
-        <Logo href="/dashboard" />
+        <Logo href="/" />
 
         {/* Center — nav */}
         <nav className="hidden items-center gap-1 md:flex">

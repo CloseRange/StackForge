@@ -7,6 +7,7 @@ import { Button } from "../components/ui/Button";
 import { useAuth } from "../hooks/useAuth";
 import { useBoardStore } from "../hooks/useBoardStore";
 import { DashboardLayout } from "../layouts/DashboardLayout";
+import { resolveProjectIconUrl } from "../utils/projectIcons";
 
 export const ProjectsPage = () => {
   const navigate = useNavigate();
@@ -186,50 +187,74 @@ export const ProjectsPage = () => {
         </div>
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {projects.map((project) => (
-            <button
-              key={project.id}
-              type="button"
-              onClick={() => void openProjectRoute(project.id, "/board")}
-              className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 transition hover:border-sky-300/40 hover:bg-sky-500/10 hover:shadow-lg"
-            >
-              <h3 className="text-lg font-semibold text-white">{project.name}</h3>
-              <p className="mt-1 text-sm text-slate-400">{project.description || "No campaign brief yet."}</p>
-              <p className="mt-3 text-xs uppercase tracking-[0.08em] text-slate-400">{project.cardCount} cards</p>
+          {projects.map((project) => {
+            const projectIconUrl = resolveProjectIconUrl(project.icon);
 
-              <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-3">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void handleTogglePublic(project.id, project.isPublic);
-                  }}
-                  className={`btn-motion btn-shimmer flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium transition ${
-                    project.isPublic
-                      ? "bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
-                      : "bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200"
-                  }`}
-                >
-                  <Globe className="h-3.5 w-3.5" />
-                  {project.isPublic ? "Public" : "Private"}
-                </button>
-
-                {project.isPublic ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      copyPublicLink(project);
+            return (
+              <button
+                key={project.id}
+                type="button"
+                onClick={() => void openProjectRoute(project.id, "/board")}
+                className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.06] p-4 transition hover:border-sky-300/40 hover:bg-sky-500/10 hover:shadow-lg"
+              >
+                {projectIconUrl ? (
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute right-2 top-1/2 h-40 w-40 -translate-y-1/2 opacity-[0.12]"
+                    style={{
+                      backgroundColor: "rgba(255,255,255,0.95)",
+                      WebkitMaskImage: `url(${projectIconUrl})`,
+                      maskImage: `url(${projectIconUrl})`,
+                      WebkitMaskRepeat: "no-repeat",
+                      maskRepeat: "no-repeat",
+                      WebkitMaskPosition: "center",
+                      maskPosition: "center",
+                      WebkitMaskSize: "contain",
+                      maskSize: "contain"
                     }}
-                    className="btn-motion btn-shimmer flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs text-slate-400 transition hover:bg-white/5 hover:text-sky-300"
-                  >
-                    <Link2 className="h-3.5 w-3.5" />
-                    {copiedId === project.id ? "Copied!" : "Copy Link"}
-                  </button>
+                  />
                 ) : null}
-              </div>
-            </button>
-          ))}
+
+                <div className="relative z-10">
+                  <h3 className="text-lg font-semibold text-white">{project.name}</h3>
+                  <p className="mt-1 text-sm text-slate-400">{project.description || "No campaign brief yet."}</p>
+                  <p className="mt-3 text-xs uppercase tracking-[0.08em] text-slate-400">{project.cardCount} cards</p>
+
+                  <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-3">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleTogglePublic(project.id, project.isPublic);
+                      }}
+                      className={`btn-motion btn-shimmer flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium transition ${
+                        project.isPublic
+                          ? "bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
+                          : "bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200"
+                      }`}
+                    >
+                      <Globe className="h-3.5 w-3.5" />
+                      {project.isPublic ? "Public" : "Private"}
+                    </button>
+
+                    {project.isPublic ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyPublicLink(project);
+                        }}
+                        className="btn-motion btn-shimmer flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs text-slate-400 transition hover:bg-white/5 hover:text-sky-300"
+                      >
+                        <Link2 className="h-3.5 w-3.5" />
+                        {copiedId === project.id ? "Copied!" : "Copy Link"}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
         </div>
 
         {!isLoadingProjects && projects.length === 0 ? (
