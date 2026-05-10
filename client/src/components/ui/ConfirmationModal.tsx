@@ -13,6 +13,7 @@ type ConfirmationModalProps = {
   onConfirm: () => void | Promise<void>;
   children?: ReactNode;
   isConfirming?: boolean;
+  confirmDisabled?: boolean;
   cancelLabel?: string;
 };
 
@@ -25,6 +26,7 @@ export const ConfirmationModal = ({
   onConfirm,
   children,
   isConfirming = false,
+  confirmDisabled = false,
   cancelLabel = "Cancel"
 }: ConfirmationModalProps) => {
   return (
@@ -49,7 +51,7 @@ export const ConfirmationModal = ({
           <Button
             variant="outline"
             onClick={() => void onConfirm()}
-            disabled={isConfirming}
+            disabled={isConfirming || confirmDisabled}
             className="border border-rose-300/40 bg-gradient-to-r from-rose-500 via-red-500 to-rose-600 text-white shadow-[0_12px_28px_rgba(244,63,94,0.28)] hover:from-rose-400 hover:via-red-400 hover:to-rose-500"
           >
             {isConfirming ? `${confirmLabel}...` : confirmLabel}

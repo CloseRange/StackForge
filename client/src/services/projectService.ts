@@ -52,6 +52,13 @@ export const projectService = {
     });
   },
 
+  remove(token: string, projectId: string) {
+    return request<void>(`/projects/${projectId}`, {
+      method: "DELETE",
+      token
+    });
+  },
+
   getStats(token: string, projectId: string) {
     return request<ProjectStats>(`/projects/${projectId}/stats`, { token });
   },

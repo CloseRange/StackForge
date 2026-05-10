@@ -29,6 +29,7 @@ type BoardState = {
   loadProjects: (token: string) => Promise<void>;
   createProject: (token: string, payload: CreateProjectInput) => Promise<Project>;
   updateProject: (token: string, projectId: string, payload: UpdateProjectInput) => Promise<Project>;
+  removeProject: (token: string, projectId: string) => Promise<void>;
   loadCards: (token: string, projectId: string) => Promise<void>;
   loadDecks: (token: string, projectId: string) => Promise<void>;
   createCard: (token: string, payload: CreateCardInput) => Promise<Card>;
@@ -94,6 +95,28 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       return project;
     } catch (error) {
       set({ error: getErrorMessage(error, "Failed to update project") });
+      throw error;
+    }
+  },
+  async removeProject(token, projectId) {
+    try {
+      await projectService.remove(token, projectId);
+      set((state) => {
+        const remainingProjects = state.projects.filter((project) => project.id !== projectId);
+        const didDeleteSelectedProject = state.selectedProjectId === projectId;
+
+        return {
+          projects: remainingProjects,
+          selectedProjectId: didDeleteSelectedProject
+            ? remainingProjects[0]?.id ?? null
+            : state.selectedProjectId,
+          cards: didDeleteSelectedProject ? [] : state.cards,
+          decks: didDeleteSelectedProject ? [] : state.decks,
+          error: null
+        };
+      });
+    } catch (error) {
+      set({ error: getErrorMessage(error, "Failed to delete project") });
       throw error;
     }
   },

@@ -10,6 +10,7 @@ import {
   PencilLine,
   PlusCircle,
   Trophy,
+  Trash2,
   UserMinus,
   UserPlus,
   Users
@@ -280,6 +281,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
     createDeck,
     updateDeck,
     removeDeck,
+    removeProject,
     updateProject,
     updateCard,
   } = useBoardStore();
@@ -355,6 +357,10 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsSuccess, setSettingsSuccess] = useState<string | null>(null);
   const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [isDeleteProjectConfirmOpen, setIsDeleteProjectConfirmOpen] = useState(false);
+  const [deleteProjectNameInput, setDeleteProjectNameInput] = useState("");
+  const [deleteProjectError, setDeleteProjectError] = useState<string | null>(null);
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
 
   const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
   const [isLoadingMilestones, setIsLoadingMilestones] = useState(false);
@@ -605,6 +611,9 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
       setSettingsIsPublic(false);
       setSettingsIcon("");
       setSettingsMaxCardsOnBoard(5);
+      setDeleteProjectNameInput("");
+      setDeleteProjectError(null);
+      setIsDeleteProjectConfirmOpen(false);
       return;
     }
 
@@ -1408,6 +1417,51 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
       setSettingsError(err instanceof Error ? err.message : "Failed to save project settings");
     } finally {
       setIsSavingSettings(false);
+    }
+  };
+
+  const normalizedProjectNameForDelete = activeProject?.name.trim() ?? "";
+  const isDeleteProjectNameMatch =
+    normalizedProjectNameForDelete.length > 0 &&
+    deleteProjectNameInput.trim() === normalizedProjectNameForDelete;
+
+  const handleOpenDeleteProjectConfirm = () => {
+    setDeleteProjectNameInput("");
+    setDeleteProjectError(null);
+    setIsDeleteProjectConfirmOpen(true);
+  };
+
+  const handleCloseDeleteProjectConfirm = () => {
+    setIsDeleteProjectConfirmOpen(false);
+    setDeleteProjectNameInput("");
+    setDeleteProjectError(null);
+  };
+
+  const handleConfirmDeleteProject = async () => {
+    if (!token || !activeProject) {
+      return;
+    }
+
+    if (!isDeleteProjectNameMatch) {
+      setDeleteProjectError("Project name does not match.");
+      return;
+    }
+
+    setIsDeletingProject(true);
+    setDeleteProjectError(null);
+    setSettingsError(null);
+    setSettingsSuccess(null);
+
+    try {
+      await removeProject(token, activeProject.id);
+      handleCloseDeleteProjectConfirm();
+      navigate("/", { replace: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to delete project";
+      setDeleteProjectError(message);
+      setSettingsError(message);
+    } finally {
+      setIsDeletingProject(false);
     }
   };
 
@@ -2932,6 +2986,25 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                     {activeProject.slug}
                   </code>
                 </div>
+
+                <div className="rounded-[1.5rem] border border-rose-300/25 bg-gradient-to-br from-rose-950/35 via-slate-900/80 to-slate-900/90 p-4 md:p-5">
+                  <p className="text-xs uppercase tracking-[0.24em] text-rose-200/90">Danger Zone</p>
+                  <h3 className="mt-2 text-lg font-semibold text-white">Delete this project</h3>
+                  <p className="mt-1 text-sm text-slate-300">
+                    This permanently removes the project, cards, decks, milestones, activity, and member access.
+                  </p>
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-300/25 bg-rose-500/10 p-3">
+                    <p className="text-sm text-rose-100">Required: retype project name to unlock deletion.</p>
+                    <Button
+                      variant="outline"
+                      className="border-rose-300/40 bg-gradient-to-r from-rose-500 via-red-500 to-rose-600 text-white shadow-[0_12px_28px_rgba(244,63,94,0.25)] hover:from-rose-400 hover:via-red-400 hover:to-rose-500"
+                      onClick={handleOpenDeleteProjectConfirm}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete Project
+                    </Button>
+                  </div>
+                </div>
               </div>
             ) : null}
 
@@ -3286,6 +3359,53 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
           </div>
         </div>
       </Modal>
+
+      <ConfirmationModal
+        isOpen={isDeleteProjectConfirmOpen}
+        title="Delete project?"
+        description={
+          activeProject
+            ? `Type \"${activeProject.name}\" to permanently delete this project.`
+            : "Type the project name to permanently delete this project."
+        }
+        confirmLabel="Delete Project"
+        onClose={handleCloseDeleteProjectConfirm}
+        onConfirm={() => void handleConfirmDeleteProject()}
+        isConfirming={isDeletingProject}
+        confirmDisabled={!isDeleteProjectNameMatch}
+      >
+        <div className="space-y-4">
+          <div className="rounded-xl border border-rose-300/25 bg-rose-500/10 p-4">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-rose-100/90">Project Name</p>
+            <p className="mt-1 text-lg font-semibold text-white">{activeProject?.name ?? "Unknown project"}</p>
+          </div>
+
+          <label className="block text-xs uppercase tracking-[0.12em] text-slate-300">
+            Retype project name to confirm
+            <input
+              value={deleteProjectNameInput}
+              onChange={(event) => {
+                setDeleteProjectNameInput(event.target.value);
+                setDeleteProjectError(null);
+              }}
+              placeholder={activeProject?.name ?? "Project name"}
+              className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 text-sm text-white outline-none"
+            />
+          </label>
+
+          <p className={`text-xs ${isDeleteProjectNameMatch ? "text-emerald-300" : "text-slate-400"}`}>
+            {isDeleteProjectNameMatch
+              ? "Name matches. You can now delete this project."
+              : "Enter the exact project name to enable deletion."}
+          </p>
+
+          {deleteProjectError ? (
+            <div className="rounded-lg border border-rose-400/25 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+              {deleteProjectError}
+            </div>
+          ) : null}
+        </div>
+      </ConfirmationModal>
 
       <ConfirmationModal
         isOpen={pendingRoleRemoval !== null}
