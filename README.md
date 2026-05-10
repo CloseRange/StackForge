@@ -111,6 +111,7 @@ CLIENT_URL="http://localhost:5173"
 
 ```env
 VITE_API_URL="http://localhost:4000/api"
+VITE_PORTFOLIO_URL="https://your-portfolio.example.com"
 ```
 
 ## Notes
@@ -119,4 +120,5 @@ VITE_API_URL="http://localhost:4000/api"
 - Card fields include rarity, XP, checklist items, tags, status, and optional assignee.
 - The client uses Zustand for board state and React Context for auth state.
 - Both the server and client builds complete successfully.
+- The public site includes footer links for features, demo, documentation, terms, privacy, GitHub, and direct admin messages.
 

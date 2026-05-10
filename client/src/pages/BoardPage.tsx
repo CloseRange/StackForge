@@ -1646,9 +1646,6 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                     <div>
                       <p className={`text-xs uppercase tracking-[0.35em] ${isDarkMode ? "text-slate-300" : "text-slate-500"}`}>Decks</p>
                       <h2 className={`mt-2 font-display text-2xl font-semibold ${isDarkMode ? "text-white" : "text-slate-900"}`}>Choose a deck</h2>
-                      <p className={`mt-1 text-sm ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>
-                        Pick a deck card to open it. Debug and Completed stay pinned at the end.
-                      </p>
                     </div>
 
                     {isLoadingDecks ? (

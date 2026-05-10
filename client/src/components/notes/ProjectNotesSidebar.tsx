@@ -97,7 +97,7 @@ export const ProjectNotesSidebar = () => {
     <div className="flex h-full flex-col gap-5 overflow-hidden">
       <div>
         <p className="text-xs uppercase tracking-[0.34em] text-sky-300">Notes</p>
-        <h2 className="mt-2 font-display text-2xl font-semibold text-white">Personal project notes</h2>
+        <h2 className="mt-2 font-display text-2xl font-semibold text-white">Notes</h2>
         <p className="mt-2 text-sm text-slate-400">
           Notes are private to your account and change per selected project.
         </p>

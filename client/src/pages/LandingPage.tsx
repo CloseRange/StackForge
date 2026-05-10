@@ -1,10 +1,27 @@
+import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Zap, Layers3, TrendingUp, Sparkles, ArrowRight, CheckCircle2 } from "lucide-react";
 
 import { PublicHeader } from "../components/header/PublicHeader";
 import { Button } from "../components/ui/Button";
 
-export const LandingPage = () => {
+export const LandingPage = ({ initialSection = "hero" }: { initialSection?: "hero" | "features" }) => {
+  const featuresSectionRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (initialSection !== "features") {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      featuresSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, [initialSection]);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
       <PublicHeader />
@@ -62,7 +79,7 @@ export const LandingPage = () => {
       </section>
 
       {/* Features Section */}
-      <section className="relative px-6 py-20 sm:py-28 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+      <section ref={featuresSectionRef} className="relative px-6 py-20 sm:py-28 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
         {/* Background accent elements */}
         <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
           <div className="absolute top-0 left-1/4 h-px w-1/2 bg-gradient-to-r from-transparent via-sky-400 to-transparent opacity-20" />
@@ -227,10 +244,6 @@ export const LandingPage = () => {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-white/10 px-6 py-8 bg-gradient-to-b from-slate-950 to-slate-900 text-center text-sm text-slate-500">
-        <p>© 2026 StackForge. Campaign-driven project management.</p>
-      </footer>
     </div>
   );
 };

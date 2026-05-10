@@ -24,6 +24,18 @@ export const loginSchema = z.object({
   password: z.string().min(1)
 });
 
+const adminMessageTypes = ["bug_report", "support", "feedback", "general"] as const;
+
+export const createAdminMessageSchema = z.object({
+  messageType: z.enum(adminMessageTypes).default("bug_report"),
+  name: z.string().trim().max(80).optional().or(z.literal("")),
+  email: z.string().trim().email().max(160).optional().or(z.literal("")),
+  subject: z.string().trim().min(3).max(140),
+  message: z.string().trim().min(10).max(5_000),
+  pageUrl: z.string().trim().url().max(500).optional().or(z.literal("")),
+  userAgent: z.string().trim().max(500).optional().or(z.literal(""))
+});
+
 export const updateEmailSchema = z.object({
   newEmail: z.string().email(),
   currentPassword: z.string().min(1)

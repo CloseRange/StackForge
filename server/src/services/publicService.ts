@@ -1,11 +1,16 @@
+import { access, readFile } from "fs/promises";
+import path from "path";
+
 import { supabaseAdmin } from "../config/db.js";
 import { AppError } from "../middleware/errorHandler.js";
 import type { SFCardWithChecklist } from "../models/cardModel.js";
 import type { SFDeckRow } from "../models/deckModel.js";
+import type { AuthenticatedUser } from "../types/auth.js";
 import type { SFProjectMilestoneRow } from "../models/milestoneModel.js";
 import type { SFProjectRow } from "../models/projectModel.js";
 import { serializeDeck } from "../utils/cardTransforms.js";
 import { getUserAlias, resolveUserDisplayName } from "../utils/userDisplay.js";
+import { createAdminMessageSchema } from "../utils/validators.js";
 
 const CARD_SELECT = "*, checklist:sf_checklist_items(*)" as const;
 
@@ -126,7 +131,83 @@ const serializePublicMilestone = (
   };
 };
 
+const resolveReadmePath = async () => {
+  const candidates = [
+    path.resolve(process.cwd(), "README.md"),
+    path.resolve(process.cwd(), "../README.md")
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      await access(candidate);
+      return candidate;
+    } catch {
+      continue;
+    }
+  }
+
+  throw new AppError("Documentation source not found", 500);
+};
+
 export const publicService = {
+  async getReadme() {
+    const readmePath = await resolveReadmePath();
+    const markdown = await readFile(readmePath, "utf8");
+
+    return {
+      title: "StackForge Documentation",
+      markdown
+    };
+  },
+
+  async createAdminMessage(payload: unknown, user?: AuthenticatedUser) {
+    const input = createAdminMessageSchema.parse(payload);
+    const hasContactEmail = Boolean(input.email && input.email.length > 0);
+
+    if (!user && !hasContactEmail) {
+      throw new AppError("Email is required when you are not signed in", 400);
+    }
+
+    const insertPayload = {
+      user_id: user?.userId ?? null,
+      message_type: input.messageType,
+      name: input.name || user?.displayName || user?.firstName || null,
+      email: input.email || user?.email || null,
+      subject: input.subject,
+      message: input.message,
+      page_url: input.pageUrl || null,
+      user_agent: input.userAgent || null,
+      status: "open",
+      metadata: {
+        source: "site_footer",
+        submittedBy: user
+          ? {
+              userId: user.userId,
+              email: user.email,
+              userCode: user.userCode ?? null
+            }
+          : null
+      }
+    };
+
+    const { data, error } = await supabaseAdmin
+      .from("admin_messages")
+      .insert(insertPayload)
+      .select("id, message_type, status, created_at")
+      .single();
+
+    if (error || !data) {
+      throw new AppError(error?.message ?? "Unable to submit message", 500);
+    }
+
+    return {
+      id: data.id as string,
+      messageType: data.message_type as string,
+      status: data.status as string,
+      createdAt: data.created_at as string
+    };
+  },
+
   async getPublicProject(userCode: string, projectSlug: string) {
     // Resolve user from 4-char code via RPC
     const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc(

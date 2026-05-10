@@ -323,3 +323,27 @@ export type CreateDeckInput = {
 };
 
 export type UpdateDeckInput = Partial<Omit<CreateDeckInput, "projectId">>;
+
+export type DocumentationPayload = {
+  title: string;
+  markdown: string;
+};
+
+export type AdminMessageType = "bug_report" | "support" | "feedback" | "general";
+
+export type CreateAdminMessageInput = {
+  messageType: AdminMessageType;
+  name?: string;
+  email?: string;
+  subject: string;
+  message: string;
+  pageUrl?: string;
+  userAgent?: string;
+};
+
+export type AdminMessageSubmission = {
+  id: string;
+  messageType: AdminMessageType;
+  status: "open" | "in_progress" | "closed" | "archived";
+  createdAt: string;
+};
