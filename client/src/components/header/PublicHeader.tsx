@@ -17,28 +17,7 @@ export const PublicHeader = () => {
         <Logo href="/" />
 
         {/* Center — nav links */}
-        <nav className="hidden items-center gap-1 md:flex">
-          <Link
-            to="#features"
-            className={`rounded-lg px-3 py-1.5 text-sm transition ${
-              isDarkMode
-                ? "text-slate-400 hover:bg-white/5 hover:text-white"
-                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-            }`}
-          >
-            Features
-          </Link>
-          <Link
-            to="#demo"
-            className={`rounded-lg px-3 py-1.5 text-sm transition ${
-              isDarkMode
-                ? "text-slate-400 hover:bg-white/5 hover:text-white"
-                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-            }`}
-          >
-            Demo
-          </Link>
-        </nav>
+        <nav className="hidden items-center gap-1 md:flex"></nav>
 
         {/* Right — auth buttons */}
         <div className="flex items-center gap-2">
