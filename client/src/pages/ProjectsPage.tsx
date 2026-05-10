@@ -92,47 +92,6 @@ export const ProjectsPage = () => {
     navigate(route);
   };
 
-  const sidebar = (
-    <div className="flex h-full flex-col gap-6">
-      <div>
-        <p className="text-xs uppercase tracking-[0.38em] text-sky-300">Campaigns</p>
-        <h2 className="mt-3 font-display text-2xl font-semibold text-white">Projects as campaigns</h2>
-        <p className="mt-2 text-sm text-slate-400">
-          Create campaigns, then jump into board, decks, or activity pages.
-        </p>
-      </div>
-
-      <div ref={createFormRef} className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-4">
-        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
-          <Plus className="h-4 w-4 text-sky-300" />
-          New Campaign
-        </div>
-        <div className="space-y-3">
-          <input
-            value={projectName}
-            onChange={(event) => setProjectName(event.target.value)}
-            placeholder="StackForge Launch"
-            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none"
-          />
-          <textarea
-            value={projectDescription}
-            onChange={(event) => setProjectDescription(event.target.value)}
-            placeholder="What are we shipping in this campaign?"
-            rows={3}
-            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none"
-          />
-          <Button
-            className="w-full"
-            onClick={() => void handleCreateProject()}
-            disabled={isCreatingProject || !projectName.trim()}
-          >
-            {isCreatingProject ? "Creating..." : "Create Project"}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <>
       <Header
@@ -143,7 +102,75 @@ export const ProjectsPage = () => {
         }}
       />
 
-      <DashboardLayout sidebar={sidebar}>
+      <DashboardLayout sidebar={
+        <div className="flex h-full flex-col gap-6">
+          <div>
+            <p className="text-xs uppercase tracking-[0.38em] text-sky-300">Campaigns</p>
+            <h2 className="mt-3 font-display text-2xl font-semibold text-white">Projects as campaigns</h2>
+            <p className="mt-2 text-sm text-slate-400">
+              Create campaigns, then deal cards into the board and push them to victory.
+            </p>
+          </div>
+          <div ref={createFormRef} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-4">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+              <Plus className="h-4 w-4 text-sky-300" />
+              New Campaign
+            </div>
+            <div className="space-y-3">
+              <input
+                value={projectName}
+                onChange={(event) => setProjectName(event.target.value)}
+                placeholder="StackForge Launch"
+                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none"
+              />
+              <textarea
+                value={projectDescription}
+                onChange={(event) => setProjectDescription(event.target.value)}
+                placeholder="What are we shipping in this campaign?"
+                rows={3}
+                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none"
+              />
+              <Button
+                className="w-full"
+                onClick={() => void handleCreateProject()}
+                disabled={isCreatingProject || !projectName.trim()}
+              >
+                {isCreatingProject ? "Creating..." : "Create Project"}
+              </Button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.03] p-4">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+              <Layers3 className="h-4 w-4 text-amber-300" />
+              Active Campaigns
+            </div>
+            <div className="space-y-2 overflow-y-auto pr-1">
+              {projects.map((project) => (
+                <button
+                  key={project.id}
+                  type="button"
+                  onClick={() => selectProject(project.id)}
+                  className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
+                    project.id === selectedProjectId
+                      ? "border-sky-300/40 bg-sky-400/10"
+                      : "border-white/8 bg-slate-950/40 hover:bg-white/[0.06]"
+                  }`}
+                >
+                  <div className="font-semibold text-white">{project.name}</div>
+                  <div className="mt-1 text-sm text-slate-400">
+                    {project.description || "No campaign brief yet."}
+                  </div>
+                </button>
+              ))}
+              {!isLoadingProjects && projects.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-white/10 bg-slate-950/40 px-4 py-6 text-sm text-slate-500">
+                  No campaigns yet. Create one to unlock the board.
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      }>
         {error ? (
           <div className="mb-4 flex items-center justify-between rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
             <span>{error}</span>
@@ -160,27 +187,24 @@ export const ProjectsPage = () => {
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {projects.map((project) => (
-            <div
+            <button
               key={project.id}
-              className={`rounded-2xl border p-4 ${
-                selectedProjectId === project.id ? "border-sky-300/35 bg-sky-500/10" : "border-white/10 bg-white/[0.06]"
-              }`}
+              type="button"
+              onClick={() => void openProjectRoute(project.id, "/board")}
+              className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 transition hover:border-sky-300/40 hover:bg-sky-500/10 hover:shadow-lg"
             >
               <h3 className="text-lg font-semibold text-white">{project.name}</h3>
               <p className="mt-1 text-sm text-slate-400">{project.description || "No campaign brief yet."}</p>
               <p className="mt-3 text-xs uppercase tracking-[0.08em] text-slate-400">{project.cardCount} cards</p>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button onClick={() => void openProjectRoute(project.id, "/board")}>Board</Button>
-                <Button variant="outline" onClick={() => void openProjectRoute(project.id, "/decks")}>Decks</Button>
-                <Button variant="ghost" onClick={() => void openProjectRoute(project.id, "/activity")}>Activity</Button>
-              </div>
-
-              <div className="mt-3 flex items-center justify-between border-t border-white/5 pt-3">
+              <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-3">
                 <button
                   type="button"
-                  onClick={() => void handleTogglePublic(project.id, project.isPublic)}
-                  className={`flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium transition ${
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void handleTogglePublic(project.id, project.isPublic);
+                  }}
+                  className={`btn-motion btn-shimmer flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium transition ${
                     project.isPublic
                       ? "bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
                       : "bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200"
@@ -193,21 +217,24 @@ export const ProjectsPage = () => {
                 {project.isPublic ? (
                   <button
                     type="button"
-                    onClick={() => copyPublicLink(project)}
-                    className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs text-slate-400 transition hover:bg-white/5 hover:text-sky-300"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      copyPublicLink(project);
+                    }}
+                    className="btn-motion btn-shimmer flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs text-slate-400 transition hover:bg-white/5 hover:text-sky-300"
                   >
                     <Link2 className="h-3.5 w-3.5" />
                     {copiedId === project.id ? "Copied!" : "Copy Link"}
                   </button>
                 ) : null}
               </div>
-            </div>
+            </button>
           ))}
         </div>
 
         {!isLoadingProjects && projects.length === 0 ? (
           <div className="mt-6 rounded-2xl border border-dashed border-white/15 bg-slate-800/30 px-4 py-6 text-sm text-slate-400">
-            No campaigns yet. Create one from the left panel.
+            No campaigns yet. Create one with the form above.
           </div>
         ) : null}
       </DashboardLayout>

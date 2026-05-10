@@ -85,6 +85,10 @@ export const updateProjectSchema = createProjectSchema.extend({
   "At least one project field must be provided"
 );
 
+export const upsertProjectNoteSchema = z.object({
+  content: z.string().max(10_000).default("")
+});
+
 export const createCardSchema = z.object({
   title: z.string().min(2).max(120),
   description: z.string().max(1000).optional().or(z.literal("")),

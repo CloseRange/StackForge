@@ -266,7 +266,7 @@ export const MilestoneTimelineRail = ({
                       onMouseLeave={closeTooltip}
                       onFocus={(event) => openTooltip(milestone, event.currentTarget)}
                       onBlur={closeTooltip}
-                      className={`flex h-10 w-10 items-center justify-center border shadow-[0_10px_26px_rgba(2,6,23,0.32)] transition hover:-translate-y-0.5 ${isComplete ? "hover:scale-[1.08]" : "hover:scale-[1.03]"} focus:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-white/60 [transform:rotate(45deg)] ${colorClass}`}
+                      className={`btn-motion btn-shimmer flex h-10 w-10 items-center justify-center border shadow-[0_10px_26px_rgba(2,6,23,0.32)] transition ${isComplete ? "hover:scale-[1.08]" : "hover:scale-[1.03]"} focus:outline-none focus:ring-2 focus:ring-white/60 [transform:rotate(45deg)] ${colorClass}`}
                     >
                       {isComplete ? (
                         <Check className="h-5 w-5 [transform:rotate(-45deg)] text-emerald-50" />

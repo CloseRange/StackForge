@@ -29,7 +29,7 @@ export const ProfileMenu = () => {
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-sky-500 to-cyan-400 text-xs font-black text-slate-950 shadow-md shadow-sky-500/20 transition hover:opacity-90"
+        className="btn-motion btn-shimmer flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-sky-500 to-cyan-400 text-xs font-black text-slate-950 shadow-md shadow-sky-500/20 transition hover:opacity-90"
         aria-label="Open profile menu"
       >
         {user?.avatarUrl ? (
@@ -55,7 +55,7 @@ export const ProfileMenu = () => {
                 navigate("/profile");
                 setIsOpen(false);
               }}
-              className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
+              className="btn-motion btn-shimmer flex w-full items-center gap-3 px-4 py-2.5 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
             >
               <User className="h-4 w-4" />
               Profile
@@ -66,7 +66,7 @@ export const ProfileMenu = () => {
                 navigate("/account/settings");
                 setIsOpen(false);
               }}
-              className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
+              className="btn-motion btn-shimmer flex w-full items-center gap-3 px-4 py-2.5 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
             >
               <Settings className="h-4 w-4" />
               Settings
@@ -78,7 +78,7 @@ export const ProfileMenu = () => {
                 logout();
                 setIsOpen(false);
               }}
-              className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-rose-400 transition hover:bg-white/5 hover:text-rose-300"
+              className="btn-motion btn-shimmer flex w-full items-center gap-3 px-4 py-2.5 text-sm text-rose-400 transition hover:bg-white/5 hover:text-rose-300"
             >
               <LogOut className="h-4 w-4" />
               Sign Out

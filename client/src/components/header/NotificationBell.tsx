@@ -155,7 +155,7 @@ export const NotificationBell = () => {
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`relative flex h-9 w-9 items-center justify-center rounded-xl border transition ${
+        className={`btn-motion btn-shimmer relative flex h-9 w-9 items-center justify-center rounded-xl border transition ${
           isDarkMode
             ? "border-white/12 bg-white/[0.04] text-slate-200 hover:bg-white/[0.09] hover:text-white"
             : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -194,7 +194,7 @@ export const NotificationBell = () => {
             <button
               type="button"
               onClick={() => void markAllAsRead()}
-              className={`flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium transition ${
+              className={`btn-motion btn-shimmer flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium transition ${
                 isDarkMode
                   ? "text-sky-300 hover:bg-sky-400/10"
                   : "text-blue-600 hover:bg-blue-50"
@@ -220,7 +220,7 @@ export const NotificationBell = () => {
                 key={item.id}
                 type="button"
                 onClick={() => void markOneAsRead(item)}
-                className={`mb-1 w-full rounded-xl border px-3 py-2.5 text-left transition last:mb-0 ${
+                className={`btn-motion btn-shimmer mb-1 w-full rounded-xl border px-3 py-2.5 text-left transition last:mb-0 ${
                   item.isRead
                     ? isDarkMode
                       ? "border-white/6 bg-white/[0.02]"

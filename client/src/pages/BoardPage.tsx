@@ -19,7 +19,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ClaimBoard } from "../components/board/ClaimBoard";
 import { CardEditorModal } from "../components/cards/CardEditorModal";
 import { Header } from "../components/header/Header";
+import { ProjectNotesSidebar } from "../components/notes/ProjectNotesSidebar";
 import { MilestoneTimelineRail } from "../components/timeline/MilestoneTimelineRail";
+import { ConfirmationModal } from "../components/ui/ConfirmationModal";
 import { Button } from "../components/ui/Button";
 import { Modal } from "../components/ui/Modal";
 import { ProjectIcon } from "../components/ui/ProjectIcon";
@@ -332,6 +334,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const [isDeckQuickAdding, setIsDeckQuickAdding] = useState(false);
   const [isDeckQuickAddOpen, setIsDeckQuickAddOpen] = useState(false);
   const [deletingCardId, setDeletingCardId] = useState<string | null>(null);
+  const [pendingCardDeletion, setPendingCardDeletion] = useState<Card | null>(null);
   
   // Project-wide stats (not filtered by member permissions)
   const [projectTotalXp, setProjectTotalXp] = useState(0);
@@ -360,6 +363,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   const [timelineSubTab, setTimelineSubTab] = useState<TimelineSubTab>("timeline");
   const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(null);
   const [deletingMilestoneId, setDeletingMilestoneId] = useState<string | null>(null);
+  const [pendingMilestoneDeletion, setPendingMilestoneDeletion] = useState<ProjectMilestone | null>(null);
   const [milestoneType, setMilestoneType] = useState<MilestoneType>("project");
   const [milestoneColor, setMilestoneColor] = useState<MilestoneColor>("sky");
   const [milestoneIcon, setMilestoneIcon] = useState(DEFAULT_MILESTONE_ICON);
@@ -888,16 +892,16 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
   };
 
   const handleDeleteCard = async (card: Card) => {
-    if (!token) {
+    setPendingCardDeletion(card);
+  };
+
+  const handleConfirmDeleteCard = async () => {
+    if (!token || !pendingCardDeletion) {
       return;
     }
 
-    const shouldDelete = globalThis.confirm(`Delete card "${card.title}"?`);
-
-    if (!shouldDelete) {
-      return;
-    }
-
+    const card = pendingCardDeletion;
+    setPendingCardDeletion(null);
     setDeletingCardId(card.id);
 
     try {
@@ -1260,26 +1264,36 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
       return;
     }
 
-    const shouldDelete = globalThis.confirm("Delete this milestone from the timeline?");
+    const milestone = milestones.find((entry) => entry.id === milestoneId);
 
-    if (!shouldDelete) {
+    if (!milestone) {
       return;
     }
 
-    setDeletingMilestoneId(milestoneId);
+    setPendingMilestoneDeletion(milestone);
+  };
+
+  const handleConfirmDeleteMilestone = async () => {
+    if (!token || !selectedProjectId || !pendingMilestoneDeletion) {
+      return;
+    }
+
+    const milestone = pendingMilestoneDeletion;
+    setPendingMilestoneDeletion(null);
+    setDeletingMilestoneId(milestone.id);
     setMilestonesError(null);
 
     try {
-      await projectService.removeMilestone(token, selectedProjectId, milestoneId);
-      setMilestones((previous) => previous.filter((entry) => entry.id !== milestoneId));
+      await projectService.removeMilestone(token, selectedProjectId, milestone.id);
+      setMilestones((previous) => previous.filter((entry) => entry.id !== milestone.id));
 
-      if (editingMilestoneId === milestoneId) {
+      if (editingMilestoneId === milestone.id) {
         resetMilestoneForm();
       }
     } catch (err: unknown) {
       setMilestonesError(err instanceof Error ? err.message : "Failed to delete milestone");
     } finally {
-      setDeletingMilestoneId((current) => (current === milestoneId ? null : current));
+      setDeletingMilestoneId((current) => (current === milestone.id ? null : current));
     }
   };
 
@@ -1538,7 +1552,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
         />
       )}
 
-      <DashboardLayout backgroundIcon={activeProject?.icon}>
+      <DashboardLayout sidebar={activeProject ? <ProjectNotesSidebar /> : undefined} backgroundIcon={activeProject?.icon}>
         {error ? (
           <div className="mb-4 flex items-center justify-between rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
             <span>{error}</span>
@@ -3273,64 +3287,41 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
         </div>
       </Modal>
 
-      <Modal
+      <ConfirmationModal
         isOpen={pendingRoleRemoval !== null}
         title="Remove role?"
         description="This will delete the role and remove it from every member currently assigned to it."
+        confirmLabel="Remove Role"
         onClose={() => setPendingRoleRemoval(null)}
+        onConfirm={() => void handleConfirmRemoveRole()}
+        isConfirming={Boolean(pendingRoleRemoval && deletingRoleId === pendingRoleRemoval.id)}
       >
         {pendingRoleRemoval ? (
-          <div className="space-y-5">
-            <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-4">
-              <p className="text-xs uppercase tracking-[0.16em] text-rose-200">Danger zone</p>
-              <p className="mt-2 text-sm text-rose-100/90">
-                Role <span className="font-semibold">{pendingRoleRemoval.name}</span> will be removed from this project.
-              </p>
-              <p className="mt-2 text-sm text-rose-100/75">
-                Members assigned to it will lose that role immediately.
-              </p>
+          <div className="grid gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300 sm:grid-cols-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Role</p>
+              <p className="mt-1 font-semibold text-white">{pendingRoleRemoval.name}</p>
             </div>
-
-            <div className="grid gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300 sm:grid-cols-3">
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Role</p>
-                <p className="mt-1 font-semibold text-white">{pendingRoleRemoval.name}</p>
-              </div>
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Members</p>
-                <p className="mt-1 font-semibold text-white">{pendingRoleRemoval.memberCount}</p>
-              </div>
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Protected</p>
-                <p className="mt-1 font-semibold text-white">{pendingRoleRemoval.isSystem ? "Yes" : "No"}</p>
-              </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Members</p>
+              <p className="mt-1 font-semibold text-white">{pendingRoleRemoval.memberCount}</p>
             </div>
-
-            <div className="flex justify-end gap-3">
-              <Button
-                variant="ghost"
-                onClick={() => setPendingRoleRemoval(null)}
-                disabled={deletingRoleId === pendingRoleRemoval.id}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="border border-rose-300/40 bg-rose-500 text-white hover:bg-rose-400"
-                onClick={() => void handleConfirmRemoveRole()}
-                disabled={deletingRoleId === pendingRoleRemoval.id}
-              >
-                {deletingRoleId === pendingRoleRemoval.id ? "Removing..." : "Remove Role"}
-              </Button>
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Protected</p>
+              <p className="mt-1 font-semibold text-white">{pendingRoleRemoval.isSystem ? "Yes" : "No"}</p>
             </div>
           </div>
         ) : null}
-      </Modal>
+      </ConfirmationModal>
 
-      <Modal
+      <ConfirmationModal
         isOpen={isDeleteDeckConfirmOpen}
         title="Delete Deck?"
         description={`This will permanently remove "${activeDeck?.label}" from your project.`}
+        confirmLabel="Delete Deck"
         onClose={() => setIsDeleteDeckConfirmOpen(false)}
+        onConfirm={() => void handleConfirmDeleteDeck()}
+        isConfirming={isDeletingDeck}
       >
         <div className="space-y-4">
           <div className="rounded-xl border border-rose-400/30 bg-rose-500/10 p-4">
@@ -3342,24 +3333,51 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
               <li>• No other decks target this one as a completion target</li>
             </ul>
           </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              variant="ghost"
-              onClick={() => setIsDeleteDeckConfirmOpen(false)}
-              disabled={isDeletingDeck}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="border border-rose-300/40 bg-rose-500 text-white hover:bg-rose-400"
-              onClick={() => void handleConfirmDeleteDeck()}
-              disabled={isDeletingDeck}
-            >
-              {isDeletingDeck ? "Deleting..." : "Delete Deck"}
-            </Button>
-          </div>
         </div>
-      </Modal>
+      </ConfirmationModal>
+
+      <ConfirmationModal
+        isOpen={pendingCardDeletion !== null}
+        title="Delete card?"
+        description={pendingCardDeletion ? `Delete "${pendingCardDeletion.title}" from the board.` : "Delete this card from the board."}
+        confirmLabel="Delete Card"
+        onClose={() => setPendingCardDeletion(null)}
+        onConfirm={() => void handleConfirmDeleteCard()}
+        isConfirming={Boolean(pendingCardDeletion && deletingCardId === pendingCardDeletion.id)}
+      >
+        <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+          This card will be removed immediately and cannot be restored.
+        </div>
+      </ConfirmationModal>
+
+      <ConfirmationModal
+        isOpen={pendingMilestoneDeletion !== null}
+        title="Delete milestone?"
+        description={
+          pendingMilestoneDeletion
+            ? `Remove "${pendingMilestoneDeletion.title}" from the timeline.`
+            : "Remove this milestone from the timeline."
+        }
+        confirmLabel="Delete Milestone"
+        onClose={() => setPendingMilestoneDeletion(null)}
+        onConfirm={() => void handleConfirmDeleteMilestone()}
+        isConfirming={Boolean(pendingMilestoneDeletion && deletingMilestoneId === pendingMilestoneDeletion.id)}
+      >
+        {pendingMilestoneDeletion ? (
+          <div className="space-y-3 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+            <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.16em] text-slate-400">
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-slate-200">
+                {pendingMilestoneDeletion.isComplete ? "Complete" : pendingMilestoneDeletion.type}
+              </span>
+              {pendingMilestoneDeletion.dueAt ? <span>{new Date(pendingMilestoneDeletion.dueAt).toLocaleDateString()}</span> : null}
+            </div>
+            <p className="font-semibold text-white">{pendingMilestoneDeletion.title}</p>
+            <p className="text-slate-400">
+              {pendingMilestoneDeletion.notes || "The milestone will be removed from the timeline and milestone list."}
+            </p>
+          </div>
+        ) : null}
+      </ConfirmationModal>
     </>
   );
 };

@@ -7,6 +7,7 @@ import type {
   ProjectMember,
   ProjectMembersResponse,
   ProjectRole,
+  ProjectUserNote,
   UpdateMilestoneInput,
   UpdateProjectInput
 } from "../types/api";
@@ -53,6 +54,18 @@ export const projectService = {
 
   getStats(token: string, projectId: string) {
     return request<ProjectStats>(`/projects/${projectId}/stats`, { token });
+  },
+
+  getMyNote(token: string, projectId: string) {
+    return request<ProjectUserNote>(`/projects/${projectId}/notes/me`, { token });
+  },
+
+  upsertMyNote(token: string, projectId: string, content: string) {
+    return request<ProjectUserNote>(`/projects/${projectId}/notes/me`, {
+      method: "PUT",
+      token,
+      body: { content }
+    });
   },
 
   getActivity(

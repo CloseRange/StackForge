@@ -233,6 +233,15 @@ export type ProjectActivityResponse = {
   last7Days: number;
 };
 
+export type ProjectUserNote = {
+  id: string;
+  projectId: string;
+  userId: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type MilestoneType = "card" | "deck" | "xp" | "project";
 export type MilestoneColor = "sky" | "amber" | "emerald" | "rose" | "violet";
 

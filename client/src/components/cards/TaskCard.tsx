@@ -26,7 +26,7 @@ export const TaskCard = ({ card, onSelect }: TaskCardProps) => {
       ref={setNodeRef}
       type="button"
       onClick={() => onSelect(card)}
-      className={`group w-full rounded-3xl border bg-slate-800/70 p-4 text-left shadow-xl transition hover:-translate-y-0.5 ${rarityClasses[card.priority]} ${isDragging ? "opacity-70" : "opacity-100"}`}
+      className={`btn-motion btn-shimmer group w-full rounded-3xl border bg-slate-800/70 p-4 text-left shadow-xl transition ${rarityClasses[card.priority]} ${isDragging ? "opacity-70" : "opacity-100"}`}
       style={{
         transform: CSS.Translate.toString(transform)
       }}

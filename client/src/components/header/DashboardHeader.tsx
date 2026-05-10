@@ -61,7 +61,7 @@ export const DashboardHeader = ({ onNewProject }: DashboardHeaderProps) => {
           <button
             type="button"
             onClick={onNewProject}
-            className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-sm font-semibold transition ${
+            className={`btn-motion btn-shimmer flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-sm font-semibold transition ${
               isDarkMode
                 ? "border-sky-200/35 bg-gradient-to-r from-sky-300 via-cyan-300 to-indigo-300 text-slate-950 shadow-md shadow-sky-500/20 hover:from-sky-200 hover:via-cyan-200 hover:to-indigo-200"
                 : "border-blue-300 bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-600"

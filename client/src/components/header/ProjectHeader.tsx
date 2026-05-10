@@ -94,7 +94,7 @@ export const ProjectHeader = ({
                 key={tab.id}
                 type="button"
                 onClick={() => onTabChange?.(tab.id)}
-                className={`group relative overflow-hidden rounded-xl border px-3 py-1.5 text-sm font-semibold transition-all duration-300 motion-safe:hover:-translate-y-0.5 ${
+                className={`btn-motion btn-shimmer group relative overflow-hidden rounded-xl border px-3 py-1.5 text-sm font-semibold transition-all duration-300 ${
                   isActive
                     ? isDarkMode
                       ? "border-cyan-300/45 bg-[linear-gradient(180deg,rgba(14,165,233,0.34),rgba(2,132,199,0.2))] text-cyan-100 shadow-[0_8px_22px_-10px_rgba(14,165,233,0.75)]"
@@ -148,7 +148,7 @@ export const ProjectHeader = ({
             <button
               type="button"
               onClick={onSettings}
-              className={`hidden items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-sm font-medium transition sm:flex ${
+              className={`btn-motion btn-shimmer hidden items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-sm font-medium transition sm:flex ${
                 isDarkMode
                   ? "border-white/12 bg-white/[0.04] text-slate-300 hover:bg-white/[0.09] hover:text-white"
                   : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
