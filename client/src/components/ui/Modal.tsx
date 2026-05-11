@@ -21,7 +21,7 @@ export const Modal = ({ isOpen, title, description, onClose, children }: ModalPr
 
   return (
     <div
-      className={`fixed inset-0 z-50 overflow-y-auto px-4 py-4 backdrop-blur-xl ${
+      className={`fixed inset-0 z-[140] overflow-y-auto px-4 py-4 backdrop-blur-xl ${
         isDarkMode ? "bg-slate-950/70" : "bg-slate-900/35"
       }`}
     >

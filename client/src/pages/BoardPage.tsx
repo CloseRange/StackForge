@@ -2226,9 +2226,9 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                               {sortedMilestones.map((milestone) => (
                                 <div
                                   key={milestone.id}
-                                  className="rounded-xl border border-white/12 bg-white/[0.03] p-4"
+                                  className="rounded-xl border border-white/12 bg-white/[0.03] p-3 md:p-4"
                                 >
-                                  <div className="flex flex-wrap items-start justify-between gap-3">
+                                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                     <div>
                                       <div className="flex flex-wrap items-center gap-2">
                                         <span className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] ${getTimelineBadge(milestone)}`}>
@@ -2244,18 +2244,18 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                                         ) : null}
                                       </div>
 
-                                      <p className="mt-2 text-base font-semibold text-white">{milestone.title}</p>
+                                      <p className="mt-2 line-clamp-2 text-sm font-semibold text-white md:text-base">{milestone.title}</p>
 
                                       {milestone.type === "card" && milestone.targetCardTitle ? (
-                                        <p className="mt-1 text-sm text-slate-400">Card: {milestone.targetCardTitle}</p>
+                                        <p className="mt-1 truncate text-xs text-slate-400 md:text-sm">Card: {milestone.targetCardTitle}</p>
                                       ) : null}
 
                                       {milestone.type === "deck" && milestone.targetDeckName ? (
-                                        <p className="mt-1 text-sm text-slate-400">Deck: {milestone.targetDeckName}</p>
+                                        <p className="mt-1 truncate text-xs text-slate-400 md:text-sm">Deck: {milestone.targetDeckName}</p>
                                       ) : null}
 
                                       {milestone.type === "xp" ? (
-                                        <p className="mt-1 text-sm text-slate-400">
+                                        <p className="mt-1 text-xs text-slate-400 md:text-sm">
                                           XP: {milestone.progress.earnedXp.toLocaleString()} / {(
                                             milestone.targetXp ?? 0
                                           ).toLocaleString()}
@@ -2263,17 +2263,17 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                                       ) : null}
 
                                       {milestone.type === "project" ? (
-                                        <p className="mt-1 text-sm text-slate-400">
+                                        <p className="mt-1 text-xs text-slate-400 md:text-sm">
                                           Progress: {milestone.progress.earnedXp.toLocaleString()} / {milestone.progress.totalXp.toLocaleString()} XP
                                         </p>
                                       ) : null}
 
                                       {milestone.notes ? (
-                                        <p className="mt-2 text-sm text-slate-300">{milestone.notes}</p>
+                                        <p className="mt-2 line-clamp-2 text-xs text-slate-300 md:line-clamp-none md:text-sm">{milestone.notes}</p>
                                       ) : null}
                                     </div>
 
-                                    <Button variant="outline" onClick={() => beginEditMilestone(milestone)}>
+                                    <Button variant="outline" className="self-start whitespace-nowrap" onClick={() => beginEditMilestone(milestone)}>
                                       <PencilLine className="h-4 w-4" />
                                       Edit
                                     </Button>
@@ -2465,9 +2465,9 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                       {sortedMilestones.map((milestone) => (
                         <div
                           key={milestone.id}
-                          className="rounded-xl border border-white/12 bg-white/[0.03] p-4"
+                          className="rounded-xl border border-white/12 bg-white/[0.03] p-3 md:p-4"
                         >
-                          <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div>
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] ${getTimelineBadge(milestone)}`}>
@@ -2482,18 +2482,18 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                                   </span>
                                 ) : null}
                               </div>
-                              <p className="mt-2 text-base font-semibold text-white">{milestone.title}</p>
+                              <p className="mt-2 line-clamp-2 text-sm font-semibold text-white md:text-base">{milestone.title}</p>
 
                               {milestone.type === "card" && milestone.targetCardTitle ? (
-                                <p className="mt-1 text-sm text-slate-400">Card: {milestone.targetCardTitle}</p>
+                                <p className="mt-1 truncate text-xs text-slate-400 md:text-sm">Card: {milestone.targetCardTitle}</p>
                               ) : null}
 
                               {milestone.type === "deck" && milestone.targetDeckName ? (
-                                <p className="mt-1 text-sm text-slate-400">Deck: {milestone.targetDeckName}</p>
+                                <p className="mt-1 truncate text-xs text-slate-400 md:text-sm">Deck: {milestone.targetDeckName}</p>
                               ) : null}
 
                               {milestone.type === "xp" ? (
-                                <p className="mt-1 text-sm text-slate-400">
+                                <p className="mt-1 text-xs text-slate-400 md:text-sm">
                                   XP: {milestone.progress.earnedXp.toLocaleString()} / {(
                                     milestone.targetXp ?? 0
                                   ).toLocaleString()}
@@ -2501,18 +2501,18 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                               ) : null}
 
                               {milestone.type === "project" ? (
-                                <p className="mt-1 text-sm text-slate-400">
+                                <p className="mt-1 text-xs text-slate-400 md:text-sm">
                                   Progress: {milestone.progress.earnedXp.toLocaleString()} / {milestone.progress.totalXp.toLocaleString()} XP
                                 </p>
                               ) : null}
 
                               {milestone.notes ? (
-                                <p className="mt-2 text-sm text-slate-300">{milestone.notes}</p>
+                                <p className="mt-2 line-clamp-2 text-xs text-slate-300 md:line-clamp-none md:text-sm">{milestone.notes}</p>
                               ) : null}
                             </div>
 
-                            <div className="flex items-center gap-2">
-                              <Button variant="outline" onClick={() => beginEditMilestone(milestone)}>
+                            <div className="flex items-center gap-2 self-start sm:self-auto">
+                              <Button variant="outline" className="whitespace-nowrap" onClick={() => beginEditMilestone(milestone)}>
                                 <PencilLine className="h-4 w-4" />
                                 Edit
                               </Button>
@@ -2548,7 +2548,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 p-1">
+                    <div className="flex items-center gap-2 overflow-x-auto rounded-xl border border-white/15 bg-white/5 p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                       {ACTIVITY_FILTERS.map((filter) => (
                         <button
                           key={filter.value}
@@ -2557,7 +2557,7 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
                             setActivityFilter(filter.value);
                             setActivityLimit(30);
                           }}
-                          className={`rounded-lg px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition ${
+                          className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition ${
                             activityFilter === filter.value
                               ? "bg-sky-500/20 text-sky-100"
                               : "text-slate-300 hover:bg-white/10 hover:text-white"
@@ -2602,13 +2602,13 @@ export const BoardPage = ({ tab }: { tab: ProjectTab }) => {
 
                 {filteredActivity.length > 0 ? (
                   <div className="space-y-4">
-                    <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(10.5rem,1fr))] sm:[grid-template-columns:repeat(auto-fill,minmax(11.5rem,1fr))]">
+                    <div className="grid grid-cols-1 gap-3 md:gap-4 md:[grid-template-columns:repeat(auto-fill,minmax(10.5rem,1fr))] lg:[grid-template-columns:repeat(auto-fill,minmax(11.5rem,1fr))]">
                       {filteredActivity.map((entry) => (
                         <button
                           key={entry.id}
                           type="button"
                           onClick={() => setSelectedActivityEvent(entry)}
-                          className="group relative flex aspect-square flex-col overflow-hidden rounded-[1.2rem] border border-white/15 bg-[linear-gradient(180deg,rgba(20,28,45,0.94),rgba(12,18,32,0.97))] p-3.5 text-left shadow-[2px_4px_0_1px_rgba(0,0,0,0.34),5px_8px_0_1px_rgba(0,0,0,0.2)] transition hover:-translate-y-1 hover:shadow-[2px_6px_0_1px_rgba(0,0,0,0.45),5px_10px_0_1px_rgba(0,0,0,0.28)]"
+                          className="group relative flex min-h-[7.25rem] flex-col overflow-hidden rounded-[1.2rem] border border-white/15 bg-[linear-gradient(180deg,rgba(20,28,45,0.94),rgba(12,18,32,0.97))] p-3.5 text-left shadow-[2px_4px_0_1px_rgba(0,0,0,0.34),5px_8px_0_1px_rgba(0,0,0,0.2)] transition hover:-translate-y-1 hover:shadow-[2px_6px_0_1px_rgba(0,0,0,0.45),5px_10px_0_1px_rgba(0,0,0,0.28)] md:aspect-square md:min-h-0"
                         >
                           <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/5 blur-2xl" />
 

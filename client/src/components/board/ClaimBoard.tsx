@@ -1,9 +1,19 @@
-import { DndContext, type DragEndEvent, useDraggable, useDroppable } from "@dnd-kit/core";
+import {
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  type DragEndEvent,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors
+} from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { Bug, Eye, Layers3, Lock, Plus, Trophy, Zap } from "lucide-react";
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 
 import { Button } from "../ui/Button";
+import { Modal } from "../ui/Modal";
 import { useAuth } from "../../hooks/useAuth";
 import type { Card, CardPriority, Deck, DeckColor, UpdateCardInput, User } from "../../types/api";
 import { ProjectIcon } from "../ui/ProjectIcon";
@@ -189,7 +199,7 @@ const BoardSlot = ({
             }
           : undefined
       }
-      className={`relative w-full max-w-[9rem] sm:max-w-[9.5rem] lg:max-w-[10rem] aspect-[2/3] rounded-[1.5rem] border border-dashed p-1 transition ${
+      className={`relative w-[9rem] sm:w-[9.5rem] lg:w-[10rem] aspect-[2/3] rounded-[1.5rem] border border-dashed p-1 transition ${
         isOver
           ? isDarkMode
             ? "border-sky-300/55 bg-sky-500/10 shadow-[0_0_0_1px_rgba(125,211,252,0.2)]"
@@ -257,7 +267,7 @@ const FinishSlot = ({
             }
           : undefined
       }
-      className={`relative w-full max-w-[9rem] sm:max-w-[9.5rem] lg:max-w-[10rem] aspect-[2/3] rounded-[1.5rem] border border-dashed p-1 transition ${
+      className={`relative w-[9rem] sm:w-[9.5rem] lg:w-[10rem] aspect-[2/3] rounded-[1.5rem] border border-dashed p-1 transition ${
         isOver
           ? "border-emerald-300/60 bg-emerald-500/12 shadow-[0_0_0_1px_rgba(110,231,183,0.25)]"
           : isDarkMode
@@ -295,7 +305,7 @@ const CardPoolDropZone = ({ children, isDarkMode }: { children: ReactNode; isDar
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-[1.6rem] border p-3 transition ${
+      className={`rounded-[1.6rem] border p-2.5 sm:p-3 transition ${
         isOver
           ? isDarkMode
             ? "border-sky-300/45 bg-sky-500/10"
@@ -369,7 +379,7 @@ const BoardCard = ({
     <div
       ref={setNodeRef}
       style={{ transform: transformStyle, zIndex: isDragging ? 50 : undefined }}
-      className="group/card relative z-0 overflow-visible hover:z-[70]"
+      className="group/card relative z-0 overflow-visible lg:hover:z-[70]"
       onMouseEnter={handleCardHover}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -384,14 +394,14 @@ const BoardCard = ({
           style={cardSurfaceStyle}
           className={`claim-card-face relative aspect-[2/3] rounded-[1.35rem] border p-2.5 transition-[transform,box-shadow,filter] duration-300 ${
             deckPresentation.toneClass
-          } ${isLocked ? "opacity-75 saturate-[0.55]" : ""} ${isClaimedInPool && !isDragging ? "brightness-[0.72] saturate-[0.62] shadow-[inset_0_6px_14px_rgba(2,6,23,0.68),inset_0_0_0_1px_rgba(15,23,42,0.75),0_3px_8px_rgba(2,6,23,0.4)]" : ""} ${!isDarkMode && !isClaimedInPool ? "brightness-[1.08]" : ""} ${isDragging ? "scale-[1.03]" : isClaimedInPool ? "transform-gpu" : "transform-gpu group-hover/card:[transform:perspective(960px)_translateY(-10px)_rotateX(4deg)_rotateY(-2deg)_rotateZ(1.2deg)]"}`}
+          } ${isLocked ? "opacity-75 saturate-[0.55]" : ""} ${isClaimedInPool && !isDragging ? "brightness-[0.72] saturate-[0.62] shadow-[inset_0_6px_14px_rgba(2,6,23,0.68),inset_0_0_0_1px_rgba(15,23,42,0.75),0_3px_8px_rgba(2,6,23,0.4)]" : ""} ${!isDarkMode && !isClaimedInPool ? "brightness-[1.08]" : ""} ${isDragging ? "scale-[1.03]" : isClaimedInPool ? "transform-gpu" : "transform-gpu lg:group-hover/card:[transform:perspective(960px)_translateY(-10px)_rotateX(4deg)_rotateY(-2deg)_rotateZ(1.2deg)]"}`}
         >
           <div className="pointer-events-none absolute inset-[6px] rounded-[1rem] border border-white/18" />
           {isClaimedInPool ? (
             <div className="pointer-events-none absolute inset-0 rounded-[1.35rem] bg-black/36" />
           ) : null}
           <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[1.35rem]">
-            <div className="absolute inset-y-0 -left-[65%] w-[50%] -skew-x-12 bg-gradient-to-r from-transparent via-white/25 to-transparent opacity-0 transition-all duration-500 group-hover/card:left-[125%] group-hover/card:opacity-100" />
+            <div className="absolute inset-y-0 -left-[65%] w-[50%] -skew-x-12 bg-gradient-to-r from-transparent via-white/25 to-transparent opacity-0 transition-all duration-500 lg:group-hover/card:left-[125%] lg:group-hover/card:opacity-100" />
           </div>
 
           {showInPlayBadge ? (
@@ -522,6 +532,10 @@ export const ClaimBoard = ({
   const [completionPulse, setCompletionPulse] = useState(false);
   const [selectedMobileCardId, setSelectedMobileCardId] = useState<string | null>(null);
   const [isMobileView, setIsMobileView] = useState(false);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } })
+  );
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 767px)");
@@ -533,6 +547,12 @@ export const ClaimBoard = ({
 
     return () => mediaQuery.removeEventListener("change", updateMobileView);
   }, []);
+
+  useEffect(() => {
+    if (!isMobileView) {
+      setSelectedMobileCardId(null);
+    }
+  }, [isMobileView]);
 
   const activeBoardCards = useMemo(
     () => cards.filter((card) => card.assigneeId === currentUser.id),
@@ -566,6 +586,10 @@ export const ClaimBoard = ({
 
   const occupiedBoardSlots = visibleBoardCards.filter(Boolean).length;
   const overflowBoardCount = Math.max(activeBoardCards.length - occupiedBoardSlots, 0);
+  const selectedMobileCard = useMemo(
+    () => cards.find((entry) => entry.id === selectedMobileCardId) ?? null,
+    [cards, selectedMobileCardId]
+  );
 
   const sortedPoolCards = useMemo(
     () =>
@@ -682,13 +706,8 @@ export const ClaimBoard = ({
       return;
     }
 
-    setSelectedMobileCardId((current) => {
-      const nextSelectedId = current === card.id ? null : card.id;
-
-      setNotice(nextSelectedId ? `Selected ${card.title}. Tap a slot to place it.` : null);
-
-      return nextSelectedId;
-    });
+    setSelectedMobileCardId(card.id);
+    setNotice(null);
   };
 
   const handleMobileBoardSlotSelect = async (slotIndex: number) => {
@@ -767,6 +786,7 @@ export const ClaimBoard = ({
 
   return (
     <DndContext
+      sensors={sensors}
       onDragStart={(event) => setActiveDragId(String(event.active.id))}
       onDragCancel={() => setActiveDragId(null)}
       onDragEnd={(event) => {
@@ -779,13 +799,13 @@ export const ClaimBoard = ({
         })();
       }}
     >
-      <div className={`space-y-4 overflow-x-hidden ${activeDragId ? "overflow-y-hidden" : ""}`}>
-        <section className={`rounded-[1.6rem] border p-4 md:p-4.5 ${
+      <div className={`space-y-3 md:space-y-4 overflow-x-hidden ${activeDragId ? "overflow-y-hidden" : ""}`}>
+        <section className={`rounded-[1.6rem] border p-3 sm:p-4 md:p-4.5 ${
           isDarkMode
             ? "border-white/[0.14] bg-[radial-gradient(circle_at_18%_0%,rgba(56,189,248,0.1),transparent_34%),radial-gradient(circle_at_92%_94%,rgba(16,185,129,0.1),transparent_28%),linear-gradient(180deg,rgba(17,24,38,0.92),rgba(8,13,22,0.96))]"
             : "border-slate-200 bg-[radial-gradient(circle_at_18%_0%,rgba(59,130,246,0.06),transparent_34%),radial-gradient(circle_at_92%_94%,rgba(16,185,129,0.06),transparent_28%),linear-gradient(180deg,#ffffff,#f8fafc)]"
         }`}>
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div className="flex flex-col gap-2.5 sm:gap-3 xl:flex-row xl:items-start xl:justify-between">
             <div>
               <p className={`text-xs uppercase tracking-[0.4em] ${isDarkMode ? "text-slate-300" : "text-slate-500"}`}>Your Playmat</p>
               <h2 className={`mt-1.5 font-display text-2xl font-semibold ${isDarkMode ? "text-white" : "text-slate-900"}`}>{boardSlotCount} active slots</h2>
@@ -795,8 +815,8 @@ export const ClaimBoard = ({
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-2.5">
-              <div className={`rounded-xl border px-3 py-2.5 ${
+            <div className="flex flex-wrap gap-2">
+              <div className={`rounded-xl border px-2.5 py-2 sm:px-3 sm:py-2.5 ${
                 isDarkMode ? "border-white/[0.14] bg-white/[0.03]" : "border-slate-200 bg-slate-50"
               }`}>
                 <div className={`text-[10px] uppercase tracking-[0.35em] ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Active</div>
@@ -810,7 +830,7 @@ export const ClaimBoard = ({
           </div>
 
           {notice ? (
-            <div className={`mt-4 rounded-xl border px-3 py-2.5 text-sm ${
+            <div className={`mt-3 sm:mt-4 rounded-xl border px-2.5 py-2 sm:px-3 sm:py-2.5 text-sm ${
               isDarkMode
                 ? "border-sky-300/24 bg-sky-500/10 text-sky-100"
                 : "border-blue-200 bg-blue-50 text-blue-800"
@@ -819,18 +839,8 @@ export const ClaimBoard = ({
             </div>
           ) : null}
 
-          {isMobileView && selectedMobileCardId ? (
-            <div className={`mt-4 rounded-xl border px-3 py-2.5 text-sm ${
-              isDarkMode
-                ? "border-amber-300/24 bg-amber-500/10 text-amber-100"
-                : "border-amber-200 bg-amber-50 text-amber-800"
-            }`}>
-              Card selected. Tap a slot to place it, or tap the selected card again to cancel.
-            </div>
-          ) : null}
-
           {overflowBoardCount > 0 ? (
-            <div className={`mt-4 rounded-xl border px-3 py-2.5 text-sm ${
+            <div className={`mt-3 sm:mt-4 rounded-xl border px-2.5 py-2 sm:px-3 sm:py-2.5 text-sm ${
               isDarkMode
                 ? "border-amber-300/18 bg-amber-500/10 text-amber-100"
                 : "border-amber-200 bg-amber-50 text-amber-800"
@@ -840,9 +850,9 @@ export const ClaimBoard = ({
             </div>
           ) : null}
 
-          <div className="mt-4">
+          <div className="mt-3 sm:mt-4">
             <div className="md:hidden">
-              <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              <div className="flex snap-x snap-mandatory gap-1.5 sm:gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                 {Array.from({ length: boardSlotCount }, (_, index) => {
                   const card = visibleBoardCards[index];
 
@@ -852,9 +862,6 @@ export const ClaimBoard = ({
                         id={`board-slot-${index}`}
                         index={index}
                         isDarkMode={isDarkMode}
-                        onClick={() => void handleMobileBoardSlotSelect(index)}
-                        isInteractive={isMobileView && Boolean(selectedMobileCardId)}
-                        isSelected={isMobileView && Boolean(selectedMobileCardId)}
                       >
                         {card ? (
                           <BoardCard
@@ -863,7 +870,7 @@ export const ClaimBoard = ({
                             deckPresentation={getDeckPresentation(card, decks, isDarkMode)}
                             isDarkMode={isDarkMode}
                             dragSource="board"
-                            draggable
+                            draggable={false}
                             isLocked={false}
                             isBusy={busyCardId === card.id}
                             onSelectCard={(selectedCard) => {
@@ -880,17 +887,6 @@ export const ClaimBoard = ({
                     </div>
                   );
                 })}
-
-                <div className="snap-center shrink-0">
-                  <FinishSlot
-                    targetDeckName={defaultCompletionTargetName}
-                    pulseActive={completionPulse}
-                    isDarkMode={isDarkMode}
-                    onClick={() => void handleMobileCompletionSelect()}
-                    isInteractive={isMobileView && Boolean(selectedMobileCardId)}
-                    isSelected={isMobileView && Boolean(selectedMobileCardId)}
-                  />
-                </div>
               </div>
             </div>
 
@@ -923,7 +919,7 @@ export const ClaimBoard = ({
         </section>
 
         <CardPoolDropZone isDarkMode={isDarkMode}>
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div className="flex flex-col gap-2.5 sm:gap-3 md:flex-row md:items-end md:justify-between">
             <div>
               <p className={`text-xs uppercase tracking-[0.38em] ${isDarkMode ? "text-slate-300" : "text-slate-500"}`}>Card Library</p>
               <h3 className={`mt-1.5 font-display text-xl font-semibold ${isDarkMode ? "text-white" : "text-slate-900"}`}>Every card in the project</h3>
@@ -932,7 +928,7 @@ export const ClaimBoard = ({
                 here, but they are locked until released by their owner.
               </p>
             </div>
-            <div className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-sm ${
+            <div className={`flex items-center gap-2 rounded-xl border px-2.5 py-2 sm:px-3 sm:py-2.5 text-sm ${
               isDarkMode
                 ? "border-white/[0.14] bg-white/[0.04] text-slate-300"
                 : "border-slate-200 bg-slate-50 text-slate-700"
@@ -943,14 +939,14 @@ export const ClaimBoard = ({
           </div>
 
           {sortedPoolCards.length === 0 ? (
-            <div className={`mt-4 rounded-[1.25rem] border border-dashed px-4 py-8 text-center ${
+            <div className={`mt-3 sm:mt-4 rounded-[1.25rem] border border-dashed px-3 py-6 sm:px-4 sm:py-8 text-center ${
               isDarkMode ? "border-white/[0.12] bg-slate-800/30" : "border-slate-300 bg-slate-50"
             }`}>
               <div className={`font-semibold ${isDarkMode ? "text-white" : "text-slate-900"}`}>No cards yet</div>
               <p className={`mt-2 text-sm ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>Forge the first card to populate the shared library.</p>
             </div>
           ) : (
-            <div className="mt-4 grid justify-center gap-2 [grid-template-columns:repeat(auto-fill,minmax(8.5rem,8.5rem))] sm:[grid-template-columns:repeat(auto-fill,minmax(9.25rem,9.25rem))] lg:[grid-template-columns:repeat(auto-fill,minmax(9.75rem,9.75rem))]">
+            <div className="mt-3 sm:mt-4 grid justify-center gap-1.5 sm:gap-2 [grid-template-columns:repeat(auto-fill,minmax(8.5rem,8.5rem))] sm:[grid-template-columns:repeat(auto-fill,minmax(9.25rem,9.25rem))] lg:[grid-template-columns:repeat(auto-fill,minmax(9.75rem,9.75rem))]">
               {sortedPoolCards.map((card) => {
                 const isLocked = Boolean(card.assigneeId && card.assigneeId !== currentUser.id);
 
@@ -962,16 +958,151 @@ export const ClaimBoard = ({
                     deckPresentation={getDeckPresentation(card, decks, isDarkMode)}
                     isDarkMode={isDarkMode}
                     dragSource="pool"
-                    draggable={!isLocked}
+                    draggable={!isMobileView && !isLocked}
                     isLocked={isLocked}
                     isBusy={busyCardId === card.id}
-                    onSelectCard={onSelectCard}
+                    onSelectCard={(selectedCard) => {
+                      if (isMobileView) {
+                        handleMobileCardSelect(selectedCard);
+                        return;
+                      }
+
+                      onSelectCard(selectedCard);
+                    }}
                   />
                 );
               })}
             </div>
           )}
         </CardPoolDropZone>
+
+        <Modal
+          isOpen={Boolean(isMobileView && selectedMobileCard)}
+          title={selectedMobileCard ? `Place ${selectedMobileCard.title}` : "Place Card"}
+          description="Choose where this card should go on your board."
+          onClose={() => setSelectedMobileCardId(null)}
+        >
+          {selectedMobileCard ? (
+            <div className="space-y-4 sm:space-y-5">
+              <div className={`rounded-2xl border p-3 sm:p-4 ${
+                isDarkMode ? "border-white/10 bg-white/[0.03]" : "border-slate-200 bg-slate-50"
+              }`}>
+                <div className={`text-xs uppercase tracking-[0.32em] ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                  Selected Card
+                </div>
+                <div className={`mt-2 text-lg font-semibold ${isDarkMode ? "text-white" : "text-slate-900"}`}>
+                  {selectedMobileCard.title}
+                </div>
+                <p className={`mt-1 text-sm ${isDarkMode ? "text-slate-300" : "text-slate-600"}`}>
+                  {selectedMobileCard.description?.trim() || "Choose a slot below to claim or reposition this card."}
+                </p>
+              </div>
+
+              <div>
+                <div className={`mb-3 text-xs uppercase tracking-[0.32em] ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                  Board Slots
+                </div>
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-3">
+                  {Array.from({ length: boardSlotCount }, (_, index) => {
+                    const occupyingCard = visibleBoardCards[index];
+                    const occupyingPresentation = occupyingCard
+                      ? getDeckPresentation(occupyingCard, decks, isDarkMode)
+                      : null;
+                    const isCurrentSlot = occupyingCard?.id === selectedMobileCard.id;
+
+                    return (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => void handleMobileBoardSlotSelect(index)}
+                        className={`rounded-2xl border px-3 py-2.5 sm:px-4 sm:py-3 text-left transition ${
+                          isCurrentSlot
+                            ? isDarkMode
+                              ? "border-sky-300/45 bg-sky-500/12 text-sky-100"
+                              : "border-blue-300 bg-blue-50 text-blue-800"
+                            : occupyingCard && occupyingPresentation
+                              ? `${occupyingPresentation.toneClass} shadow-[0_10px_24px_rgba(15,23,42,0.18)]`
+                            : isDarkMode
+                              ? "border-white/10 bg-white/[0.03] text-white hover:border-sky-300/35 hover:bg-sky-500/8"
+                              : "border-slate-200 bg-white text-slate-900 hover:border-blue-200 hover:bg-blue-50"
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          {occupyingCard && occupyingPresentation ? (
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-black/15 text-white shadow-inner shadow-black/20">
+                              {occupyingPresentation.mark}
+                            </div>
+                          ) : null}
+
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-semibold">Slot {index + 1}</div>
+                            {occupyingCard ? (
+                              <div className={`mt-1 truncate text-xs font-medium ${isCurrentSlot ? (isDarkMode ? "text-sky-100/90" : "text-blue-700") : "text-white/90"}`}>
+                                {occupyingCard.title}
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className={`mt-2 text-xs ${
+                          isCurrentSlot
+                            ? isDarkMode
+                              ? "text-sky-100/80"
+                              : "text-blue-700"
+                            : occupyingCard
+                              ? "text-white/75"
+                              : isDarkMode
+                                ? "text-slate-300"
+                                : "text-slate-600"
+                        }`}>
+                          {isCurrentSlot
+                            ? "Currently here"
+                            : occupyingCard
+                              ? `Replace ${occupyingCard.title}`
+                              : "Empty slot"}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {selectedMobileCard.assigneeId === currentUser.id ? (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    void (async () => {
+                      try {
+                        await mutateCard(
+                          selectedMobileCard.id,
+                          { assigneeId: null, boardSlot: null },
+                          "Card returned to the shared pool."
+                        );
+                      } finally {
+                        setSelectedMobileCardId(null);
+                      }
+                    })();
+                  }}
+                >
+                  Return To Library
+                </Button>
+              ) : null}
+
+              <Button
+                variant="ghost"
+                className="w-full"
+                onClick={() => {
+                  if (selectedMobileCard) {
+                    setSelectedMobileCardId(null);
+                    onSelectCard(selectedMobileCard);
+                  }
+                }}
+              >
+                Open Card Details
+              </Button>
+            </div>
+          ) : null}
+        </Modal>
       </div>
     </DndContext>
   );
