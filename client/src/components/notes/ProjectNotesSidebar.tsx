@@ -129,7 +129,7 @@ export const ProjectNotesSidebar = () => {
               : "Select a project to start writing notes."
           }
           disabled={!activeProject || isLoadingNote}
-          className="min-h-[220px] flex-1 resize-none overflow-hidden rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
+          className="min-h-[220px] flex-1 resize-none overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
         />
 
         <div className="mt-3 flex items-center justify-between gap-2 text-xs text-slate-400">

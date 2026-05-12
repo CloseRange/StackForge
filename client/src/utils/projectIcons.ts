@@ -10,18 +10,11 @@ const ICON_SET = new Set<string>(PROJECT_ICON_OPTIONS);
 export const DEFAULT_MILESTONE_ICON = GENERATED_DEFAULT_MILESTONE_ICON;
 
 const getIconsBaseUrl = () => {
-  const apiBaseUrl = import.meta.env.VITE_API_URL;
-
-  if (!apiBaseUrl || apiBaseUrl === "/api") {
-    return "/icons";
-  }
-
-  if (/^https?:\/\//i.test(apiBaseUrl)) {
-    return `${apiBaseUrl.replace(/\/api\/?$/, "")}/icons`;
-  }
-
-  const withoutApiSuffix = apiBaseUrl.replace(/\/api\/?$/, "");
-  return `${withoutApiSuffix || ""}/icons`;
+  // Use the app base path (Vite BASE_URL) so icons resolve correctly
+  // both at root (/) and when mounted under /projects/stackforge/.
+  const baseUrl = import.meta.env.BASE_URL || "/";
+  const normalizedBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+  return `${normalizedBase}icons`;
 };
 
 export const normalizeProjectIcon = (icon: string | null | undefined) => {

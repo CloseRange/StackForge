@@ -268,6 +268,29 @@ body {
   color: #3b82f6 !important;
 }
 
+/* Preserve icon tint classes in light mode.
+   The broad text color overrides above are useful for copy, but they make
+   SVG and masked icons render as dark ink when they were intentionally white/slate. */
+:root[data-theme="light"] svg.text-white,
+:root[data-theme="light"] [role="img"].text-white {
+  color: #ffffff !important;
+}
+
+:root[data-theme="light"] svg.text-slate-100,
+:root[data-theme="light"] [role="img"].text-slate-100 {
+  color: #f1f5f9 !important;
+}
+
+:root[data-theme="light"] svg.text-slate-200,
+:root[data-theme="light"] [role="img"].text-slate-200 {
+  color: #e2e8f0 !important;
+}
+
+:root[data-theme="light"] svg.text-slate-300,
+:root[data-theme="light"] [role="img"].text-slate-300 {
+  color: #cbd5e1 !important;
+}
+
 /* ===== LIGHT MODE SPECIAL CASES ===== */
 :root[data-theme="light"] .shadow-glow {
   box-shadow: var(--shadow-md) !important;

@@ -33,13 +33,13 @@ const toPascalCase = (value: string) => {
 type SimpleIconComponent = ComponentType<{ className?: string }>;
 
 const toneClassMap: Record<NonNullable<ProjectIconProps["tone"]>, string> = {
-  neutral: "text-slate-200",
-  picker: "text-slate-200",
-  "picker-selected": "text-sky-100",
+  neutral: "text-white",
+  picker: "text-white",
+  "picker-selected": "text-white",
   "deck-card": "text-white drop-shadow-[0_2px_8px_rgba(2,6,23,0.72)]",
   timeline: "text-white",
-  tooltip: "text-slate-300",
-  public: "text-sky-300",
+  tooltip: "text-white",
+  public: "text-white",
   inherit: ""
 };
 
@@ -74,18 +74,12 @@ export const ProjectIcon = ({
   const FallbackIcon = useMemo(() => getLucideIcon(icon), [icon]);
   const normalizedIcon = normalizeProjectIcon(icon);
 
-  // Prefer Lucide component rendering whenever we can map the icon name.
-  // This keeps icon tinting responsive to context classes.
-  if (normalizedIcon && FallbackIcon !== Layers3) {
-    return <FallbackIcon className={joinClasses(className, toneClassMap[tone])} />;
-  }
-
   if (!iconUrl || failedToLoad) {
     return <FallbackIcon className={joinClasses(fallbackClassName ?? className, toneClassMap[tone])} />;
   }
 
-  // For icons that do not map to a Lucide component name, tint the SVG via mask.
-  // This keeps color consistent across contexts (picker, deck cards, timeline, etc.).
+  // Render all known project icons through the same masked SVG path so their tint
+  // stays consistent across pickers, cards, timelines, and headers.
   return (
     <span
       role="img"
