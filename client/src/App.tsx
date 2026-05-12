@@ -137,7 +137,7 @@ const AppRoutes = () => {
 
 export const App = () => {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/projects/stackforge">
       <AppRoutes />
     </BrowserRouter>
   );
