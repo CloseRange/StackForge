@@ -10,15 +10,13 @@ export const Logo = ({ href = "/" }: LogoProps) => {
 
   return (
     <Link to={href} className="group flex items-center gap-2.5">
-      <div className={`flex h-8 w-8 items-center justify-center rounded-xl shadow-lg ${
-        isDarkMode
-          ? "bg-gradient-to-br from-sky-400 to-cyan-300 shadow-sky-500/20"
-          : "bg-gradient-to-br from-blue-500 to-indigo-500 shadow-blue-500/20"
-      }`}>
-        <span className={`text-xs font-black tracking-tight ${
-          isDarkMode ? "text-slate-950" : "text-white"
-        }`}>SF</span>
-      </div>
+      <img
+        src="/StackForge.png"
+        alt="StackForge logo"
+        className={`h-8 w-8 rounded-[22%] object-cover shadow-lg ${
+          isDarkMode ? "ring-1 ring-white/15" : "ring-1 ring-slate-900/10"
+        }`}
+      />
       <span className={`hidden font-display text-base font-semibold transition-colors sm:inline ${
         isDarkMode
           ? "text-white group-hover:text-sky-300"
