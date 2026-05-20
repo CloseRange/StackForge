@@ -3,7 +3,6 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 
-import { env } from "./config/env.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { authRouter } from "./routes/authRoutes.js";
 import { cardRouter } from "./routes/cardRoutes.js";
@@ -15,18 +14,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const app = express();
 
-// CORS: Allow same-origin requests + configured CLIENT_URL (for dev with separate frontend)
+// Keep auth requests working from deployed browser origins without throwing 500s.
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Allow same origin (no origin header = same origin, like form submissions)
-      // Also allow localhost variants for development
-      if (!origin || origin.includes("localhost")) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: true,
     credentials: true
   })
 );
